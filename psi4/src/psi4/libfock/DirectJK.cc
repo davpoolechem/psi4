@@ -365,8 +365,6 @@ void DirectJK::build_JK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, std::v
         max_task = (max_task >= size ? max_task : size);
     }
 
-    int nchunk = omp_nchunk_;
-
     if (debug_) {
         outfile->Printf("  ==> DirectJK: Task Blocking <==\n\n");
    	for (size_t task = 0; task < ntask; task++) {
@@ -381,9 +379,6 @@ void DirectJK::build_JK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, std::v
                                 off2);
             }
         }
-        outfile->Printf("\n");
-        outfile->Printf("  ==> DirectJK: Chunk Size <==\n\n");
-        outfile->Printf("  Chunk size: %d\n", nchunk);
         outfile->Printf("\n");
     }
 
@@ -410,6 +405,27 @@ void DirectJK::build_JK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, std::v
     }
     size_t ntask_pair = task_pairs.size();
     size_t ntask_pair2 = ntask_pair * ntask_pair;
+
+    // => Set OpenMP scheduling chunk size <= // 
+ 
+    int nchunk;
+    if (omp_nchunk_ > 0) { // set chunk size to user-defined value if defined...
+    	nchunk = omp_nchunk_;
+    } else { // ...else determine chunk size empirically 
+        double ntask_pair2_dbl = std::static_cast<double>(ntask_pair2);
+	double nunique = std::static_cast<double>(primary_->molecule()->nunique());
+
+	double nprimitive = std::static_cast<double>(primary_->nprimitive());
+        double avg_task_size = nprimitive/std::static_cast<double>(ntask_pair);
+ 
+	nchunk = std::static_cast<int>(floor(ntask_pair2_dbl/(nunique*avg_task_size));
+    }
+
+    if (debug_) {
+        outfile->Printf("  ==> DirectJK: Chunk Size <==\n\n");
+        outfile->Printf("  Chunk size: %d\n", nchunk);
+        outfile->Printf("\n");
+    }
 
     // => Intermediate Buffers <= //
 

@@ -1494,8 +1494,8 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add("DISTRIBUTED_MATRIX", new ArrayType());
         /*- Do run in parallel? !expert -*/
         options.add_bool("PARALLEL", false);
-	/*- Number of tasks per thread batch assigned to OpenMP threads -*/
-        options.add_int("SCF_THREAD_CHUNK_SIZE", 1);
+	/*- Number of tasks per thread batch assigned to OpenMP threads. 0 is blank -*/
+        options.add_int("SCF_THREAD_CHUNK_SIZE", 0);
         
 	/*- SUBSECTION Misc. -*/
 
