@@ -124,6 +124,8 @@ def initialize_jk(self, memory, jk=None):
     jk.set_omega_alpha(functional.x_alpha())
     jk.set_omega_beta(functional.x_beta())   
 
+    jk.set_omp_nchunk(core.get_option('SCF', 'SCF_THREAD_CHUNK_SIZE')) 
+
     jk.initialize()
     jk.print_header()
 

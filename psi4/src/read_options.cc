@@ -1342,7 +1342,7 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_bool("GUESS_PERSIST", false);
         /*- File name (case sensitive) to which to serialize Wavefunction orbital data. -*/
         options.add_str_i("ORBITALS_WRITE", "");
-
+	
         /*- Do print the molecular orbitals? -*/
         options.add_bool("PRINT_MOS", false);
         /*- Do print the basis set? -*/
@@ -1494,8 +1494,10 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add("DISTRIBUTED_MATRIX", new ArrayType());
         /*- Do run in parallel? !expert -*/
         options.add_bool("PARALLEL", false);
-
-        /*- SUBSECTION Misc. -*/
+	/*- Number of tasks per thread batch assigned to OpenMP threads -*/
+        options.add_int("SCF_THREAD_CHUNK_SIZE", 1);
+        
+	/*- SUBSECTION Misc. -*/
 
         /*- Are going to do SAPT? If so, what part? !expert -*/
         options.add_str("SAPT", "FALSE",

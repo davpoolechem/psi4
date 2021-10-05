@@ -365,9 +365,11 @@ void DirectJK::build_JK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, std::v
         max_task = (max_task >= size ? max_task : size);
     }
 
+    int nchunk = omp_nchunk_;
+
     if (debug_) {
         outfile->Printf("  ==> DirectJK: Task Blocking <==\n\n");
-        for (size_t task = 0; task < ntask; task++) {
+   	for (size_t task = 0; task < ntask; task++) {
             outfile->Printf("  Task: %3d, Task Start: %4d, Task End: %4d\n", task, task_starts[task],
                             task_starts[task + 1]);
             for (int P2 = task_starts[task]; P2 < task_starts[task + 1]; P2++) {
@@ -379,6 +381,9 @@ void DirectJK::build_JK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, std::v
                                 off2);
             }
         }
+        outfile->Printf("\n");
+        outfile->Printf("  ==> DirectJK: Chunk Size <==\n\n");
+        outfile->Printf("  Chunk size: %d\n", nchunk);
         outfile->Printf("\n");
     }
 
@@ -423,7 +428,7 @@ void DirectJK::build_JK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, std::v
 
 // ==> Master Task Loop <== //
 
-#pragma omp parallel for num_threads(nthread) schedule(dynamic) reduction(+ : computed_shells)
+#pragma omp parallel for num_threads(nthread) schedule(dynamic, nchunk) reduction(+ : computed_shells)
     for (size_t task = 0L; task < ntask_pair2; task++) {
         size_t task1 = task / ntask_pair;
         size_t task2 = task % ntask_pair;
