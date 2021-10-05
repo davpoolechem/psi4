@@ -64,6 +64,7 @@ void export_fock(py::module &m) {
         .def("set_cutoff", &JK::set_cutoff)
         .def("set_memory", &JK::set_memory)
         .def("set_omp_nthread", &JK::set_omp_nthread)
+        .def("set_omp_nchunk", &JK::set_omp_nchunk)
         .def("set_do_J", &JK::set_do_J)
         .def("set_do_K", &JK::set_do_K)
         .def("set_do_wK", &JK::set_do_wK)

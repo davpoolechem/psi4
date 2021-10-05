@@ -238,6 +238,8 @@ class PSI_API JK {
     size_t memory_;
     /// Number of OpenMP threads (defaults to 1 in no OpenMP, Process::environment.get_n_threads() otherwise)
     int omp_nthread_;
+    /// Number of tasks per batch assigned to each thread during OpenMP task distribution (defaults to 1)
+    int omp_nchunk_;
     /// Integral cutoff (defaults to 0.0)
     double cutoff_;
     /// CSAM Screening (defaults to false)
@@ -414,6 +416,16 @@ class PSI_API JK {
      */
     void set_omp_nthread(int omp_nthread) { omp_nthread_ = omp_nthread; }
     int get_omp_nthread() const { return omp_nthread_; }
+
+    /**
+     * Number of ERI tasks to be included in batches assigned to each thread
+     * during the dynamic distribution of ERI tasks via OpenMP in the J and K
+     * matrix build functions. Setting this value higher than the default 
+     * value of 1 may potentially lead to performance gains.
+     * @param nchunk number of tasks per thread batch
+     */
+    void set_omp_nchunk(int omp_nchunk) { omp_nchunk_ = omp_nchunk; }
+    int get_omp_nchunk() const { return omp_nchunk_; }
 
     /// Print flag (defaults to 1)
     void set_print(int print) { print_ = print; }
