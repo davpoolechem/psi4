@@ -568,3 +568,8 @@ Bibliography
    T. H. Thompson and C. Ochsenfeld
    *J. Chem. Phys.* **147**, 144101 (2017).
    doi: 10.1063/1.4994190
+
+.. [Ochsenfeld:1998:1663]
+   C. Ochsenfeld, C. A. White, M. Head-Gordon
+   *J. Chem. Phys.* **109**, 1663 (1998)
+   doi: 10.1063/1.476741
