@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2021 The Psi4 Developers.
+ * Copyright (c) 2007-2022 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -37,8 +37,6 @@
 #include "psi4/psifiles.h"
 
 #include "psi4/libciomr/libciomr.h"
-#include "psi4/libdiis/diisentry.h"
-#include "psi4/libdiis/diismanager.h"
 #include "psi4/libdpd/dpd.h"
 #include "psi4/libfock/jk.h"
 #include "psi4/libfunctional/superfunctional.h"
@@ -292,7 +290,7 @@ void ROHF::save_density_and_energy() {
     Dt_old_->copy(Dt_);
 }
 
-bool ROHF::diis() { return diis_manager_->extrapolate(1, soFeff_.get()); }
+bool ROHF::diis() { return diis_manager_.attr("extrapolate")(soFeff_.get()).cast<bool>(); }
 
 void ROHF::form_initial_F() {
     // Form the initial Fock matrix, closed and open variants
@@ -366,8 +364,7 @@ void ROHF::form_F() {
     }
 
     // Form the orthogonalized SO basis moFeff matrix, for use in DIIS
-    diag_F_temp_->gemm(false, false, 1.0, Ct_, moFeff_, 0.0);
-    soFeff_->gemm(false, true, 1.0, diag_F_temp_, Ct_, 0.0);
+    soFeff_->back_transform(moFeff_, Ct_);
 
     if (debug_) {
         Fa_->print();
@@ -437,11 +434,10 @@ void ROHF::form_initial_C() {
     // to either H or the GWH Hamiltonian.
 
     // Form F' = X'FX for canonical orthogonalization
-    diag_temp_->gemm(true, false, 1.0, X_, Fa_, 0.0);
-    diag_F_temp_->gemm(false, false, 1.0, diag_temp_, X_, 0.0);
+    auto diag_F_temp = linalg::triplet(X_, Fa_, X_, true, false, false);
 
     // Form C' = eig(F')
-    diag_F_temp_->diagonalize(Ct_, epsilon_a_);
+    diag_F_temp->diagonalize(Ct_, epsilon_a_);
 
     // Form C = XC'
     Ca_->gemm(false, false, 1.0, X_, Ct_, 0.0);

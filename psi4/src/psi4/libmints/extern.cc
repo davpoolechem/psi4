@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2021 The Psi4 Developers.
+ * Copyright (c) 2007-2022 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -67,7 +67,7 @@ void ExternalPotential::print(std::string out) const {
 
     // Charges
     if (charges_.size()) {
-        printer->Printf("    > Charges [a.u.] < \n\n");
+        printer->Printf("    > Charges [e] [molecule length units] < \n\n");
         printer->Printf("     %10s %10s %10s %10s\n", "Z", "x", "y", "z");
         for (size_t i = 0; i < charges_.size(); i++) {
             printer->Printf("     %10.5f %10.5f %10.5f %10.5f\n", std::get<0>(charges_[i]), std::get<1>(charges_[i]),

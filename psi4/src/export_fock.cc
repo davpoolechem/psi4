@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2021 The Psi4 Developers.
+ * Copyright (c) 2007-2022 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -26,7 +26,6 @@
  * @END LICENSE
  */
 
-#include <libint2/shell.h>
 #include "psi4/pybind11.h"
 
 #include "psi4/libfock/jk.h"
@@ -186,6 +185,9 @@ void export_fock(py::module &m) {
 
     py::class_<MemDFJK, std::shared_ptr<MemDFJK>, JK>(m, "MemDFJK", "docstring")
         .def("dfh", &MemDFJK::dfh, "Return the DFHelper object.");
+
+    py::class_<DirectJK, std::shared_ptr<DirectJK>, JK>(m, "DirectJK", "docstring")
+        .def("do_incfock_iter", &DirectJK::do_incfock_iter, "Return whether an incremental Fock iteration was performed.");
 
     py::class_<scf::SADGuess, std::shared_ptr<scf::SADGuess>>(m, "SADGuess", "docstring")
         .def_static("build_SAD",

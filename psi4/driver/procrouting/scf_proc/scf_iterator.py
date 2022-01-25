@@ -3,7 +3,7 @@
 #
 # Psi4: an open-source quantum chemistry software package
 #
-# Copyright (c) 2007-2021 The Psi4 Developers.
+# Copyright (c) 2007-2022 The Psi4 Developers.
 #
 # The copyrights for code used from other parties are included in
 # the corresponding files.
@@ -62,7 +62,8 @@ def scf_compute_energy(self):
     """
     if core.get_option('SCF', 'DF_SCF_GUESS') and (core.get_global_option('SCF_TYPE') == 'DIRECT'):
         # speed up DIRECT algorithm (recomputes full (non-DF) integrals
-        #   each iter) by solving DF-SCF to get a guess. DF-SCF is faster than direct.
+        #   each iter) by first converging via fast DF iterations, then
+        #   fully converging in fewer slow DIRECT iterations. aka Andy trick 2.0
         core.print_out("  Starting with a DF guess...\n\n")
         with p4util.OptionsStateCM(['SCF_TYPE']):
             core.set_global_option('SCF_TYPE', 'DF')
@@ -292,6 +293,8 @@ def scf_iterate(self, e_conv=None, d_conv=None):
         self.form_G()
         core.timer_off("HF: Form G")
 
+        incfock_performed = hasattr(self.jk(), "do_incfock_iter") and self.jk().do_incfock_iter()
+
         upcm = 0.0
         if core.get_option('SCF', 'PCM'):
             calc_type = core.PCM.CalcType.Total
@@ -398,7 +401,7 @@ def scf_iterate(self, e_conv=None, d_conv=None):
 
                 Dnorm = self.compute_orbital_gradient(add_to_diis_subspace, core.get_option('SCF', 'DIIS_MAX_VECS'))
 
-                if (add_to_diis_subspace and core.get_option('SCF', 'DIIS_MIN_VECS') - 1):
+                if add_to_diis_subspace:
                     diis_performed = self.diis()
 
                 if diis_performed:
@@ -427,6 +430,9 @@ def scf_iterate(self, e_conv=None, d_conv=None):
                 if self.frac_performed_:
                     status.append("FRAC")
 
+                if incfock_performed:
+                    status.append("INCFOCK")
+
                 # Reset occupations if necessary
                 if (self.iteration_ == 0) and self.reset_occ_:
                     self.reset_occupation()
@@ -438,6 +444,7 @@ def scf_iterate(self, e_conv=None, d_conv=None):
         core.timer_off("HF: Form D")
 
         self.set_variable("SCF ITERATION ENERGY", SCFE)
+        core.set_variable("SCF D NORM", Dnorm)
 
         # After we've built the new D, damp the update
         if (damping_enabled and self.iteration_ > 1 and Dnorm > core.get_option('SCF', 'DAMPING_CONVERGENCE')):
@@ -536,7 +543,7 @@ def scf_finalize_energy(self):
             core.print_out("    Running SCF again with the rotated orbitals.\n")
 
             if self.initialized_diis_manager_:
-                self.diis_manager().reset_subspace()
+                self.diis_manager_.reset_subspace()
             # reading the rotated orbitals in before starting iterations
             self.form_D()
             self.set_energies("Total Energy", self.compute_initial_E())
@@ -668,6 +675,7 @@ def scf_finalize_energy(self):
         self.V_potential().clear_collocation_cache()
 
     core.print_out("\nComputation Completed\n")
+    core.del_variable("SCF D NORM")
 
     return energy
 
@@ -823,8 +831,7 @@ def _validate_diis():
     Raises
     ------
     ValidationError
-        If any of |scf__diis|, |scf__diis_start|,
-        |scf__diis_min_vecs|, |scf__diis_max_vecs| don't play well together.
+        If any of DIIS options don't play well together.
 
     Returns
     -------
@@ -837,15 +844,6 @@ def _validate_diis():
         start = core.get_option('SCF', 'DIIS_START')
         if start < 1:
             raise ValidationError('SCF DIIS_START ({}) must be at least 1'.format(start))
-
-        minvecs = core.get_option('SCF', 'DIIS_MIN_VECS')
-        if minvecs < 1:
-            raise ValidationError('SCF DIIS_MIN_VECS ({}) must be at least 1'.format(minvecs))
-
-        maxvecs = core.get_option('SCF', 'DIIS_MAX_VECS')
-        if maxvecs < minvecs:
-            raise ValidationError('SCF DIIS_MAX_VECS ({}) must be at least DIIS_MIN_VECS ({})'.format(
-                maxvecs, minvecs))
 
     return enabled
 

@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2021 The Psi4 Developers.
+.. # Copyright (c) 2007-2022 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -491,8 +491,8 @@ SADNO
     calculation, see [Lehtola:2019:1593]_.
 GWH
     A generalized Wolfsberg-Helmholtz modification of the core
-    Hamiltonian matrix. May be useful in open-shell systems, but is
-    often less accurate than the core guess (see
+    Hamiltonian matrix. Usually less accurate than the core guess: the
+    latter is exact for one-electron systems, GWH is not; see
     [Lehtola:2019:1593]_).
 HUCKEL
     An extended H\ |u_dots|\ ckel guess based on on-the-fly atomic UHF
@@ -705,7 +705,29 @@ post SCF algorithms require a specific implementation.
 For some of these algorithms, Schwarz and/or density sieving can be used to
 identify negligible integral contributions in extended systems. To activate
 sieving, set the |scf__ints_tolerance| keyword to your desired cutoff
-(1.0E-12 is recommended for most applications).
+(1.0E-12 is recommended for most applications). To choose the type of sieving, set 
+the |globals__screening| keyword to your desired option. For Schwarz screening, set it
+to ``SCHWARZ``, for CSAM, ``CSAM``, and for density matrix-based screening, ``DENSITY``.
+
+SCHWARZ
+    Uses the Cauchy-Schwarz inequality to calculate an upper bounded value of a shell quartet,
+
+.. math:: (PQ|RS) <= \sqrt{(PQ|PQ)(RS|RS)}
+
+CSAM
+    An extension of the Schwarz estimate that also screens over the long range 1/r operator, described in [Thompson:2017:144101]_.
+
+DENSITY
+    An extension of the Schwarz estimate that also screens over elements of the density matrix.
+    For the RHF case, described in [Haser:1989:104]_
+
+.. math:: CON(PQ|RS) <= \sqrt{(PQ|PQ)(RS|RS)} \cdot DCON(PQ, RS)
+
+.. math:: DCON(PQ, RS) = max(4D_{PQ}, 4D_{RS}, D_{PR}, D_{PS}, D_{QR}, D_{QS})
+
+When using density-matrix based integral screening, it is useful to build the J and K matrices
+incrementally, also described in [Haser:1989:104]_, using the difference in the density matrix between iterations, rather than the
+full density matrix. To turn on this option, set |scf__incfock| to ``true``.
 
 We have added the automatic capability to use the extremely fast DF
 code for intermediate convergence of the orbitals, for |globals__scf_type|

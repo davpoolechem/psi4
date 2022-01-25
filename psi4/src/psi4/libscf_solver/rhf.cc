@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2021 The Psi4 Developers.
+ * Copyright (c) 2007-2022 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -41,8 +41,6 @@
 #include "psi4/physconst.h"
 
 #include "psi4/libciomr/libciomr.h"
-#include "psi4/libdiis/diisentry.h"
-#include "psi4/libdiis/diismanager.h"
 #include "psi4/libdpd/dpd.h"
 #include "psi4/libfock/jk.h"
 #include "psi4/libfock/v.h"
@@ -238,7 +236,7 @@ void RHF::form_G() {
     }
 }
 
-bool RHF::diis() { return diis_manager_->extrapolate(1, Fa_.get()); }
+bool RHF::diis() { return diis_manager_.attr("extrapolate")(Fa_.get()).cast<bool>(); }
 
 void RHF::form_F() {
     Fa_->copy(H_);

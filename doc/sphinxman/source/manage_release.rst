@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2021 The Psi4 Developers.
+.. # Copyright (c) 2007-2022 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -223,6 +223,9 @@ Tag (pre)release
 
     # pause here and push to upstream and let Azure complete if want an
     #       on-tag Windows conda package, not just tag+1.dev1
+    #       below pushes commit and tag together so only one CI
+    #       > git push --atomic upstream master v1.5
+    #       also, grab the docs build from GHA artifacts
 
     >>> vi psi4/metadata.py
     >>> git diff

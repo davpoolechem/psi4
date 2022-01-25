@@ -3,7 +3,7 @@
 #
 # Psi4: an open-source quantum chemistry software package
 #
-# Copyright (c) 2007-2021 The Psi4 Developers.
+# Copyright (c) 2007-2022 The Psi4 Developers.
 #
 # The copyrights for code used from other parties are included in
 # the corresponding files.
@@ -606,7 +606,7 @@ def energy(name, **kwargs):
     if return_wfn:  # TODO current energy safer than wfn.energy() for now, but should be revisited
 
         # TODO place this with the associated call, very awkward to call this in other areas at the moment
-        if lowername in ['efp', 'mrcc', 'dmrg', 'psimrcc']:
+        if lowername in ['efp', 'mrcc', 'dmrg']:
             core.print_out("\n\nWarning! %s does not have an associated derived wavefunction." % name)
             core.print_out("The returned wavefunction is the incoming reference wavefunction.\n\n")
         elif 'sapt' in lowername:
@@ -2051,7 +2051,8 @@ def fchk(wfn: core.Wavefunction, filename: str, *, debug: bool = False, strict_l
 
     # At this point we don't know the method name, so we try to search for it.
     # idea: get the method from the variable matching closely the 'current energy'
-    varlist = core.scalar_variables()
+    # for varlist, wfn is long-term and to allow from-file wfns. core is b/c some modules not storing in wfn yet
+    varlist = {**wfn.scalar_variables(), **core.scalar_variables()}
     current = varlist['CURRENT ENERGY']
 
     # delete problematic entries

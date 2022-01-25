@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2021 The Psi4 Developers.
+ * Copyright (c) 2007-2022 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -36,6 +36,7 @@
 
 #include "psi4/libqt/qt.h"
 #include "psi4/libpsi4util/PsiOutStream.h"
+#include "psi4/libpsio/psio.hpp"
 
 #include "dimension.h"
 #include "matrix.h"
@@ -71,8 +72,9 @@ Vector::Vector(int dim) : dimpi_(1) {
 
 Vector::Vector(const std::string &name, int nirreps, int *dimpi) : dimpi_(nirreps) {
     nirrep_ = nirreps;
-    dimpi_ = new int[nirrep_];
-    for (int h = 0; h < nirrep_; ++h) dimpi_[h] = dimpi[h];
+    auto dim_vector = std::vector<int>(nirrep_);
+    for (int h = 0; h < nirrep_; ++h) dim_vector[h] = dimpi[h];
+    dimpi_ = Dimension(dim_vector);
     alloc();
     name_ = name;
 }
@@ -121,8 +123,8 @@ void Vector::init(const Dimension &v) {
     alloc();
 }
 
-Vector *Vector::clone() {
-    Vector *temp = new Vector(dimpi_);
+std::unique_ptr<Vector> Vector::clone() const {
+    auto temp = std::make_unique<Vector>(dimpi_);
     temp->copy(this);
     return temp;
 }
@@ -222,7 +224,7 @@ void Vector::print(std::string out, const char *extra) const {
     }
     for (int h = 0; h < nirrep_; ++h) {
         printer->Printf(" Irrep: %d\n", h + 1);
-        for (int i = 0; i < dimpi_[h]; ++i) printer->Printf("   %4d: %10.7f\n", i + 1, vector_[h][i]);
+        for (int i = 0; i < dimpi_[h]; ++i) printer->Printf("   %4d: %20.15f\n", i + 1, vector_[h][i]);
         printer->Printf("\n");
     }
 }
@@ -231,7 +233,7 @@ void Vector::gemv(bool transa, double alpha, Matrix *A, Vector *X, double beta) 
     char trans = transa ? 't' : 'n';
 
     for (int h = 0; h < nirrep_; ++h) {
-        C_DGEMV(trans, A->rowspi(h), A->colspi(h), alpha, A->get_pointer(h), A->rowspi(h), &(X->vector_[h][0]), 1, beta,
+        C_DGEMV(trans, A->rowspi(h), A->colspi(h), alpha, A->get_pointer(h), A->colspi(h), &(X->vector_[h][0]), 1, beta,
                 &(vector_[h][0]), 1);
     }
 }
@@ -278,5 +280,48 @@ void Vector::axpy(double scale, const Vector &other) {
     }
 
     C_DAXPY(v_.size(), scale, const_cast<double *>(other.v_.data()), 1, v_.data(), 1);
+}
+
+void Vector::save(psi::PSIO *const psio, size_t fileno) {
+    // Check to see if the file is open
+    bool already_open = false;
+    if (psio->open_check(fileno)) {
+        already_open = true;
+    } else {
+        psio->open(fileno, PSIO_OPEN_OLD);
+    }
+
+    for (int h = 0; h < nirrep_; ++h) {
+        std::string str(name_);
+        str += " Irrep " + std::to_string(h);
+
+        // Write the sub-blocks
+        if (dimpi_[h] > 0)
+            psio->write_entry(fileno, const_cast<char *>(str.c_str()), (char *)vector_[h],
+                              sizeof(double) * dimpi_[h]);
+    }
+    if (!already_open) psio->close(fileno, 1);  // Close and keep
+}
+
+void Vector::load(psi::PSIO *const psio, size_t fileno) {
+    // Check to see if the file is open
+    bool already_open = false;
+    if (psio->open_check(fileno)) {
+        already_open = true;
+    } else {
+        psio->open(fileno, PSIO_OPEN_OLD);
+    }
+
+    for (int h = 0; h < nirrep_; ++h) {
+        std::string str(name_);
+        str += " Irrep " + std::to_string(h);
+
+        // Read the sub-blocks
+        if (dimpi_[h] > 0)
+            psio->read_entry(fileno, str.c_str(), (char *)vector_[h],
+                             sizeof(double) * dimpi_[h]);
+    }
+
+    if (!already_open) psio->close(fileno, 1);  // Close and keep
 }
 }  // namespace psi

@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2021 The Psi4 Developers.
+ * Copyright (c) 2007-2022 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -164,11 +164,11 @@ class PSI_API Molecule {
     /// Number of unique atoms
     int nunique_;
     /// Number of equivalent atoms per unique atom (length nunique_)
-    int* nequiv_;
+    std::vector<int> nequiv_;
     /// Equivalent atom mapping array
-    int** equiv_;
+    std::vector<std::vector<int>> equiv_;
     /// Atom to unique atom mapping array (length natom)
-    int* atom_to_unique_;
+    std::vector<int> atom_to_unique_;
 
     /// A listing of the variables used to define the geometries
     std::map<std::string, double> geometry_variables_;

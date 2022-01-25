@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2021 The Psi4 Developers.
+ * Copyright (c) 2007-2022 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -27,7 +27,6 @@
  */
 
 #include <string>
-#include <libint2/shell.h>
 
 #include "psi4/pybind11.h"
 
@@ -379,7 +378,7 @@ void export_wavefunction(py::module& m) {
         .def("print_header", &scf::HF::print_header, "docstring")
         .def("get_energies", &scf::HF::get_energies, "docstring")
         .def("set_energies", &scf::HF::set_energies, "docstring")
-        .def("scf_type", &scf::HF::scf_type, "Return the value of scf_type_ used in the SCF computation.")
+        .def("scf_type", &scf::HF::scf_type, "Return the value of scf_type used in the SCF computation.")
         .def("clear_external_potentials", &scf::HF::clear_external_potentials, "Clear private external_potentials list")
         .def("push_back_external_potential", &scf::HF::push_back_external_potential,
              "Add an external potential to the private external_potentials list", "V"_a)
@@ -596,6 +595,7 @@ void export_wavefunction(py::module& m) {
         .def("compute_state_transfer", &detci::CIWavefunction::compute_state_transfer, "docstring")
         .def("sigma", py_ci_sigma, "docstring")
         .def("sigma", py_ci_int_sigma, "docstring")
+        .def("reset_ci_H0block", &detci::CIWavefunction::reset_ci_H0block, "docstring")
         .def("cleanup_ci", &detci::CIWavefunction::cleanup_ci, "docstring")
         .def("cleanup_dpd", &detci::CIWavefunction::cleanup_dpd, "docstring")
         .def("set_ci_guess", &detci::CIWavefunction::set_ci_guess, "docstring");

@@ -3,7 +3,7 @@
 #
 # Psi4: an open-source quantum chemistry software package
 #
-# Copyright (c) 2007-2021 The Psi4 Developers.
+# Copyright (c) 2007-2022 The Psi4 Developers.
 #
 # The copyrights for code used from other parties are included in
 # the corresponding files.
@@ -1623,6 +1623,11 @@ def scf_helper(name, post_scf=True, **kwargs):
         proc_util.oeprop_validator(props)
         for x in props:
             oeprop.add(x)
+
+        # Populate free-atom volumes
+        # if we're doing MBIS
+        if 'MBIS_VOLUME_RATIOS' in props:
+            p4util.free_atom_volumes(scf_wfn)
 
         # Compute properties
         oeprop.compute()
@@ -3488,7 +3493,7 @@ def run_adcc(name, **kwargs):
 
     try:
         import adcc
-        from adcc.backends import InvalidReference
+        from adcc.exceptions import InvalidReference
     except ModuleNotFoundError:
         raise ValidationError("adcc extras qc_module not available. Try installing "
             "via 'pip install adcc' or 'conda install -c adcc adcc'.")
@@ -3598,7 +3603,10 @@ def run_adcc(name, **kwargs):
     except InvalidReference as ex:
         raise ValidationError("Cannot run adcc because the passed reference wavefunction is "
                               "not supported in adcc. Check Psi4 SCF parameters. adcc reports: "
-                              "{}".format(str(ex)))
+                              f"{ex}")
+    except Exception as ex:
+        raise ValidationError("Unknown exception occured while "
+                              f"running adcc: '{ex}' ({type(ex).__name__})")
     core.print_out("\n")
 
     # TODO Should a non-converged calculation throw?

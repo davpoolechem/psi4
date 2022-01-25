@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2021 The Psi4 Developers.
+ * Copyright (c) 2007-2022 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -441,6 +441,14 @@ SharedMatrix CIWavefunction::get_tpdm(const std::string& spin, bool symmetrize) 
         else
             throw PSIEXCEPTION("CIWavefunction::get_tpdm: Spin type must be AA, AB, BB, or SUM.");
     }
+}
+
+void CIWavefunction::reset_ci_H0block() {
+    // Free H0block
+    H0block_free();
+
+    // initialize H0block
+    H0block_init(CIblks_->vectlen);
 }
 
 /*
