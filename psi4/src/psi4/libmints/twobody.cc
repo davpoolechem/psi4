@@ -77,7 +77,7 @@ TwoBodyAOInt::TwoBodyAOInt(const IntegralFactory *intsfactory, int deriv)
     else if (screentype == "CSAM")
         screening_type_ = ScreeningType::CSAM;
     else if (screentype == "DENSITY")
-        screening_type_ = ScreeningType::Density;
+        screening_type_ = ScreeningType::None; //no screening is done in TwoBodyAOInt if density screning is specified
     else
         throw PSIEXCEPTION("Unknown screening type " + screentype + " in TwoBodyAOInt()");
     
@@ -241,9 +241,6 @@ void TwoBodyAOInt::setup_sieve() {
             break;
         case ScreeningType::Schwarz:
             sieve_impl_ = [=](int M, int N, int R, int S) { return this->shell_significant_schwarz(M, N, R, S); };
-            break;
-        case ScreeningType::Density:
-            sieve_impl_ = [=](int M, int N, int R, int S) { return this->shell_significant_density(M, N, R, S); };
             break;
         case ScreeningType::None:   
             sieve_impl_ = [=](int M, int N, int R, int S) { return this->shell_significant_none(M, N, R, S); };
