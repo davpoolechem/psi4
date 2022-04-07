@@ -41,6 +41,7 @@ class Options;
 class ERISieve;
 class AIOHandler;
 class BasisSet;
+class TwoBodyAOInt;
 
 namespace pk {
 
@@ -237,6 +238,18 @@ class PKManager {
     virtual void form_wK(std::vector<SharedMatrix> wK);
     /// Finalize and delete the density matrix vectors
     void finalize_D();
+
+   /**
+    * Determine if shell quartet is significant or not 
+    * based on screening method used
+    * No significance testing is done unless a subclass overrides this method
+    */
+    virtual bool shell_significant(int M, int N, int R, int S,
+        const std::vector<std::shared_ptr<TwoBodyAOInt>>& ints = {}, 
+        const std::vector<SharedMatrix>& D = {}) 
+    {
+        return true; 
+    } 
 };
 
 /* PKMgrDisk: Abstract base class to manage PK algorithms using disk I/O
@@ -453,6 +466,14 @@ class PKMgrYoshimine : public PKMgrDisk {
     void generate_K_PK(double* twoel_ints, size_t max_size);
     /// Generate the wK PK supermatrix from IWL integrals
     void generate_wK_PK(double* twoel_ints, size_t max_size);
+
+    /**
+    * Determine if shell quartet is significant or not 
+    * based on screening method used
+    */
+    bool shell_significant(int M, int N, int R, int S,
+        const std::vector<std::shared_ptr<TwoBodyAOInt>>& ints = {}, 
+        const std::vector<SharedMatrix>& D = {}) override; 
 };
 
 /* PKMgrInCore: Class to manage in-core PK algorithm */
