@@ -345,6 +345,13 @@ class PSI_API JK {
     /// Zero out all J, K, and wK matrices
     void zero();
 
+    /**
+    * Determine if shell quartet is significant or not 
+    * based on screening method used
+    */
+    virtual bool shell_significant(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+        const std::vector<SharedMatrix>& D, int M, int N, int R, int S) { return true; }; 
+
    public:
     // => Constructors <= //
 
@@ -670,6 +677,13 @@ class PSI_API PKJK : public JK {
     /// Common initialization
     void common_init();
 
+    /**
+    * Determine if shell quartet is significant or not 
+    * based on screening method used
+    */
+    //virtual bool shell_significant(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+    //    const std::vector<SharedMatrix>& D, int M, int N, int R, int S) override;
+
     /// Total number of SOs
     int nso_;
     /// Number of irreps
@@ -773,6 +787,13 @@ class PSI_API DirectJK : public JK {
     void incfock_setup();
     /// Post-iteration Incfock processing
     void incfock_postiter();
+
+    /**
+    * Determine if shell quartet is significant or not 
+    * based on screening method used
+    */
+    virtual bool shell_significant(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+        const std::vector<SharedMatrix>& D, int M, int N, int R, int S) override;
 
     /**
      * @author Andy Jiang, Georgia Tech, December 2021
