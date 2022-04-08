@@ -214,6 +214,8 @@ void JK::common_init() {
     omega_beta_ = 0.0;
     early_screening_ = false;
 
+    computed_shells_ = 0L; 
+
     std::shared_ptr<IntegralFactory> integral =
         std::make_shared<IntegralFactory>(primary_, primary_, primary_, primary_);
     auto pet = std::make_shared<PetiteList>(primary_, integral);

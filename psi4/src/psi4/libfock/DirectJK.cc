@@ -572,7 +572,6 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
     
     // => Sizing <= //
 
-    int nshell = primary_->nshell();
     int nthread = df_ints_num_threads_;
 
     // => Task Blocking <= //
@@ -583,14 +582,14 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
     // > Atomic Blocking < //
 
     int atomic_ind = -1;
-    for (int P = 0; P < nshell; P++) {
+    for (int P = 0; P < nshell_; P++) {
         if (primary_->shell(P).ncenter() > atomic_ind) {
             task_starts.push_back(P);
             atomic_ind++;
         }
         task_shells.push_back(P);
     }
-    task_starts.push_back(nshell);
+    task_starts.push_back(nshell_);
 
     // < End Atomic Blocking > //
 
@@ -598,7 +597,7 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
 
     std::vector<int> task_offsets;
     task_offsets.push_back(0);
-    for (int P2 = 0; P2 < primary_->nshell(); P2++) {
+    for (int P2 = 0; P2 < nshell_; P2++) {
         task_offsets.push_back(task_offsets[P2] + primary_->shell(task_shells[P2]).nfunction());
     }
 
@@ -682,11 +681,11 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
     
     // => Benchmarks <= //
 
-    size_t computed_shells = 0L;
+    computed_shells_ = 0L;
 
 // ==> Master Task Loop <== //
 
-#pragma omp parallel for num_threads(nthread) schedule(dynamic) reduction(+ : computed_shells)
+#pragma omp parallel for num_threads(nthread) schedule(dynamic) reduction(+ : computed_shells_)
     for (size_t task = 0L; task < ntask_pair2; task++) {
         size_t task1 = task / ntask_pair;
         size_t task2 = task % ntask_pair;
@@ -739,7 +738,7 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                         if (S2 > R2) continue;
                         int R = task_shells[R2];
                         int S = task_shells[S2];
-                        if (R2 * nshell + S2 > P2 * nshell + Q2) continue;
+                        if (R2 * nshell_ + S2 > P2 * nshell_ + Q2) continue;
                         if (!ints[0]->shell_pair_significant(R, S)) continue;
                         if (!shell_significant(P, Q, R, S, ints, D)) continue;
 
@@ -747,7 +746,7 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                         // if (thread == 0) timer_on("JK: Ints");
                         if (ints[thread]->compute_shell(P, Q, R, S) == 0)
                             continue;  // No integrals in this shell quartet
-                        computed_shells++;
+                        computed_shells_++;
                         // if (thread == 0) timer_off("JK: Ints");
 
                         const double* buffer = ints[thread]->buffer();
@@ -1096,10 +1095,10 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
     if (bench_) {
         auto mode = std::ostream::app;
         auto printer = PsiOutStream("bench.dat", mode);
-        size_t ntri = nshell * (nshell + 1L) / 2L;
+        size_t ntri = nshell_ * (nshell_ + 1L) / 2L;
         size_t possible_shells = ntri * (ntri + 1L) / 2L;
-        printer.Printf("Computed %20zu Shell Quartets out of %20zu, (%11.3E ratio)\n", computed_shells,
-                        possible_shells, computed_shells / (double)possible_shells);
+        printer.Printf("Computed %20zu Shell Quartets out of %20zu, (%11.3E ratio)\n", computed_shells_,
+                        possible_shells, computed_shells_ / (double)possible_shells);
     }
 
     timer_off("build_JK_matrices()");
@@ -1123,7 +1122,6 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
     }
 
     // => Sizing <= //
-    int nshell = primary_->nshell();
     int nbf = primary_->nbf();
     int nthread = df_ints_num_threads_;
 
@@ -1132,14 +1130,14 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
     std::vector<int> basis_endpoints_for_shell;
 
     int atomic_ind = -1;
-    for (int P = 0; P < nshell; P++) {
+    for (int P = 0; P < nshell_; P++) {
         if (primary_->shell(P).ncenter() > atomic_ind) {
             shell_endpoints_for_atom.push_back(P);
             atomic_ind++;
         }
         basis_endpoints_for_shell.push_back(primary_->shell_to_basis_function(P));
     }
-    shell_endpoints_for_atom.push_back(nshell);
+    shell_endpoints_for_atom.push_back(nshell_);
     basis_endpoints_for_shell.push_back(nbf);
 
     size_t natom = shell_endpoints_for_atom.size() - 1;
@@ -1196,13 +1194,13 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
     auto screen_compare = [](const std::pair<int, double> &a, 
                                     const std::pair<int, double> &b) { return a.second > b.second; };
 
-    std::vector<std::vector<int>> significant_bras(nshell);
+    std::vector<std::vector<int>> significant_bras(nshell_);
     double max_integral = ints[0]->max_integral();
 
 #pragma omp parallel for
-    for (size_t P = 0; P < nshell; P++) {
+    for (size_t P = 0; P < nshell_; P++) {
         std::vector<std::pair<int, double>> PQ_shell_values;
-        for (size_t Q = 0; Q < nshell; Q++) {
+        for (size_t Q = 0; Q < nshell_; Q++) {
             double pq_pq = std::sqrt(ints[0]->shell_ceiling2(P, Q, P, Q));
             double schwarz_value = std::sqrt(pq_pq * max_integral);
             if (schwarz_value >= cutoff_) {
@@ -1219,11 +1217,11 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
     // ==> Prep Bra-Ket Shell Pairs <== //
 
     // => Calculate Shell Ceilings <= //
-    std::vector<double> shell_ceilings(nshell, 0.0);
+    std::vector<double> shell_ceilings(nshell_, 0.0);
 
     // sqrt(Umax|Umax) in Ochsenfeld Eq. 3
 #pragma omp parallel for
-    for (int P = 0; P < nshell; P++) {
+    for (int P = 0; P < nshell_; P++) {
         for (int Q = 0; Q <= P; Q++) {
             double val = std::sqrt(ints[0]->shell_ceiling2(P, Q, P, Q));
             shell_ceilings[P] = std::max(shell_ceilings[P], val);
@@ -1232,13 +1230,13 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
         }
     }
 
-    std::vector<std::vector<int>> significant_kets(nshell);
+    std::vector<std::vector<int>> significant_kets(nshell_);
 
     // => Use shell ceilings to compute significant ket-shells for each bra-shell <= //
 #pragma omp parallel for
-    for (size_t P = 0; P < nshell; P++) {
+    for (size_t P = 0; P < nshell_; P++) {
         std::vector<std::pair<int, double>> PR_shell_values;
-        for (size_t R = 0; R < nshell; R++) {
+        for (size_t R = 0; R < nshell_; R++) {
             double screen_val = shell_ceilings[P] * shell_ceilings[R] * shell_pair_max_density(P, R);
             if (screen_val >= linK_ints_cutoff_) {
                 PR_shell_values.emplace_back(R, screen_val);
@@ -1270,11 +1268,11 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
     }
 
     // Number of computed shell quartets is tracked for benchmarking purposes
-    size_t computed_shells = 0L;
+    computed_shells_ = 0L;
 
     // ==> Integral Formation Loop <== //
 
-#pragma omp parallel for num_threads(nthread) schedule(dynamic) reduction(+ : computed_shells)
+#pragma omp parallel for num_threads(nthread) schedule(dynamic) reduction(+ : computed_shells_)
     for (size_t ipair = 0L; ipair < natom_pair; ipair++) { // O(N) shell-pairs in asymptotic limit
 
         int Patom = atom_pairs[ipair].first;
@@ -1326,8 +1324,8 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
 
                         if (screen_val >= linK_ints_cutoff_) {
                             if (!is_significant) is_significant = true;
-                            int RS = (R >= S) ? (R * nshell + S) : (S * nshell + R);
-                            if (RS > P * nshell + Q) continue;
+                            int RS = (R >= S) ? (R * nshell_ + S) : (S * nshell_ + R);
+                            if (RS > P * nshell_ + Q) continue;
                             ML_PQ.emplace(RS);
                             Q_stripeout_list[dQ].emplace(S);
                         }
@@ -1344,8 +1342,8 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
 
                         if (screen_val >= linK_ints_cutoff_) {
                             if (!is_significant) is_significant = true;
-                            int RS = (R >= S) ? (R * nshell + S) : (S * nshell + R);
-                            if (RS > P * nshell + Q) continue;
+                            int RS = (R >= S) ? (R * nshell_ + S) : (S * nshell_ + R);
+                            if (RS > P * nshell_ + Q) continue;
                             ML_PQ.emplace(RS);
                             P_stripeout_list[dP].emplace(S);
                         }
@@ -1357,15 +1355,15 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
                 // Loop over significant RS pairs
                 for (const int RS : ML_PQ) {
 
-                    int R = RS / nshell;
-                    int S = RS % nshell;
+                    int R = RS / nshell_;
+                    int S = RS % nshell_;
 
                     if (!ints[0]->shell_pair_significant(R, S)) continue;
                     if (!shell_significant(P, Q, R, S, ints, D)) continue;
 
                     if (ints[thread]->compute_shell(P, Q, R, S) == 0)
                         continue;
-                    computed_shells++;
+                    computed_shells_++;
 
                     const double* buffer = ints[thread]->buffer();
 
@@ -1506,10 +1504,10 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
     if (bench_) {
         auto mode = std::ostream::app;
         auto printer = PsiOutStream("bench.dat", mode);
-        size_t ntri = nshell * (nshell + 1L) / 2L;
+        size_t ntri = nshell_ * (nshell_ + 1L) / 2L;
         size_t possible_shells = ntri * (ntri + 1L) / 2L;
-        printer.Printf("(LinK) Computed %20zu Shell Quartets out of %20zu, (%11.3E ratio)\n", computed_shells,
-                        possible_shells, computed_shells / (double)possible_shells);
+        printer.Printf("(LinK) Computed %20zu Shell Quartets out of %20zu, (%11.3E ratio)\n", computed_shells_,
+                        possible_shells, computed_shells_ / (double)possible_shells);
     }
     timer_off("build_linK()");
 }
