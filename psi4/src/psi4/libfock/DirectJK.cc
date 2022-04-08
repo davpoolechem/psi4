@@ -290,10 +290,10 @@ bool DirectJK::shell_significant(int M, int N, int R, int S,
                 double D_RS = shell_pair_max_density(0, R, S) + shell_pair_max_density(1, R, S);
 
                 // K-like terms
-                double D_MR = shell_pair_max_density(0, M, R) + shell_pair_max_density(1, M, R);
-                double D_MS = shell_pair_max_density(0, M, S) + shell_pair_max_density(1, M, S);
-                double D_NR = shell_pair_max_density(0, N, R) + shell_pair_max_density(1, N, R);
-                double D_NS = shell_pair_max_density(0, N, S) + shell_pair_max_density(1, N, S);
+                double D_MR = std::max(shell_pair_max_density(0, M, R), shell_pair_max_density(1, M, R));
+                double D_MS = std::max(shell_pair_max_density(0, M, S), shell_pair_max_density(1, M, S));
+                double D_NR = std::max(shell_pair_max_density(0, N, R), shell_pair_max_density(1, N, R));
+                double D_NS = std::max(shell_pair_max_density(0, N, S), shell_pair_max_density(1, N, S));
 
                 max_density = std::max({2.0 * D_MN, 2.0 * D_RS, D_MR, D_MS, D_NR, D_NS});
             }
