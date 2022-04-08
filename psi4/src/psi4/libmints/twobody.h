@@ -130,8 +130,6 @@ class PSI_API TwoBodyAOInt {
     std::vector<double> shell_pair_exchange_values_;
     /// sqrt|(mm|mm)| values (nshell)
     std::vector<double> function_sqrt_;
-    /// Max density per matrix (Outer loop over density matrices, inner loop over shell pairs)
-    std::vector<std::vector<double>> max_dens_shell_pair_;
     /// Significant unique function pairs, in reduced triangular indexing
     PairList function_pairs_;
     /// Significant unique shell pairs, in reduced triangular indexing
@@ -201,8 +199,6 @@ class PSI_API TwoBodyAOInt {
     /*
      * Sieve information
      */
-    /// Update max_dens_shell_pair_ given an updated density matrix (Haser 1989)
-    void update_density(const std::vector<SharedMatrix>& D);
     /// Ask the built in sieve whether this quartet contributes
     bool shell_significant(int M, int N, int R, int S) const { return sieve_impl_(M, N, R, S); };
     /// Are any of the quartets within a given shellpair list significant
@@ -219,12 +215,6 @@ class PSI_API TwoBodyAOInt {
      inline double function_ceiling2(int m, int n, int r, int s) {
         return function_pair_values_[m * nbf_ + n] * function_pair_values_[r * nbf_ + s];
     }
-    /// Return the maximum density matrix element per shell pair. Maximum is over density matrices, if multiple set
-    double shell_pair_max_density(int M, int N) const;
-
-    /// Return the maximum density matrix element per shell pair for density matrix i
-    double shell_pair_max_density(int i, int M, int N) const; 
-
     /// For a given PQ shellpair index, what's the first RS pair that should be processed such
     /// that loops may be processed generating only permutationally unique PQ<=RS.  For engines
     /// that don't use blocking in the ket it is trivial, but a little more complex with ket blocks

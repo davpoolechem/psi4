@@ -1256,9 +1256,7 @@ void export_mints(py::module& m) {
     pyTwoBodyAOInt
         .def("compute_shell", compute_shell_ints(&TwoBodyAOInt::compute_shell), "Compute ERIs between 4 shells")
         .def("shell_significant", compute_shell_significant(&TwoBodyAOInt::shell_significant),
-             "Determines if the P,Q,R,S shell combination is significant")
-        .def("update_density", &TwoBodyAOInt::update_density,
-             "Update density matrix (c1 symmetry) for Density-matrix based integral screening");
+             "Determines if the P,Q,R,S shell combination is significant");
 
     py::class_<Libint2TwoElectronInt, std::shared_ptr<Libint2TwoElectronInt>>(
         m, "TwoElectronInt", pyTwoBodyAOInt, "Computes two-electron repulsion integrals")

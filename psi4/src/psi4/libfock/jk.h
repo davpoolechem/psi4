@@ -737,12 +737,16 @@ class PSI_API DirectJK : public JK {
     int df_ints_num_threads_;
     /// ERI Sieve
     std::shared_ptr<ERISieve> sieve_;
+    /// Number of shells in basis set 
+    int nshell_;
 
     /// Options object
     Options& options_;
 
     // Perform Density matrix-based integral screening?
     bool density_screening_;
+    /// Max density per matrix (Outer loop over density matrices, inner loop over shell pairs)
+    std::vector<std::vector<double>> max_dens_shell_pair_;
 
     // => Incremental Fock build variables <= //
     
@@ -793,6 +797,13 @@ class PSI_API DirectJK : public JK {
     /// Post-iteration Incfock processing
     void incfock_postiter();
 
+    /// Return the maximum density matrix element per shell pair. Maximum is over density matrices, if multiple set
+    double shell_pair_max_density(int M, int N) const;
+    /// Return the maximum density matrix element per shell pair for density matrix i
+    double shell_pair_max_density(int i, int M, int N) const;
+    /// Update max_dens_shell_pair_ given an updated density matrix (Haser 1989)
+    void update_max_density_elements(const std::vector<SharedMatrix>& D);
+ 
     /**
     * Determine if shell quartet is significant or not 
     * based on screening method used
