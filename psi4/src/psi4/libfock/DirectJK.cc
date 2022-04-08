@@ -85,6 +85,8 @@ void DirectJK::common_init() {
     df_ints_num_threads_ = Process::environment.get_n_threads();
 #endif
 
+    nshell_ = primary_->nshell();
+
     incfock_ = options_.get_bool("INCFOCK");
     incfock_count_ = 0;
     do_incfock_iter_ = false;
@@ -92,8 +94,9 @@ void DirectJK::common_init() {
         throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
     }
     density_screening_ = options_.get_str("SCREENING") == "DENSITY";
-    linK_ = options_.get_bool("DO_LINK");
+    max_dens_shell_pair_ = {};
 
+    linK_ = options_.get_bool("DO_LINK");
     if (options_["LINK_INTS_TOLERANCE"].has_changed()) {
         linK_ints_cutoff_ = options_.get_double("LINK_INTS_TOLERANCE");
     } else {
@@ -216,6 +219,58 @@ void DirectJK::incfock_postiter() {
     }
 }
 
+double DirectJK::shell_pair_max_density(int M, int N) const {
+    if (max_dens_shell_pair_.empty()) {
+        throw PSIEXCEPTION("The maximum density matrix elements have not been set in the DirectJK class!");
+    }
+    double D_max = 0.0;
+    for (const auto& matrix_max_per_pair: max_dens_shell_pair_) {
+        D_max = std::max(D_max, matrix_max_per_pair[M * nshell_ + N]);
+    }
+    return D_max;
+}
+
+double DirectJK::shell_pair_max_density(int i, int M, int N) const  {
+    return max_dens_shell_pair_[i][M*nshell_ + N];
+}
+
+// Haser 1989, Equation 7
+void DirectJK::update_max_density_elements(const std::vector<SharedMatrix>& D) {
+    if (max_dens_shell_pair_.size() == 0) {
+        max_dens_shell_pair_.resize(D.size());
+        for (int i = 0; i < D.size(); i++) {
+            max_dens_shell_pair_[i].resize(nshell_ * nshell_);
+        }
+    }
+
+    timer_on("Update Max Density");
+#pragma omp parallel for
+    for (int M = 0; M < nshell_; M++) {
+        for (int N = M; N < nshell_; N++) {
+            int m_start = primary_->shell(M).function_index();
+            int num_m = primary_->shell(M).nfunction();
+
+            int n_start = primary_->shell(N).function_index();
+            int num_n = primary_->shell(N).nfunction();
+
+            for (int i = 0; i < D.size(); i++) {
+                double** Dp = D[i]->pointer();
+                double max_dens = 0.0;
+                for (int m = m_start; m < m_start + num_m; m++) {
+                    for (int n = n_start; n < n_start + num_n; n++) {
+                        max_dens = std::max(max_dens, std::abs(Dp[m][n]));
+                    }
+                }
+                max_dens_shell_pair_[i][M * nshell_ + N] = max_dens;
+                if (M != N) max_dens_shell_pair_[i][N * nshell_ + M] = max_dens;
+            }
+
+        }
+    }
+    timer_off("Update Max Density");
+}
+
+// Haser 1989 Equations 6 to 14
 bool DirectJK::shell_significant(int M, int N, int R, int S, 
     const std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
     const std::vector<SharedMatrix>& D) {
@@ -226,19 +281,19 @@ bool DirectJK::shell_significant(int M, int N, int R, int S,
 
             // Equation 6 (RHF Case)
             if (D.size() == 1) {
-                max_density = std::max({4.0 * ints[0]->shell_pair_max_density(0, M, N), 4.0 * ints[0]->shell_pair_max_density(0, R, S),
-                    ints[0]->shell_pair_max_density(0, M, R), ints[0]->shell_pair_max_density(0, M, S),
-                    ints[0]->shell_pair_max_density(0, N, R), ints[0]->shell_pair_max_density(0, N, S)});
+                max_density = std::max({4.0 * shell_pair_max_density(0, M, N), 4.0 * shell_pair_max_density(0, R, S),
+                    shell_pair_max_density(0, M, R), shell_pair_max_density(0, M, S),
+                    shell_pair_max_density(0, N, R), shell_pair_max_density(0, N, S)});
             } else { // UHF and ROHF
                 // J-like terms
-                double D_MN = ints[0]->shell_pair_max_density(0, M, N) + ints[0]->shell_pair_max_density(1, M, N);
-                double D_RS = ints[0]->shell_pair_max_density(0, R, S) + ints[0]->shell_pair_max_density(1, R, S);
+                double D_MN = shell_pair_max_density(0, M, N) + shell_pair_max_density(1, M, N);
+                double D_RS = shell_pair_max_density(0, R, S) + shell_pair_max_density(1, R, S);
 
                 // K-like terms
-                double D_MR = ints[0]->shell_pair_max_density(0, M, R) + ints[0]->shell_pair_max_density(1, M, R);
-                double D_MS = ints[0]->shell_pair_max_density(0, M, S) + ints[0]->shell_pair_max_density(1, M, S);
-                double D_NR = ints[0]->shell_pair_max_density(0, N, R) + ints[0]->shell_pair_max_density(1, N, R);
-                double D_NS = ints[0]->shell_pair_max_density(0, N, S) + ints[0]->shell_pair_max_density(1, N, S);
+                double D_MR = shell_pair_max_density(0, M, R) + shell_pair_max_density(1, M, R);
+                double D_MS = shell_pair_max_density(0, M, S) + shell_pair_max_density(1, M, S);
+                double D_NR = shell_pair_max_density(0, N, R) + shell_pair_max_density(1, N, R);
+                double D_NS = shell_pair_max_density(0, N, S) + shell_pair_max_density(1, N, S);
 
                 max_density = std::max({2.0 * D_MN, 2.0 * D_RS, D_MR, D_MS, D_NR, D_NS});
             }
@@ -449,7 +504,7 @@ void DirectJK::compute_JK() {
         std::vector<std::shared_ptr<TwoBodyAOInt>> ints;
         for (int thread = 0; thread < df_ints_num_threads_; thread++) {
             ints.push_back(std::shared_ptr<TwoBodyAOInt>(factory->erf_eri(omega_)));
-            if (density_screening_) ints[thread]->update_density(D_ref);
+            if (density_screening_) update_max_density_elements(D_ref);
         }
         if (do_J_) {
             build_JK_matrices(ints, D_ref, J_ref, wK_ref);
@@ -461,7 +516,7 @@ void DirectJK::compute_JK() {
     if (do_J_ || do_K_) {
         std::vector<std::shared_ptr<TwoBodyAOInt>> ints;
         ints.push_back(std::shared_ptr<TwoBodyAOInt>(factory->eri()));
-        if (density_screening_) ints[0]->update_density(D_ref);
+        if (density_screening_) update_max_density_elements(D_ref);
         for (int thread = 1; thread < df_ints_num_threads_; thread++) {
             ints.push_back(std::shared_ptr<TwoBodyAOInt>(ints[0]->clone()));
         }
@@ -1184,7 +1239,7 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
     for (size_t P = 0; P < nshell; P++) {
         std::vector<std::pair<int, double>> PR_shell_values;
         for (size_t R = 0; R < nshell; R++) {
-            double screen_val = shell_ceilings[P] * shell_ceilings[R] * ints[0]->shell_pair_max_density(P, R);
+            double screen_val = shell_ceilings[P] * shell_ceilings[R] * shell_pair_max_density(P, R);
             if (screen_val >= linK_ints_cutoff_) {
                 PR_shell_values.emplace_back(R, screen_val);
             }
@@ -1267,7 +1322,7 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
                 for (const int R : significant_kets[P]) {
                     bool is_significant = false;
                     for (const int S : significant_bras[R]) {
-                        double screen_val = ints[0]->shell_pair_max_density(P, R) * std::sqrt(ints[0]->shell_ceiling2(P, Q, R, S));
+                        double screen_val = shell_pair_max_density(P, R) * std::sqrt(ints[0]->shell_ceiling2(P, Q, R, S));
 
                         if (screen_val >= linK_ints_cutoff_) {
                             if (!is_significant) is_significant = true;
@@ -1285,7 +1340,7 @@ void DirectJK::build_linK(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, cons
                 for (const int R : significant_kets[Q]) {
                     bool is_significant = false;
                     for (const int S : significant_bras[R]) {
-                        double screen_val = ints[0]->shell_pair_max_density(Q, R) * std::sqrt(ints[0]->shell_ceiling2(P, Q, R, S));
+                        double screen_val = shell_pair_max_density(Q, R) * std::sqrt(ints[0]->shell_ceiling2(P, Q, R, S));
 
                         if (screen_val >= linK_ints_cutoff_) {
                             if (!is_significant) is_significant = true;
