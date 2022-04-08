@@ -99,7 +99,6 @@ TwoBodyAOInt::TwoBodyAOInt(const TwoBodyAOInt &rhs) : TwoBodyAOInt(rhs.integral_
     screening_type_ = rhs.screening_type_;
     function_pair_values_ = rhs.function_pair_values_;
     shell_pair_values_ = rhs.shell_pair_values_;
-    max_dens_shell_pair_ = rhs.max_dens_shell_pair_;
     shell_pair_exchange_values_ = rhs.shell_pair_exchange_values_;
     function_sqrt_ = rhs.function_sqrt_;
     function_pairs_ = rhs.function_pairs_;
@@ -115,95 +114,6 @@ TwoBodyAOInt::TwoBodyAOInt(const TwoBodyAOInt &rhs) : TwoBodyAOInt(rhs.integral_
 }
 
 TwoBodyAOInt::~TwoBodyAOInt() {}
-
-// Haser 1989, Equation 7 
-void TwoBodyAOInt::update_density(const std::vector<SharedMatrix>& D) {
-
-    if (max_dens_shell_pair_.size() == 0) {
-        max_dens_shell_pair_.resize(D.size());
-        for (int i = 0; i < D.size(); i++) {
-            max_dens_shell_pair_[i].resize(nshell_ * nshell_);
-        }
-    }
-    
-    timer_on("Update Density");
-#pragma omp parallel for
-    for (int M = 0; M < nshell_; M++) {
-        for (int N = M; N < nshell_; N++) {
-            int m_start = bs1_->shell(M).function_index();
-            int num_m = bs1_->shell(M).nfunction();
-
-            int n_start = bs1_->shell(N).function_index();
-            int num_n = bs1_->shell(N).nfunction();
-
-            for (int i = 0; i < D.size(); i++) {
-                double** Dp = D[i]->pointer();
-                double max_dens = 0.0;
-                for (int m = m_start; m < m_start + num_m; m++) {
-                    for (int n = n_start; n < n_start + num_n; n++) {
-                        max_dens = std::max(max_dens, std::abs(Dp[m][n]));
-                    }
-                }
-                max_dens_shell_pair_[i][M * nshell_ + N] = max_dens;
-                if (M != N) max_dens_shell_pair_[i][N * nshell_ + M] = max_dens;
-            }
-
-        }
-    }
-    timer_off("Update Density");
-
-}
-
-
-double TwoBodyAOInt::shell_pair_max_density(int M, int N) const {
-    if (max_dens_shell_pair_.empty()) {
-        throw PSIEXCEPTION("The density matrix has not been set in the TwoBodyAOInt class!");
-    }
-    double D_max = 0.0;
-    for (const auto& matrix_max_per_pair: max_dens_shell_pair_) {
-        D_max = std::max(D_max, matrix_max_per_pair[M * nshell_ + N]);
-    }
-    return D_max;
-}
-
-double TwoBodyAOInt::shell_pair_max_density(int i, int M, int N) const  {
-    return max_dens_shell_pair_[i][M*nshell_ + N]; 
-};
-
-/*
-// Haser 1989 Equations 6 to 14
-bool TwoBodyAOInt::shell_significant_density(int M, int N, int R, int S) {
-
-    // Maximum density matrix equation
-    double max_density = 0.0;
-
-    // Equation 6 (RHF Case)
-    if (max_dens_shell_pair_.size() == 1) {
-        max_density = std::max({4.0 * max_dens_shell_pair_[0][M * nshell_ + N], 4.0 * max_dens_shell_pair_[0][R * nshell_ + S], 
-            max_dens_shell_pair_[0][M * nshell_ + R], max_dens_shell_pair_[0][M * nshell_ + S],
-            max_dens_shell_pair_[0][N * nshell_ + R], max_dens_shell_pair_[0][N * nshell_ + S]});
-    } else { // UHF and ROHF
-        // J-like terms
-        double D_MN = max_dens_shell_pair_[0][M * nshell_ + N] + max_dens_shell_pair_[1][M * nshell_ + N];
-        double D_RS = max_dens_shell_pair_[0][R * nshell_ + S] + max_dens_shell_pair_[1][R * nshell_ + S];
-
-        // K-like terms
-        double D_MR = std::max(max_dens_shell_pair_[0][M * nshell_ + R], max_dens_shell_pair_[1][M * nshell_ + R]);
-        double D_MS = std::max(max_dens_shell_pair_[0][M * nshell_ + S], max_dens_shell_pair_[1][M * nshell_ + S]);
-        double D_NR = std::max(max_dens_shell_pair_[0][N * nshell_ + R], max_dens_shell_pair_[1][N * nshell_ + R]);
-        double D_NS = std::max(max_dens_shell_pair_[0][N * nshell_ + S], max_dens_shell_pair_[1][N * nshell_ + S]);
-
-        max_density = std::max({2.0 * D_MN, 2.0 * D_RS, D_MR, D_MS, D_NR, D_NS});
-    }
-
-    // Square of Cauchy-Schwarz Q_MN terms (Eq. 13)
-    double mn_mn = shell_pair_values_[N * nshell_ + M];
-    double rs_rs = shell_pair_values_[S * nshell_ + R];
-
-    // The density screened ERI bound (Eq. 6)
-    return (mn_mn * rs_rs * max_density * max_density >= screening_threshold_squared_);
-}
-*/
 
 bool TwoBodyAOInt::shell_significant_csam(int M, int N, int R, int S) { 
     // Square of standard Cauchy-Schwarz Q_mu_nu terms (Eq. 1)
