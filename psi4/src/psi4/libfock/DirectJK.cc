@@ -299,7 +299,7 @@ bool DirectJK::shell_significant(int M, int N, int R, int S,
             }
 
             // The density screened ERI bound (Eq. 6)
-            return (ints[0]->shell_ceiling2(M, N, S, R) * max_density * max_density >= cutoff_*cutoff_);
+            return (ints[0]->shell_ceiling2(M, N, R, S) * max_density * max_density >= cutoff_*cutoff_);
         } else {
             throw PSIEXCEPTION("Tests for significant shell quartets using density screening are being conducted, but the ints and/or D variables are undefined. Check your DirectJK::shell_significant function arguments");
 	}
