@@ -36,6 +36,7 @@
 #include "psi4/libmints/potential.h"
 #include "psi4/libmints/twobody.h"
 #include "psi4/lib3index/dfhelper.h"
+#include "psi4/libfmm/fmm_tree.h"
 
 #include <unordered_set>
 
@@ -117,6 +118,40 @@ class LinK : public SplitJKBase {
 
    /**
     * @brief Prints information regarding LinK run
+    * 
+    */
+   void print_header() override;
+
+};
+
+class CFMM : public SplitJKBase {
+  protected:
+   /// The CFMMTree object used to compute the CFMM integrals
+   std::shared_ptr<CFMMTree> cfmmtree_;
+   /// Builds the integrals (CFMMTree) for the DirectDFJ class
+   void build_ints() override;
+
+  public:
+   /**
+    * @brief Construct a new CFMM object
+    * 
+    * @param primary The primary basis set used in DirectDFJ
+    * @param options The options object
+    */
+   CFMM(std::shared_ptr<BasisSet> primary, Options& options);
+
+   /**
+    * @author Andy Jiang, Andy Simmonett, David Poole, Georgia Tech, April 2022
+    *
+    * @brief Builds the J matrix according to the CFMM Algorithm
+    * 
+    * @param D The list of AO density matrixes to contract to form the J matrix (1 for RHF, 2 for UHF/ROHF)
+    * @param J The list of AO J matrices to build (Same size as D)
+    */
+   void build_G_component(const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) override;
+
+   /**
+    * @brief Prints information regarding CFMM run
     * 
     */
    void print_header() override;

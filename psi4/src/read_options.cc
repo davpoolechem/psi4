@@ -178,7 +178,7 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
     /*- What algorithm to use for the SCF computation. See Table :ref:`SCF
     Convergence & Algorithm <table:conv_scf>` for default algorithm for
     different calculation types. -*/
-    options.add_str("SCF_TYPE", "PK", "DIRECT DF MEM_DF DISK_DF PK OUT_OF_CORE CD GTFOCK DIRECT_DF_LINK");
+    options.add_str("SCF_TYPE", "PK", "DIRECT DF MEM_DF DISK_DF PK OUT_OF_CORE CD GTFOCK DIRECT_DF_LINK LINEAR");
     /*- Algorithm to use for MP2 computation.
     See :ref:`Cross-module Redundancies <table:managedmethods>` for details. -*/
     options.add_str("MP2_TYPE", "DF", "DF CONV CD");
@@ -1458,6 +1458,13 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_int("INCFOCK_FULL_FOCK_EVERY", 5);
 
         /*- SUBSECTION Composite JK Options -*/
+        
+        /*- The maximum multipole order to use in the CFMM algorithm -*/
+        options.add_int("CFMM_ORDER", 10);
+        /*- The maximum tree depth to use in the CFMM algorithm (Must be at least 3) -*/
+        options.add_int("CFMM_GRAIN", 4);
+        /*- CFMM Extent Tolerance (for well-separated) -*/
+        options.add_double("CFMM_EXTENT_TOLERANCE", 1.0e-10);
         
         /*- The screening tolerance used for ERI/Density sparsity in the LinK algorithm -*/
         options.add_double("LINK_INTS_TOLERANCE", 1.0e-12);
