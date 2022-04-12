@@ -588,9 +588,7 @@ class PSI_API JK {
     /**
      * Return number of shells computed during the SCF iteration
      */
-    virtual size_t computed_shells() const { 
-        throw PSIEXCEPTION("JK::computed_shells() was called, but benchmarking is disabled for the chosen JK algorithm.");
-    }
+    virtual size_t computed_shells();
  
     /**
     * Print header information regarding JK
@@ -880,7 +878,7 @@ class PSI_API DirectJK : public JK {
     /**
      * Return number of shells computed during the SCF iteration
      */
-    size_t computed_shells() const override { return computed_shells_; }
+    size_t computed_shells() override { return computed_shells_; }
  
     /**
     * Print header information regarding JK
