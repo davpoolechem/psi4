@@ -185,10 +185,6 @@ class PSI_API CFMMTree {
       std::shared_ptr<Molecule> molecule_;
       // The basis set that the molecule uses
       std::shared_ptr<BasisSet> basisset_;
-      // Density Matrix of Molecule
-      // std::vector<SharedMatrix> D_;
-      // Coulomb Matrix of Molecule
-      // std::vector<SharedMatrix> J_;
       // List of all the significant shell-pairs in the molecule
       std::vector<std::shared_ptr<ShellPair>> shell_pairs_;
 
@@ -227,6 +223,8 @@ class PSI_API CFMMTree {
 
       // Use density-based integral screening?
       bool density_screening_;
+      // ERI Screening Tolerance
+      double ints_tolerance_;
 
       // => Functions called ONLY once <= //
 
@@ -254,6 +252,10 @@ class PSI_API CFMMTree {
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J);
       // Build far-field J (long-range multipole interactions)
       void build_ff_J(std::vector<SharedMatrix>& J);
+
+      // => ERI Screening <= //
+      bool shell_significant(int P, int Q, int R, int S, std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
+                             const std::vector<SharedMatrix>& D);
     
     public:
       // Constructor (automatically sets up the tree)

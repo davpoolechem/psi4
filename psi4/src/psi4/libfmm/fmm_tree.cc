@@ -367,6 +367,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     bench_ = options_.get_int("BENCH");
 
     density_screening_ = (options_.get_str("SCREENING") == "DENSITY");
+    ints_tolerance_ = options_.get_double("INTS_TOLERANCE");
 
     int num_boxes = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
     tree_.resize(num_boxes);
@@ -515,6 +516,29 @@ void CFMMTree::setup_shellpair_info() {
             }
             task_index += 1;
         }
+    }
+}
+
+bool CFMMTree::shell_significant(int P, int Q, int R, int S, std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
+                             const std::vector<SharedMatrix>& D) {
+    if (density_screening_) {
+        double D_PQ = 0.0;
+        double D_RS = 0.0;
+
+        double prefactor = (D.size() == 1) ? 4.0 : 2.0;
+
+        for (int i = 0; i < D.size(); i++) {
+            D_PQ += ints[0]->shell_pair_max_density(i, P, Q);
+            D_RS += ints[0]->shell_pair_max_density(i, R, S);
+        }
+
+        double screen_val = prefactor * std::max(D_PQ, D_RS) * std::sqrt(ints[0]->shell_ceiling2(P, Q, R, S));
+
+        if (screen_val >= ints_tolerance_) return true;
+        else return false;
+
+    } else {
+        return ints[0]->shell_significant(P, Q, R, S);
     }
 }
 
@@ -685,8 +709,8 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                 int S = RS.second;
                     
                 if (R * nshell + S > P * nshell + Q) continue;
-                if (!ints[thread]->shell_significant(P, Q, R, S)) continue;
-                // if (density_screening_ && !ints[thread]->shell_significant_density_J(P, Q, R, S)) continue;
+                if (!shell_significant(P, Q, R, S, ints, D)) continue;
+                
                 if (ints[thread]->compute_shell(P, Q, R, S) == 0) continue;
                 computed_shells++;
 

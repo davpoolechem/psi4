@@ -224,6 +224,9 @@ class PSI_API TwoBodyAOInt {
     /// Return the maximum density matrix element per shell pair. Maximum is over density matrices, if multiple set
     double shell_pair_max_density(int M, int N) const;
 
+    /// Return the shell pair max density for a given density matrix, and given shell pair
+    inline double shell_pair_max_density(int i, int M, int N) { return max_dens_shell_pair_[i][M * nshell_ + N]; }
+
     /// For a given PQ shellpair index, what's the first RS pair that should be processed such
     /// that loops may be processed generating only permutationally unique PQ<=RS.  For engines
     /// that don't use blocking in the ket it is trivial, but a little more complex with ket blocks
