@@ -444,24 +444,27 @@ void CFMMTree::make_root_node() {
 
 void CFMMTree::make_children() {
 
-    for (int level = 0; level <= nlevels_ - 2; level += 1) {
-        int start, end;
-        if (level == 0) {
-            start = 0;
-            end = 1;
-        } else {
-            start = (0.5 * std::pow(16, level) + 7) / 15;
-            end = (0.5 * std::pow(16, level+1) + 7) / 15;
-        }
+#pragma omp parallel
+    {
+        for (int level = 0; level <= nlevels_ - 2; level += 1) {
+            int start, end;
+            if (level == 0) {
+                start = 0;
+                end = 1;
+            } else {
+                start = (0.5 * std::pow(16, level) + 7) / 15;
+                end = (0.5 * std::pow(16, level+1) + 7) / 15;
+            }
 
-#pragma omp parallel for
-        for (int bi = start; bi < end; bi++) {
-            tree_[bi]->make_children();
-            auto children = tree_[bi]->get_children();
+#pragma omp for
+            for (int bi = start; bi < end; bi++) {
+                tree_[bi]->make_children();
+                auto children = tree_[bi]->get_children();
 
-            for (int ci = 0; ci < children.size(); ci++) {
-                int ti = (level == 0) ? ci + 1 : bi * 16 - 7 + ci;
-                tree_[ti] = children[ci];
+                for (int ci = 0; ci < children.size(); ci++) {
+                    int ti = (level == 0) ? ci + 1 : bi * 16 - 7 + ci;
+                    tree_[ti] = children[ci];
+                }
             }
         }
     }
@@ -470,20 +473,23 @@ void CFMMTree::make_children() {
 
 void CFMMTree::setup_regions() {
 
-    for (int level = 0; level <= nlevels_ - 1; level += 1) {
-        int start, end;
-        if (level == 0) {
-            start = 0;
-            end = 1;
-        } else {
-            start = (0.5 * std::pow(16, level) + 7) / 15;
-            end = (0.5 * std::pow(16, level+1) + 7) / 15;
-        }
+#pragma omp parallel
+    {
+        for (int level = 0; level <= nlevels_ - 1; level += 1) {
+            int start, end;
+            if (level == 0) {
+                start = 0;
+                end = 1;
+            } else {
+                start = (0.5 * std::pow(16, level) + 7) / 15;
+                end = (0.5 * std::pow(16, level+1) + 7) / 15;
+            }
 
-#pragma omp parallel for
-        for (int bi = start; bi < end; bi++) {
-            if (tree_[bi]->nshell_pair() == 0) continue;
-            tree_[bi]->set_regions();
+#pragma omp for
+            for (int bi = start; bi < end; bi++) {
+                if (tree_[bi]->nshell_pair() == 0) continue;
+                tree_[bi]->set_regions();
+            }
         }
     }
 
@@ -602,32 +608,29 @@ void CFMMTree::calculate_multipoles(const std::vector<SharedMatrix>& D) {
     timer_on("CFMMTree: Box Multipoles");
 
     // Compute mpoles for leaf nodes
-#pragma omp parallel for
-    for (int bi = 0; bi < sorted_leaf_boxes_.size(); bi++) {
-
-        int thread = 0;
-#ifdef _OPENMP
-        thread = omp_get_thread_num();
-#endif
-
-        sorted_leaf_boxes_[bi]->compute_multipoles(basisset_, D);
-    }
-
-    // Calculate mpoles for higher level boxes
-    for (int level = nlevels_ - 2; level >= 0; level -= 1) {
-        int start, end;
-        if (level == 0) {
-            start = 0;
-            end = 1;
-        } else {
-            start = (0.5 * std::pow(16, level) + 7) / 15;
-            end = (0.5 * std::pow(16, level+1) + 7) / 15;
+#pragma omp parallel
+    {
+#pragma omp for
+        for (int bi = 0; bi < sorted_leaf_boxes_.size(); bi++) {
+            sorted_leaf_boxes_[bi]->compute_multipoles(basisset_, D);
         }
 
-#pragma omp parallel for
-        for (int bi = start; bi < end; bi++) {
-            if (tree_[bi]->nshell_pair() == 0) continue;
-            tree_[bi]->compute_mpoles_from_children();
+        // Calculate mpoles for higher level boxes
+        for (int level = nlevels_ - 2; level >= 0; level -= 1) {
+            int start, end;
+            if (level == 0) {
+                start = 0;
+                end = 1;
+            } else {
+                start = (0.5 * std::pow(16, level) + 7) / 15;
+                end = (0.5 * std::pow(16, level+1) + 7) / 15;
+            }
+
+#pragma omp for
+            for (int bi = start; bi < end; bi++) {
+                if (tree_[bi]->nshell_pair() == 0) continue;
+                tree_[bi]->compute_mpoles_from_children();
+            }
         }
     }
 
@@ -640,7 +643,6 @@ void CFMMTree::compute_far_field() {
 
 #pragma omp parallel
     {
-
         for (int level = 0; level < nlevels_; level++) {
             const auto& all_box_pairs = lff_task_pairs_per_level_[level];
 #pragma omp for
