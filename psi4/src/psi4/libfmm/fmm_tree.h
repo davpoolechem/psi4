@@ -145,8 +145,10 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
 
       // Compute multipoles from children
       void compute_mpoles_from_children();
-      // Calculates far field vector from local and parent far fields
-      void compute_far_field_vector();
+      // Computes the far field contribution from a far away sibling
+      void compute_far_field_contribution(std::shared_ptr<CFMMBox> lff_box);
+      // Compute the far field contibution from the parents
+      void add_parent_far_field_contribution();
 
       // => USEFUL SETTER METHODS <= //
 
@@ -173,6 +175,8 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       Vector3 center() { return center_; }
       // Gets the near_field_boxes of the box
       std::vector<std::shared_ptr<CFMMBox>>& near_field_boxes() { return near_field_; }
+      // Gets the local far field boxes of the box
+      std::vector<std::shared_ptr<CFMMBox>>& local_far_field_boxes() { return local_far_field_; }
       // Gets the far field vector
       std::vector<std::shared_ptr<RealSolidHarmonics>>& far_field_vector() { return Vff_; }
 
@@ -220,6 +224,8 @@ class PSI_API CFMMTree {
       std::vector<std::shared_ptr<CFMMBox>> shellpair_to_box_;
       // List of all the near field boxes that belong to a given shell-pair
       std::vector<std::vector<std::shared_ptr<CFMMBox>>> shellpair_to_nf_boxes_;
+      // local far-field box pairs at a given level of the tree
+      std::vector<std::vector<std::pair<std::shared_ptr<CFMMBox>, std::shared_ptr<CFMMBox>>>> lff_task_pairs_per_level_;
 
       // Use density-based integral screening?
       bool density_screening_;
@@ -236,8 +242,10 @@ class PSI_API CFMMTree {
       void sort_leaf_boxes();
       // Set up near field and far field information for each box in the tree
       void setup_regions();
-      // Setup shell-pair information and Calculate multipoles for each shell-pair
+      // Setup shell-pair information and calculate multipoles for each shell-pair
       void setup_shellpair_info();
+      // Set up information on local far field task pairs per level
+      void setup_local_far_field_task_pairs();
       // Calculate ALL the shell-pair multipoles at each leaf box
       void calculate_shellpair_multipoles();
 

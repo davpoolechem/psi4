@@ -451,7 +451,7 @@ void RealSolidHarmonics::scale(double val) {
     }
 }
 
-std::shared_ptr<RealSolidHarmonics> RealSolidHarmonics::translate(Vector3 new_center) {
+std::shared_ptr<RealSolidHarmonics> RealSolidHarmonics::translate(const Vector3& new_center) {
     if (type_ == Regular) return translate_regular(new_center);
     if (type_ == Irregular) return translate_irregular(new_center);
 }
@@ -571,7 +571,7 @@ SharedVector RealSolidHarmonics::build_T_spherical(int la, int lb, double R) {
     return Tvec;
 }
 
-std::shared_ptr<RealSolidHarmonics> RealSolidHarmonics::far_field_vector(Vector3 far_center) {
+std::shared_ptr<RealSolidHarmonics> RealSolidHarmonics::far_field_vector(const Vector3& far_center) {
     
     Vector3 R_ab = far_center - center_;
     double R = R_ab.norm();

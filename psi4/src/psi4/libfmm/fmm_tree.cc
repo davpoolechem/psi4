@@ -247,19 +247,16 @@ void CFMMBox::set_regions() {
     }
 }
 
-void CFMMBox::compute_far_field_vector() {
+void CFMMBox::compute_far_field_contribution(std::shared_ptr<CFMMBox> lff_box) {
+    for (int N = 0; N < Vff_.size(); N++) {
+        std::shared_ptr<RealSolidHarmonics> far_field = lff_box->mpoles_[N]->far_field_vector(center_);
+        Vff_[N]->add(far_field);
+    }
+}
 
+void CFMMBox::add_parent_far_field_contribution() {
     // Temporary parent shared pointer object
     std::shared_ptr<CFMMBox> parent = parent_.lock();
-
-    // Calculate the far field vector
-    for (std::shared_ptr<CFMMBox> box : local_far_field_) {
-        // The far field effect the boxes have on this particular box
-        for (int N = 0; N < Vff_.size(); N++) {
-            std::shared_ptr<RealSolidHarmonics> far_field = box->mpoles_[N]->far_field_vector(center_);
-            Vff_[N]->add(far_field);
-        }
-    }
 
     if (parent) {
         // Add the parent's far field contribution
@@ -394,6 +391,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     make_children();
     sort_leaf_boxes();
     setup_regions();
+    setup_local_far_field_task_pairs();
     setup_shellpair_info();
     calculate_shellpair_multipoles();
 
@@ -542,6 +540,33 @@ bool CFMMTree::shell_significant(int P, int Q, int R, int S, std::vector<std::sh
     }
 }
 
+void CFMMTree::setup_local_far_field_task_pairs() {
+
+    // First access is level, second access is the list of local far field per box for that box
+    lff_task_pairs_per_level_.resize(nlevels_);
+
+    // Build the task pairs
+    for (int level = 0; level < nlevels_; level++) {
+        int start, end;
+        if (level == 0) {
+            start = 0;
+            end = 1;
+        } else {
+            start = (0.5 * std::pow(16, level) + 7) / 15;
+            end = (0.5 * std::pow(16, level+1) + 7) / 15;
+        }
+
+        for (int bi = start; bi < end; bi++) {
+            std::shared_ptr<CFMMBox> box = tree_[bi];
+            if (box->nshell_pair() == 0) continue;
+            for (auto& lff : box->local_far_field_boxes()) {
+                if (lff->nshell_pair() == 0) continue;
+                lff_task_pairs_per_level_[level].emplace_back(box, lff);
+            }
+        }
+    }
+}
+
 void CFMMTree::calculate_shellpair_multipoles() {
 
     timer_on("CFMMTree: Shell-Pair Multipole Ints");
@@ -613,20 +638,32 @@ void CFMMTree::compute_far_field() {
 
     timer_on("CFMMTree: Far Field Vector");
 
-    for (int level = 0; level <= nlevels_ - 1; level += 1) {
-        int start, end;
-        if (level == 0) {
-            start = 0;
-            end = 1;
-        } else {
-            start = (0.5 * std::pow(16, level) + 7) / 15;
-            end = (0.5 * std::pow(16, level+1) + 7) / 15;
-        }
+#pragma omp parallel
+    {
 
-#pragma omp parallel for
-        for (int bi = start; bi < end; bi++) {
-            if (tree_[bi]->nshell_pair() == 0) continue;
-            tree_[bi]->compute_far_field_vector();
+        for (int level = 0; level < nlevels_; level++) {
+            const auto& all_box_pairs = lff_task_pairs_per_level_[level];
+#pragma omp for
+            for (int box_pair = 0; box_pair < all_box_pairs.size(); box_pair++) {
+                std::shared_ptr<CFMMBox> box1 = all_box_pairs[box_pair].first;
+                std::shared_ptr<CFMMBox> box2 = all_box_pairs[box_pair].second;
+                box1->compute_far_field_contribution(box2);
+            }
+
+            int start, end;
+            if (level == 0) {
+                start = 0;
+                end = 1;
+            } else {
+                start = (0.5 * std::pow(16, level) + 7) / 15;
+                end = (0.5 * std::pow(16, level+1) + 7) / 15;
+            }
+
+#pragma omp for
+            for (int bi = start; bi < end; bi++) {
+                if (tree_[bi]->nshell_pair() == 0) continue;
+                tree_[bi]->add_parent_far_field_contribution();
+            }
         }
     }
 

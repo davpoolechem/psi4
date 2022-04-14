@@ -206,9 +206,9 @@ class PSI_API RealSolidHarmonics {
       SharedVector build_T_spherical(int la, int lb, double R);
 
       // Translate the solid harmonics
-      std::shared_ptr<RealSolidHarmonics> translate(Vector3 new_center);
+      std::shared_ptr<RealSolidHarmonics> translate(const Vector3& new_center);
       // Calulate the far field effect this multipole series would have on another
-      std::shared_ptr<RealSolidHarmonics> far_field_vector(Vector3 far_center);
+      std::shared_ptr<RealSolidHarmonics> far_field_vector(const Vector3& far_center);
 
 }; // End RealSolidHarmonics class
 
