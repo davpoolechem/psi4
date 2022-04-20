@@ -1456,6 +1456,8 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         /*- Frequency with which to compute the full Fock matrix if using |scf__incfock| . 
         N means rebuild every N SCF iterations to avoid accumulating error from the incremental procedure. -*/
         options.add_int("INCFOCK_FULL_FOCK_EVERY", 5);
+        /*- The density threshold in which to stop performing INCFOCK -*/
+        options.add_double("INCFOCK_CONVERGENCE", 1.0e-5);
 
         /*- SUBSECTION Composite JK Options -*/
         
