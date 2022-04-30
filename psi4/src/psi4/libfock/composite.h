@@ -158,6 +158,41 @@ class CFMM : public SplitJKBase {
 
 };
 
+class DFCFMM : public DirectDFJ {
+  protected:
+   /// CFMMTree used to calculate the three-center integrals
+   std::shared_ptr<CFMMTree> df_cfmm_tree_;
+   /// The gamma intermediate used in the DirectDFJ Algorithm
+   std::vector<SharedMatrix> gamma;
+
+  public:
+   /**
+    * @brief Construct a new CFMM object
+    * 
+    * @param primary The primary basis set used in DFCFMM
+    * @param auxiliary The auxiliary basis set used in DFCFMM
+    * @param options The options object
+    */
+   DFCFMM(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
+
+   /**
+    * @author Andy Jiang, Andy Simmonett, David Poole, Georgia Tech, April 2022
+    *
+    * @brief Builds the J matrix according to the CFMM Algorithm
+    * 
+    * @param D The list of AO density matrixes to contract to form the J matrix (1 for RHF, 2 for UHF/ROHF)
+    * @param J The list of AO J matrices to build (Same size as D)
+    */
+   void build_G_component(const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) override;
+
+   /**
+    * @brief Prints information regarding DFCFMM run
+    * 
+    */
+   void print_header() override;
+
+};
+
 }
 
 #endif

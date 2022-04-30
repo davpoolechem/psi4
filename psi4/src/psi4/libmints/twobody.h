@@ -236,6 +236,10 @@ class PSI_API TwoBodyAOInt {
     const std::vector<std::pair<int, int> >& function_pairs() const { return function_pairs_; }
     /// Significant unique shell pair pair list, with only M>=N elements listed
     const std::vector<std::pair<int, int> >& shell_pairs() const { return shell_pairs_; }
+    /// Significant unique shell pair pair list, for the bra basis
+    const std::vector<std::pair<int, int> >& shell_pairs_bra() const { return shell_pairs_bra_; }
+    /// Significant unique shell pair pair list, for the ket basis
+    const std::vector<std::pair<int, int> >& shell_pairs_ket() const { return shell_pairs_ket_; }
     /// Unique function pair indexing, element m*(m+1)/2 + n (where m>=n) gives the dense index or
     /// -1 if the function pair does not contribute
     const std::vector<long int> function_pairs_to_dense() const { return function_pairs_reverse_; }

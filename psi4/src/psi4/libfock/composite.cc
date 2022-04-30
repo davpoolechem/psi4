@@ -49,6 +49,8 @@ void CompositeJK::common_init() {
         jalgo_ = std::make_shared<DirectDFJ>(primary_, auxiliary_, options_);
     } else if (jtype_ == "CFMM") {
         jalgo_ = std::make_shared<CFMM>(primary_, options_);
+    } else if (jtype_ == "DFCFMM") {
+        jalgo_ = std::make_shared<DFCFMM>(primary_, auxiliary_, options_);
     } else {
         throw PSIEXCEPTION("J BUILD TYPE " + jtype_ + " IS NOT SUPPORTED IN COMPOSITE JK!");
     }
@@ -170,6 +172,7 @@ void DirectDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vecto
     }
 
     // => Sizing <= //
+
     int pri_nshell = primary_->nshell();
     int aux_nshell = auxiliary_->nshell();
     int nmat = D.size();
@@ -204,7 +207,6 @@ void DirectDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vecto
     std::vector<std::vector<SharedMatrix>> JT;
 
     for (int thread = 0; thread < nthread_; thread++) {
-        std::vector<SharedVector> gp2;
         std::vector<SharedMatrix> J2;
         for (size_t ind = 0; ind < nmat; ind++) {
             J2.push_back(std::make_shared<Matrix>(max_nbf_per_shell, max_nbf_per_shell));
@@ -796,7 +798,7 @@ void LinK::build_G_component(const std::vector<SharedMatrix>& D, std::vector<Sha
 }
 
 CFMM::CFMM(std::shared_ptr<BasisSet> primary, Options& options) : SplitJKBase(primary, options) {
-    cfmmtree_ = std::make_shared<CFMMTree>(primary_, options_);
+    cfmmtree_ = std::make_shared<CFMMTree>(primary_, primary_, false, false, options_);
     build_ints();
 }
 
@@ -823,6 +825,54 @@ void CFMM::print_header() {
         outfile->Printf("    Primary Basis: %11s\n", primary_->name().c_str());
         outfile->Printf("    Max Multipole Order: %11d\n", cfmmtree_->lmax());
         outfile->Printf("    Max Tree Depth: %11d\n", cfmmtree_->nlevels());
+        outfile->Printf("\n");
+    }
+}
+
+DFCFMM::DFCFMM(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, 
+               Options& options) : DirectDFJ(primary, auxiliary, options) {
+
+    df_cfmm_tree_ = std::make_shared<CFMMTree>(auxiliary_, primary_, true, false, options_);
+}
+
+void DFCFMM::build_G_component(const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
+    timer_on("DFCFMM: J");
+
+    int naux = auxiliary_->nbf();
+
+    if (gamma.size() == 0) {
+        gamma.resize(D.size());
+        for (int i = 0; i < D.size(); i++) {
+            gamma[i] = std::make_shared<Matrix>(naux, 1);
+        }
+    }
+
+    // Build gammaP = (P|uv)Duv
+    df_cfmm_tree_->set_flip_bra_ket(false);
+    df_cfmm_tree_->build_J(ints_, D, gamma);
+
+    // Solve for gammaQ => (P|Q)*gammaQ = gammaP
+    for (int i = 0; i < D.size(); i++) {
+        SharedMatrix Jmet_copy = Jmet_->clone();
+        std::vector<int> ipiv(naux);
+
+        C_DGESV(naux, 1, Jmet_copy->pointer()[0], naux, ipiv.data(), gamma[i]->pointer()[0], naux);
+    }
+
+    // Build Juv = (uv|Q) * gammaQ
+    df_cfmm_tree_->set_flip_bra_ket(true);
+    df_cfmm_tree_->build_J(ints_, gamma, J);
+
+    timer_off("DFCFMM: J");
+}
+
+void DFCFMM::print_header() {
+    if (print_) {
+        outfile->Printf("  ==> CFMM-Accelerated Direct Density Fitted J <==\n\n");
+        outfile->Printf("    Primary Basis: %11s\n", primary_->name().c_str());
+        outfile->Printf("    Auxiliary Basis: %11s\n", auxiliary_->name().c_str());
+        outfile->Printf("    Max Multipole Order: %11d\n", df_cfmm_tree_->lmax());
+        outfile->Printf("    Max Tree Depth: %11d\n", df_cfmm_tree_->nlevels());
         outfile->Printf("\n");
     }
 }
