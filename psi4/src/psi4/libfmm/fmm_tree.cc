@@ -1075,6 +1075,7 @@ void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
                     double *Puv = const_cast<double *>(buffer);
                     double *gamp = J[i]->pointer()[0];
 
+                    /*
                     for (int p = p_start; p < p_start + num_p; p++) {
                         int dp = p - p_start;
                         for (int u = u_start; u < u_start + num_u; u++) {
@@ -1086,6 +1087,18 @@ void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
                             }
                         }
                     }
+                    */
+
+                    std::vector<double> Dbuff(num_u * num_v, 0.0);
+                    double* Dbp = Dbuff.data();
+
+                    for (int u = u_start; u < u_start + num_u; u++) {
+                        for (int v = v_start; v < v_start + num_v; v++) {
+                            *(Dbp) = Dp[u][v];
+                            Dbp++;
+                        }
+                    }
+                    C_DGEMV('N', num_p, num_u * num_v, prefactor, Puv, num_u * num_v, Dbuff.data(), 1, 1.0, &(gamp[p_start]), 1);
 
                 } // end i
             } // UV shells
@@ -1103,10 +1116,28 @@ void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     auto& auxiliary = bra_basis_;
 
     // => Sizing <= //
+
     int pri_nshell = primary->nshell();
     int aux_nshell = auxiliary->nshell();
     int nbf = primary->nbf();
     int nmat = D.size();
+
+    int max_nbf_per_shell = 0;
+    for (int P = 0; P < pri_nshell; P++) {
+        max_nbf_per_shell = std::max(max_nbf_per_shell, primary->shell(P).nfunction());
+    }
+
+    // => J buffers (to satisfy DGEMM)
+    std::vector<std::vector<SharedMatrix>> JT;
+
+    for (int thread = 0; thread < nthread_; thread++) {
+        std::vector<SharedMatrix> J2;
+        for (size_t ind = 0; ind < nmat; ind++) {
+            J2.push_back(std::make_shared<Matrix>(max_nbf_per_shell, max_nbf_per_shell));
+            J2[ind]->zero();
+        }
+        JT.push_back(J2);
+    }
 
 #pragma omp parallel for schedule(guided)
     for (int task = 0; task < ket_shellpair_tasks_.size(); task++) {
@@ -1146,25 +1177,45 @@ void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                 const double* buffer = ints[thread]->buffer();
 
                 for (int i = 0; i < D.size(); i++) {
-                    double* Jp = J[i]->pointer()[0];
+                    double* JTp = JT[thread][i]->pointer()[0];
                     double* Dp = D[i]->pointer()[0];
                     double* Quv = const_cast<double *>(buffer);
 
+                    /*
                     for (int q = q_start; q < q_start + num_q; q++) {
                         int dq = q - q_start;
                         for (int u = u_start; u < u_start + num_u; u++) {
                             int du = u - u_start;
                             for (int v = v_start; v < v_start + num_v; v++) {
                                 int dv = v - v_start;
-                                Jp[u * nbf + v] += prefactor * (*Quv) * Dp[q];
+                                JTp[du * num_v + dv] += prefactor * (*Quv) * Dp[q];
                                 Quv++;
                             }
                         }
                     }
+                    */
+
+                    C_DGEMV('T', num_q, num_u * num_v, prefactor, Quv, num_u * num_v, &(Dp[q_start]), 1, 1.0, JTp, 1);
 
                 } // end i
             } // end Qsh
         } // end nf box
+
+        // => Stripeout >= //
+
+        for (int i = 0; i < D.size(); i++) {
+            double* JTp = JT[thread][i]->pointer()[0];
+            double** Jp = J[i]->pointer();
+            for (int u = u_start; u < u_start + num_u; u++) {
+                int du = u - u_start;
+                for (int v = v_start; v < v_start + num_v; v++) {
+                    int dv = v - v_start;
+
+                    Jp[u][v] += JTp[du * num_v + dv];
+                }
+            }
+            JT[thread][i]->zero();
+        }
     } // end task
 
     timer_off("DF CFMM: Near Field J");
