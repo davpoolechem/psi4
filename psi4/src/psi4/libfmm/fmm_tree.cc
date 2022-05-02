@@ -146,13 +146,13 @@ void ShellPair::calculate_mpoles(Vector3 box_center, std::shared_ptr<OneBodyAOIn
 
 }
 
-CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<ShellPair>> bra_shell_pairs,
-                std::vector<std::shared_ptr<ShellPair>> ket_shell_pairs, Vector3 origin, double length,
+CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<ShellPair>> primary_shell_pairs,
+                std::vector<std::shared_ptr<ShellPair>> auxiliary_shell_pairs, Vector3 origin, double length,
                 int level, int lmax, int ws) {
                   
     parent_ = parent;
-    bra_shell_pairs_ = bra_shell_pairs;
-    ket_shell_pairs_ = ket_shell_pairs;
+    primary_shell_pairs_ = primary_shell_pairs;
+    auxiliary_shell_pairs_ = auxiliary_shell_pairs;
     origin_ = origin;
     center_ = origin_ + 0.5 * Vector3(length, length, length);
     length_ = length;
@@ -166,15 +166,13 @@ CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<Sh
     nthread_ = Process::environment.get_n_threads();
 #endif
 
-    bra_ket_same_ = (ket_shell_pairs.size() == 0);
-
 }
 
 void CFMMBox::make_children() {
 
     int nchild = (level_ > 0) ? 16 : 8;
-    std::vector<std::vector<std::shared_ptr<ShellPair>>> child_shell_pair_bra_buffer(nchild);
-    std::vector<std::vector<std::shared_ptr<ShellPair>>> child_shell_pair_ket_buffer(nchild);
+    std::vector<std::vector<std::shared_ptr<ShellPair>>> child_shell_pair_primary_buffer(nchild);
+    std::vector<std::vector<std::shared_ptr<ShellPair>>> child_shell_pair_auxiliary_buffer(nchild);
 
     // Max WS at the child's level
     int child_level_max_ws = std::max(2, (int) std::pow(2, level_+1));
@@ -182,7 +180,7 @@ void CFMMBox::make_children() {
 
     // Fill order (ws,z,y,x) (0)000 (0)001 (0)010 (0)011 (0)100 (0)101 (0)110 (0)111
     // (1)000 (1)001 (1)010 (1)011 (1)100 (1)101 (1)110 (1)111
-    for (std::shared_ptr<ShellPair> shell_pair : bra_shell_pairs_) {
+    for (std::shared_ptr<ShellPair> shell_pair : primary_shell_pairs_) {
         Vector3 sp_center = shell_pair->get_center();
         double x = sp_center[0];
         double y = sp_center[1];
@@ -196,14 +194,14 @@ void CFMMBox::make_children() {
         int rbit = (level_ == 0 || ws < 2 * ws_) ? 0 : 1;
 
         int boxind = 8 * rbit + 4 * zbit + 2 * ybit + 1 * xbit;
-        child_shell_pair_bra_buffer[boxind].push_back(shell_pair);
+        child_shell_pair_primary_buffer[boxind].push_back(shell_pair);
 
         int child_ws = std::max(2, (int)std::ceil(2.0 * extent / length_));
         if (child_ws > diffuse_child_max_ws) diffuse_child_max_ws = child_ws;
     }
 
     // ket_shell_pairs_ will be empty if bra and ket are the same
-    for (std::shared_ptr<ShellPair> shell_pair : ket_shell_pairs_) {
+    for (std::shared_ptr<ShellPair> shell_pair : auxiliary_shell_pairs_) {
         Vector3 sp_center = shell_pair->get_center();
         double x = sp_center[0];
         double y = sp_center[1];
@@ -217,7 +215,7 @@ void CFMMBox::make_children() {
         int rbit = (level_ == 0 || ws < 2 * ws_) ? 0 : 1;
 
         int boxind = 8 * rbit + 4 * zbit + 2 * ybit + 1 * xbit;
-        child_shell_pair_ket_buffer[boxind].push_back(shell_pair);
+        child_shell_pair_auxiliary_buffer[boxind].push_back(shell_pair);
 
         int child_ws = std::max(2, (int)std::ceil(2.0 * extent / length_));
         if (child_ws > diffuse_child_max_ws) diffuse_child_max_ws = child_ws;
@@ -231,7 +229,7 @@ void CFMMBox::make_children() {
         int rbit = (boxind / 8) % 2;
         Vector3 new_origin = origin_ + Vector3(xbit * 0.5 * length_, ybit * 0.5 * length_, zbit * 0.5 * length_);
         int child_ws = 2 * ws_ - 2 + 2 * rbit;
-        children_.push_back(std::make_shared<CFMMBox>(this->get(), child_shell_pair_bra_buffer[boxind], child_shell_pair_ket_buffer[boxind],
+        children_.push_back(std::make_shared<CFMMBox>(this->get(), child_shell_pair_primary_buffer[boxind], child_shell_pair_auxiliary_buffer[boxind],
                                                       new_origin, 0.5 * length_, level_ + 1, lmax_, child_ws));
         if (child_ws == child_level_max_ws) children_[boxind]->set_ws_max(diffuse_child_max_ws);
     }
@@ -292,8 +290,7 @@ void CFMMBox::add_parent_far_field_contribution() {
     }
 }
 
-void CFMMBox::compute_multipoles(std::shared_ptr<BasisSet>& ref_basis, const std::vector<SharedMatrix>& D,
-                                 bool is_bra, bool is_aux) {
+void CFMMBox::compute_multipoles(const std::vector<SharedMatrix>& D, ContractionType contraction_type) {
 
     if (mpoles_.size() == 0) {
         mpoles_.resize(D.size());
@@ -306,13 +303,13 @@ void CFMMBox::compute_multipoles(std::shared_ptr<BasisSet>& ref_basis, const std
         Vff_[N] = std::make_shared<RealSolidHarmonics>(lmax_, center_, Irregular);
     }
 
-    std::vector<std::shared_ptr<ShellPair>>& ref_shell_pairs = (is_bra) ? bra_shell_pairs_ : ket_shell_pairs_;
-    int nbf;
-    if (is_aux) {
-        nbf = 1;
-    } else {
-        nbf = ref_basis->nbf();
-    }
+    bool is_primary = (contraction_type == ContractionType::DF_AUX_PRI || contraction_type == ContractionType::DIRECT);
+    std::vector<std::shared_ptr<ShellPair>>& ref_shell_pairs = (is_primary) ? primary_shell_pairs_ : auxiliary_shell_pairs_;
+    if (ref_shell_pairs.empty()) return;
+
+    std::shared_ptr<BasisSet> bs1 = ref_shell_pairs[0]->bs1();
+    std::shared_ptr<BasisSet> bs2 = ref_shell_pairs[0]->bs2();
+    int nbf = (is_primary) ? bs1->nbf() : 1;
 
     // Compute and contract the ket multipoles with the density matrix to get box multipoles
     for (const auto& sp : ref_shell_pairs) {
@@ -323,10 +320,10 @@ void CFMMBox::compute_multipoles(std::shared_ptr<BasisSet>& ref_basis, const std
         int P = PQ.first;
         int Q = PQ.second;
 
-        double prefactor = (P == Q || is_aux) ? 1.0 : 2.0;
+        double prefactor = (P == Q || !is_primary) ? 1.0 : 2.0;
 
-        const GaussianShell& Pshell = ref_basis->shell(P);
-        const GaussianShell& Qshell = ref_basis->shell(Q);
+        const GaussianShell& Pshell = bs1->shell(P);
+        const GaussianShell& Qshell = bs2->shell(Q);
 
         int p_start = Pshell.start();
         int num_p = Pshell.nfunction();
@@ -378,17 +375,20 @@ void CFMMBox::compute_mpoles_from_children() {
     }
 }
 
-CFMMTree::CFMMTree(std::shared_ptr<BasisSet> bra_basis, std::shared_ptr<BasisSet> ket_basis, bool bra_auxiliary, bool ket_auxiliary, 
-                    Options& options) : options_(options) {
+CFMMTree::CFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options) 
+                    : primary_(primary), auxiliary_(auxiliary), options_(options) {
 
-    bra_basis_ = bra_basis;
-    ket_basis_ = ket_basis;
-    bra_auxiliary_ = bra_auxiliary;
-    ket_auxiliary_ = ket_auxiliary;
-    bra_ket_same_ = (bra_basis_ == ket_basis_);
-    flip_bra_ket_ = false;
+    if (primary && auxiliary) {
+        contraction_type_ = ContractionType::DF_AUX_PRI;
+    } else if (primary) {
+        contraction_type_ = ContractionType::DIRECT;
+    } else if (auxiliary) {
+        contraction_type_ = ContractionType::METRIC;
+    } else {
+        throw PSIEXCEPTION("No basis sets inputted into CFMMTree constructor!");
+    }
 
-    molecule_ = bra_basis_->molecule();
+    molecule_ = primary_->molecule();
     nlevels_ = options_.get_int("CFMM_GRAIN");
     if (nlevels_ <= 2) {
         throw PSIEXCEPTION("Too little boxes! Why do you wanna do CFMM with Direct SCF?");
@@ -405,7 +405,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> bra_basis, std::shared_ptr<BasisSet
     print_ = options_.get_int("PRINT");
     bench_ = options_.get_int("BENCH");
 
-    density_screening_ = (options_.get_str("SCREENING") == "DENSITY" && !bra_auxiliary_ && !ket_auxiliary_);
+    density_screening_ = (options_.get_str("SCREENING") == "DENSITY" && contraction_type_ == ContractionType::DIRECT);
     ints_tolerance_ = options_.get_double("INTS_TOLERANCE");
 
     int num_boxes = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
@@ -417,63 +417,41 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> bra_basis, std::shared_ptr<BasisSet
     std::shared_ptr<BasisSet> zero = BasisSet::zero_ao_basis_set();
 
     std::shared_ptr<IntegralFactory> factory;
-    if (!bra_auxiliary && !ket_auxiliary) {
-        if (bra_ket_same_) {
-            factory = std::make_shared<IntegralFactory>(bra_basis_);
-            contraction_type_ = DIRECT;
-        } else {
-            if (!bra_ket_same_) {
-                throw PSIEXCEPTION("Non-symmetric primary basis contractions are currently not supported in CFMMTree.");
-            }
-            // factory = std::make_shared<IntegralFactory>(bra_basis_, bra_basis_, ket_basis_, ket_basis_);
-            // contraction_type_ = GENERAL;
-        }
-    } else {
-        if (bra_auxiliary && ket_auxiliary) {
-            if (!bra_ket_same_) {
-                throw PSIEXCEPTION("Non-symmetric auxiliary metric contractions are currently not supported in CFMMTree.");
-            }
-            factory = std::make_shared<IntegralFactory>(bra_basis_, zero, ket_basis_, zero);
-            contraction_type_ = METRIC;
-        } else if (bra_auxiliary) {
-            factory = std::make_shared<IntegralFactory>(bra_basis_, zero, ket_basis_, ket_basis_);
-            contraction_type_ = DF;
-        } else if (ket_auxiliary) {
-            throw PSIEXCEPTION("Invalid Input to CFMMTree. Valid inputs are: (PRIMARY, PRIMARY), (AUXILIARY, PRIMARY), and (AUXILIARY, AUXILIARY)");
-            // factory = std::make_shared<IntegralFactory>(ket_basis_, zero, bra_basis_, bra_basis_);
-            // contraction_type_ = DF;
-        }
+    if (contraction_type_ == ContractionType::DIRECT) {
+        factory = std::make_shared<IntegralFactory>(primary_);
+    } else if (contraction_type_ == ContractionType::DF_AUX_PRI) {
+        factory = std::make_shared<IntegralFactory>(auxiliary_, zero, primary_, primary_);
+    } else if (contraction_type_ == ContractionType::METRIC) {
+        factory = std::make_shared<IntegralFactory>(auxiliary_, zero, auxiliary_, zero);
     }
 
     std::shared_ptr<TwoBodyAOInt> shellpair_int = std::shared_ptr<TwoBodyAOInt>(factory->eri());
 
     const auto& ints_bra_shell_pairs = shellpair_int->shell_pairs_bra();
     size_t bra_nshell_pairs = ints_bra_shell_pairs.size();
-    bra_shell_pairs_.resize(bra_nshell_pairs);
+
+    if (contraction_type_ == ContractionType::DIRECT) primary_shell_pairs_.resize(bra_nshell_pairs);
+    else auxiliary_shell_pairs_.resize(bra_nshell_pairs);
 
 #pragma omp parallel for
     for (size_t pair_index = 0; pair_index < bra_nshell_pairs; pair_index++) {
         const auto& pair = ints_bra_shell_pairs[pair_index];
-        if (!bra_auxiliary_) {
-            bra_shell_pairs_[pair_index] = std::make_shared<ShellPair>(bra_basis_, bra_basis_, pair, mpole_coefs_, cfmm_extent_tol);
+        if (contraction_type_ == ContractionType::DIRECT) {
+            primary_shell_pairs_[pair_index] = std::make_shared<ShellPair>(primary_, primary_, pair, mpole_coefs_, cfmm_extent_tol);
         } else {
-            bra_shell_pairs_[pair_index] = std::make_shared<ShellPair>(bra_basis_, zero, pair, mpole_coefs_, cfmm_extent_tol);
+            auxiliary_shell_pairs_[pair_index] = std::make_shared<ShellPair>(auxiliary_, zero, pair, mpole_coefs_, cfmm_extent_tol);
         }
     }
 
-    if (!bra_ket_same_) {
+    if (contraction_type_ == ContractionType::DF_AUX_PRI) {
         const auto& ints_ket_shell_pairs = shellpair_int->shell_pairs_ket();
         size_t ket_nshell_pairs = ints_ket_shell_pairs.size();
-        ket_shell_pairs_.resize(ket_nshell_pairs);
+        primary_shell_pairs_.resize(ket_nshell_pairs);
 
 #pragma omp parallel for 
         for (size_t pair_index = 0; pair_index < ket_nshell_pairs; pair_index++) {
             const auto& pair = ints_ket_shell_pairs[pair_index];
-            if (!ket_auxiliary_) {
-                ket_shell_pairs_[pair_index] = std::make_shared<ShellPair>(ket_basis_, ket_basis_, pair, mpole_coefs_, cfmm_extent_tol);
-            } else {
-                ket_shell_pairs_[pair_index] = std::make_shared<ShellPair>(ket_basis_, zero, pair, mpole_coefs_, cfmm_extent_tol);
-            }
+            primary_shell_pairs_[pair_index] = std::make_shared<ShellPair>(primary_, primary_, pair, mpole_coefs_, cfmm_extent_tol);
         }
     }
 
@@ -485,12 +463,22 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> bra_basis, std::shared_ptr<BasisSet
     setup_regions();
     setup_local_far_field_task_pairs();
     setup_shellpair_info();
-    calculate_shellpair_multipoles(true);
-    if (!bra_ket_same_) calculate_shellpair_multipoles(false);
+    if (contraction_type_ == ContractionType::DIRECT || contraction_type_ == ContractionType::DF_AUX_PRI) calculate_shellpair_multipoles(true);
+    if (contraction_type_ == ContractionType::METRIC || contraction_type_ == ContractionType::DF_AUX_PRI) calculate_shellpair_multipoles(false);
 
     timer_off("CFMMTree: Setup");
 
     if (print_ >= 2) print_out();
+}
+
+void CFMMTree::df_set_contraction(ContractionType contraction_type) {
+    if (contraction_type_ != ContractionType::DF_PRI_AUX && contraction_type_ != ContractionType::DF_AUX_PRI) {
+        throw PSIEXCEPTION("Cannot reset contraction type on non 3-index DF CFMM Trees");
+    }
+    if (contraction_type == ContractionType::DIRECT || contraction_type == ContractionType::METRIC) {
+        throw PSIEXCEPTION("Cannot reset DF contraction type to Non-DF contraction");
+    }
+    contraction_type_ = contraction_type;
 }
 
 void CFMMTree::sort_leaf_boxes() {
@@ -532,7 +520,7 @@ void CFMMTree::make_root_node() {
     Vector3 origin = Vector3(min_dim, min_dim, min_dim);
     double length = (max_dim - min_dim);
 
-    tree_[0] = std::make_shared<CFMMBox>(nullptr, bra_shell_pairs_, ket_shell_pairs_, origin, length, 0, lmax_, 2);
+    tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, auxiliary_shell_pairs_, origin, length, 0, lmax_, 2);
 }
 
 void CFMMTree::make_children() {
@@ -590,48 +578,48 @@ void CFMMTree::setup_regions() {
 
 void CFMMTree::setup_shellpair_info() {
 
-    int bra_task_index = 0;
-    int ket_task_index = 0;
+    int primary_task_index = 0;
+    int auxiliary_task_index = 0;
     for (int i = 0; i < sorted_leaf_boxes_.size(); i++) {
         std::shared_ptr<CFMMBox> curr = sorted_leaf_boxes_[i];
-        auto& bra_shellpairs = curr->get_bra_shell_pairs();
-        auto& ket_shellpairs = curr->get_ket_shell_pairs();
+        auto& primary_shellpairs = curr->get_primary_shell_pairs();
+        auto& auxiliary_shellpairs = curr->get_auxiliary_shell_pairs();
         auto& nf_boxes = curr->near_field_boxes();
 
-        for (auto& bra_sp : bra_shellpairs) {
-            auto PQ = bra_sp->get_shell_pair_index();
+        for (auto& primary_sp : primary_shellpairs) {
+            auto PQ = primary_sp->get_shell_pair_index();
             int P = PQ.first;
             int Q = PQ.second;
 
-            bra_shellpair_tasks_.emplace_back(P, Q);
-            bra_shellpair_list_.push_back(bra_sp);
-            bra_shellpair_to_box_.push_back(curr);
-            bra_shellpair_to_nf_boxes_.push_back({});
+            primary_shellpair_tasks_.emplace_back(P, Q);
+            primary_shellpair_list_.push_back(primary_sp);
+            primary_shellpair_to_box_.push_back(curr);
+            primary_shellpair_to_nf_boxes_.push_back({});
 
             for (int nfi = 0; nfi < nf_boxes.size(); nfi++) {
                 std::shared_ptr<CFMMBox> neighbor = nf_boxes[nfi];
                 if (neighbor->nshell_pair() == 0) continue;
-                bra_shellpair_to_nf_boxes_[bra_task_index].push_back(neighbor);
+                primary_shellpair_to_nf_boxes_[primary_task_index].push_back(neighbor);
             }
-            bra_task_index += 1;
+            primary_task_index += 1;
         }
 
-        for (auto& ket_sp : ket_shellpairs) {
-            auto RS = ket_sp->get_shell_pair_index();
+        for (auto& auxiliary_sp : auxiliary_shellpairs) {
+            auto RS = auxiliary_sp->get_shell_pair_index();
             int R = RS.first;
             int S = RS.second;
 
-            ket_shellpair_tasks_.emplace_back(R, S);
-            ket_shellpair_list_.push_back(ket_sp);
-            ket_shellpair_to_box_.push_back(curr);
-            ket_shellpair_to_nf_boxes_.push_back({});
+            auxiliary_shellpair_tasks_.emplace_back(R, S);
+            auxiliary_shellpair_list_.push_back(auxiliary_sp);
+            auxiliary_shellpair_to_box_.push_back(curr);
+            auxiliary_shellpair_to_nf_boxes_.push_back({});
 
             for (int nfi = 0; nfi < nf_boxes.size(); nfi++) {
                 std::shared_ptr<CFMMBox> neighbor = nf_boxes[nfi];
                 if (neighbor->nshell_pair() == 0) continue;
-                ket_shellpair_to_nf_boxes_[ket_task_index].push_back(neighbor);
+                auxiliary_shellpair_to_nf_boxes_[auxiliary_task_index].push_back(neighbor);
             }
-            ket_task_index += 1;
+            auxiliary_task_index += 1;
         }
     }
 
@@ -687,7 +675,7 @@ void CFMMTree::setup_local_far_field_task_pairs() {
     }
 }
 
-void CFMMTree::calculate_shellpair_multipoles(bool is_bra) {
+void CFMMTree::calculate_shellpair_multipoles(bool is_primary) {
 
     timer_on("CFMMTree: Shell-Pair Multipole Ints");
 
@@ -697,20 +685,11 @@ void CFMMTree::calculate_shellpair_multipoles(bool is_bra) {
 
     std::shared_ptr<IntegralFactory> int_factory;
 
-    if (is_bra) {
-        if (!bra_auxiliary_) {
-            int_factory = std::make_shared<IntegralFactory>(bra_basis_);
-        } else {
-            auto zero = BasisSet::zero_ao_basis_set();
-            int_factory = std::make_shared<IntegralFactory>(bra_basis_, zero, bra_basis_, zero);
-        }
+    if (is_primary) {
+        int_factory = std::make_shared<IntegralFactory>(primary_);
     } else {
-        if (!ket_auxiliary_) {
-            int_factory = std::make_shared<IntegralFactory>(ket_basis_);
-        } else {
-            auto zero = BasisSet::zero_ao_basis_set();
-            int_factory = std::make_shared<IntegralFactory>(ket_basis_, zero, ket_basis_, zero);
-        }
+        auto zero = BasisSet::zero_ao_basis_set();
+        int_factory = std::make_shared<IntegralFactory>(auxiliary_, zero, auxiliary_, zero);
     }
 
     for (int thread = 0; thread < nthread_; thread++) {
@@ -718,9 +697,9 @@ void CFMMTree::calculate_shellpair_multipoles(bool is_bra) {
         mpints.push_back(std::shared_ptr<OneBodyAOInt>(int_factory->ao_multipoles(lmax_)));
     }
 
-    std::vector<std::pair<int, int>>& shellpair_tasks = (is_bra) ? bra_shellpair_tasks_ : ket_shellpair_tasks_;
-    std::vector<std::shared_ptr<ShellPair>>& shellpair_list = (is_bra) ? bra_shellpair_list_ : ket_shellpair_list_;
-    std::vector<std::shared_ptr<CFMMBox>>& shellpair_to_box = (is_bra) ? bra_shellpair_to_box_ : ket_shellpair_to_box_;
+    std::vector<std::pair<int, int>>& shellpair_tasks = (is_primary) ? primary_shellpair_tasks_ : auxiliary_shellpair_tasks_;
+    std::vector<std::shared_ptr<ShellPair>>& shellpair_list = (is_primary) ? primary_shellpair_list_ : auxiliary_shellpair_list_;
+    std::vector<std::shared_ptr<CFMMBox>>& shellpair_to_box = (is_primary) ? primary_shellpair_to_box_ : auxiliary_shellpair_to_box_;
 
 #pragma omp parallel for schedule(guided)
     for (int task = 0; task < shellpair_tasks.size(); task++) {
@@ -743,18 +722,13 @@ void CFMMTree::calculate_shellpair_multipoles(bool is_bra) {
 void CFMMTree::calculate_multipoles(const std::vector<SharedMatrix>& D) {
     timer_on("CFMMTree: Box Multipoles");
 
-    bool is_bra = false;
-    if (bra_ket_same_ || flip_bra_ket_) is_bra = true;
-    bool is_aux = (is_bra) ? bra_auxiliary_ : ket_auxiliary_;
-
-    std::shared_ptr<BasisSet> ref_basis = (is_bra) ? bra_basis_ : ket_basis_;
-
     // Compute mpoles for leaf nodes
 #pragma omp parallel
     {
 #pragma omp for
         for (int bi = 0; bi < sorted_leaf_boxes_.size(); bi++) {
-            sorted_leaf_boxes_[bi]->compute_multipoles(ref_basis, D, is_bra, is_aux);
+            auto& box = sorted_leaf_boxes_[bi];
+            sorted_leaf_boxes_[bi]->compute_multipoles(D, contraction_type_);
         }
 
         // Calculate mpoles for higher level boxes
@@ -770,6 +744,7 @@ void CFMMTree::calculate_multipoles(const std::vector<SharedMatrix>& D) {
 
 #pragma omp for
             for (int bi = start; bi < end; bi++) {
+                auto& box = tree_[bi];
                 if (tree_[bi]->nshell_pair() == 0) continue;
                 tree_[bi]->compute_mpoles_from_children();
             }
@@ -817,10 +792,10 @@ void CFMMTree::compute_far_field() {
 
 void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
                           const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
-    if (contraction_type_ == DIRECT) build_nf_direct_J(ints, D, J);
-    else if (contraction_type_ == DF && !flip_bra_ket_) build_nf_gamma_P(ints, D, J);
-    else if (contraction_type_ == DF && flip_bra_ket_) build_nf_df_J(ints, D, J);
-    else if (contraction_type_ == METRIC) build_nf_metric(ints, D, J);
+    if (contraction_type_ == ContractionType::DIRECT) build_nf_direct_J(ints, D, J);
+    else if (contraction_type_ == ContractionType::DF_AUX_PRI) build_nf_gamma_P(ints, D, J);
+    else if (contraction_type_ == ContractionType::DF_PRI_AUX) build_nf_df_J(ints, D, J);
+    else if (contraction_type_ == ContractionType::METRIC) build_nf_metric(ints, D, J);
 }
 
 void CFMMTree::build_nf_direct_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
@@ -828,7 +803,7 @@ void CFMMTree::build_nf_direct_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
 
     timer_on("CFMMTree: Near Field Direct J");
 
-    int nshell = bra_basis_->nshell();
+    int nshell = primary_->nshell();
     int natom = molecule_->natom();
 
     // Maximum space (r_nbf * s_nbf) to allocate per task
@@ -841,15 +816,15 @@ void CFMMTree::build_nf_direct_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
     int end = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
 
     for (int bi = start; bi < end; bi++) {
-        auto& RSshells = tree_[bi]->get_bra_shell_pairs();
+        auto& RSshells = tree_[bi]->get_primary_shell_pairs();
         int RSoff = 0;
         for (int RSind = 0; RSind < RSshells.size(); RSind++) {
             std::pair<int, int> RS = RSshells[RSind]->get_shell_pair_index();
             int R = RS.first;
             int S = RS.second;
             offsets[R * nshell + S] = RSoff;
-            int Rfunc = bra_basis_->shell(R).nfunction();
-            int Sfunc = bra_basis_->shell(S).nfunction();
+            int Rfunc = primary_->shell(R).nfunction();
+            int Sfunc = primary_->shell(S).nfunction();
             RSoff += Rfunc * Sfunc;
         }
         max_alloc = std::max((size_t) RSoff, max_alloc);
@@ -870,12 +845,12 @@ void CFMMTree::build_nf_direct_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
     size_t computed_shells = 0L;
 
 #pragma omp parallel for schedule(guided) reduction(+ : computed_shells)
-    for (int task = 0; task < bra_shellpair_tasks_.size(); task++) {
-        int P = bra_shellpair_tasks_[task].first;
-        int Q = bra_shellpair_tasks_[task].second;
+    for (int task = 0; task < primary_shellpair_tasks_.size(); task++) {
+        int P = primary_shellpair_tasks_[task].first;
+        int Q = primary_shellpair_tasks_[task].second;
 
-        const GaussianShell& Pshell = bra_basis_->shell(P);
-        const GaussianShell& Qshell = bra_basis_->shell(Q);
+        const GaussianShell& Pshell = primary_->shell(P);
+        const GaussianShell& Qshell = primary_->shell(Q);
 
         int p_start = Pshell.start();
         int num_p = Pshell.nfunction();
@@ -888,8 +863,8 @@ void CFMMTree::build_nf_direct_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
         thread = omp_get_thread_num();
 #endif
         
-        for (const auto& nf_box : bra_shellpair_to_nf_boxes_[task]) {
-            auto& RSshells = nf_box->get_bra_shell_pairs();
+        for (const auto& nf_box : primary_shellpair_to_nf_boxes_[task]) {
+            auto& RSshells = nf_box->get_primary_shell_pairs();
 
             bool touched = false;
             for (const auto& RSsh : RSshells) {
@@ -903,8 +878,8 @@ void CFMMTree::build_nf_direct_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                 if (ints[thread]->compute_shell(P, Q, R, S) == 0) continue;
                 computed_shells++;
 
-                const GaussianShell& Rshell = bra_basis_->shell(R);
-                const GaussianShell& Sshell = bra_basis_->shell(S);
+                const GaussianShell& Rshell = primary_->shell(R);
+                const GaussianShell& Sshell = primary_->shell(S);
 
                 int r_start = Rshell.start();
                 int num_r = Rshell.nfunction();
@@ -987,8 +962,8 @@ void CFMMTree::build_nf_direct_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
 
                     int RSoff = offsets[R * nshell + S];
                 
-                    const GaussianShell& Rshell = bra_basis_->shell(R);
-                    const GaussianShell& Sshell = bra_basis_->shell(S);
+                    const GaussianShell& Rshell = primary_->shell(R);
+                    const GaussianShell& Sshell = primary_->shell(S);
                 
                     int r_start = Rshell.start();
                     int num_r = Rshell.nfunction();
@@ -1028,19 +1003,16 @@ void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
     timer_on("DF CFMM: Near Field Gamma P");
 
-    auto& primary = ket_basis_;
-    auto& auxiliary = bra_basis_;
-
     // => Sizing <= //
-    int pri_nshell = primary->nshell();
-    int aux_nshell = auxiliary->nshell();
+    int pri_nshell = primary_->nshell();
+    int aux_nshell = auxiliary_->nshell();
     int nmat = D.size();
 
 #pragma omp parallel for num_threads(nthread_) schedule(guided)
-    for (int task = 0; task < bra_shellpair_tasks_.size(); task++) {
+    for (int task = 0; task < auxiliary_shellpair_tasks_.size(); task++) {
 
-        int P = bra_shellpair_tasks_[task].first;
-        const GaussianShell& Pshell = auxiliary->shell(P);
+        int P = auxiliary_shellpair_tasks_[task].first;
+        const GaussianShell& Pshell = auxiliary_->shell(P);
 
         int p_start = Pshell.start();
         int num_p = Pshell.nfunction();
@@ -1050,19 +1022,19 @@ void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
         thread = omp_get_thread_num();
 #endif
 
-        for (const auto& nf_box : bra_shellpair_to_nf_boxes_[task]) {
-            auto& UVshells = nf_box->get_ket_shell_pairs();
+        for (const auto& nf_box : auxiliary_shellpair_to_nf_boxes_[task]) {
+            auto& UVshells = nf_box->get_primary_shell_pairs();
 
             for (const auto& UVsh : UVshells) {
                 auto UV = UVsh->get_shell_pair_index();
                 int U = UV.first;
                 int V = UV.second;
 
-                int u_start = primary->shell(U).start();
-                int num_u = primary->shell(U).nfunction();
+                int u_start = primary_->shell(U).start();
+                int num_u = primary_->shell(U).nfunction();
 
-                int v_start = primary->shell(V).start();
-                int num_v = primary->shell(V).nfunction();
+                int v_start = primary_->shell(V).start();
+                int num_v = primary_->shell(V).nfunction();
 
                 ints[thread]->compute_shell(P, 0, U, V);
                 const double* buffer = ints[thread]->buffer();
@@ -1112,19 +1084,16 @@ void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
     timer_on("DF CFMM: Near Field J");
 
-    auto& primary = ket_basis_;
-    auto& auxiliary = bra_basis_;
-
     // => Sizing <= //
 
-    int pri_nshell = primary->nshell();
-    int aux_nshell = auxiliary->nshell();
-    int nbf = primary->nbf();
+    int pri_nshell = primary_->nshell();
+    int aux_nshell = auxiliary_->nshell();
+    int nbf = primary_->nbf();
     int nmat = D.size();
 
     int max_nbf_per_shell = 0;
     for (int P = 0; P < pri_nshell; P++) {
-        max_nbf_per_shell = std::max(max_nbf_per_shell, primary->shell(P).nfunction());
+        max_nbf_per_shell = std::max(max_nbf_per_shell, primary_->shell(P).nfunction());
     }
 
     // => J buffers (to satisfy DGEMM)
@@ -1140,13 +1109,13 @@ void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     }
 
 #pragma omp parallel for schedule(guided)
-    for (int task = 0; task < ket_shellpair_tasks_.size(); task++) {
+    for (int task = 0; task < primary_shellpair_tasks_.size(); task++) {
 
-        int U = ket_shellpair_tasks_[task].first;
-        int V = ket_shellpair_tasks_[task].second;
+        int U = primary_shellpair_tasks_[task].first;
+        int V = primary_shellpair_tasks_[task].second;
 
-        const GaussianShell& Ushell = primary->shell(U);
-        const GaussianShell& Vshell = primary->shell(V);
+        const GaussianShell& Ushell = primary_->shell(U);
+        const GaussianShell& Vshell = primary_->shell(V);
 
         int u_start = Ushell.start();
         int num_u = Ushell.nfunction();
@@ -1162,15 +1131,15 @@ void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
         double prefactor = 2.0;
         if (U == V) prefactor *= 0.5;
 
-        for (const auto& nf_box : ket_shellpair_to_nf_boxes_[task]) {
-            auto& Qshells = nf_box->get_bra_shell_pairs();
+        for (const auto& nf_box : primary_shellpair_to_nf_boxes_[task]) {
+            auto& Qshells = nf_box->get_auxiliary_shell_pairs();
 
             for (const auto& Qsh : Qshells) {
 
                 int Q = Qsh->get_shell_pair_index().first;
 
-                int q_start = auxiliary->shell(Q).start();
-                int num_q = auxiliary->shell(Q).nfunction();
+                int q_start = auxiliary_->shell(Q).start();
+                int num_q = auxiliary_->shell(Q).nfunction();
 
                 ints[thread]->compute_shell(Q, 0, U, V);
 
@@ -1230,46 +1199,28 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 
     timer_on("CFMMTree: Far Field J");
 
-    std::shared_ptr<BasisSet> ref_basis;
-    bool is_ket;
-    bool is_aux;
-    int nbf;
-    if (contraction_type_ == DIRECT) {
-        is_ket = false;
-        is_aux = false;
-        ref_basis = bra_basis_;
-        nbf = ref_basis->nbf();
-    } else if (contraction_type_ == DF) {
-        if (flip_bra_ket_) {
-            is_ket = true;
-            is_aux = false;
-            ref_basis = ket_basis_;
-            nbf = ref_basis->nbf();
-        } else {
-            is_ket = false;
-            is_aux = true;
-            ref_basis = bra_basis_;
-            nbf = 1;
-        }
-    }
+    bool is_primary = (contraction_type_ == ContractionType::DF_PRI_AUX || contraction_type_ == ContractionType::DIRECT);
+    int nbf = (is_primary) ? primary_->nbf() : 1;
 
-    const auto& shellpair_tasks = (is_ket) ? ket_shellpair_tasks_ : bra_shellpair_tasks_;
-    const auto& shellpair_list = (is_ket) ? ket_shellpair_list_ : bra_shellpair_list_;
-    const auto& shellpair_to_box = (is_ket) ? ket_shellpair_to_box_ : bra_shellpair_to_box_;
+    std::shared_ptr<BasisSet>& ref_basis = (is_primary) ? primary_ : auxiliary_;
+    const auto& shellpair_tasks = (is_primary) ? primary_shellpair_tasks_ : auxiliary_shellpair_tasks_;
+    const auto& shellpair_list = (is_primary) ? primary_shellpair_list_ : auxiliary_shellpair_list_;
+    const auto& shellpair_to_box = (is_primary) ? primary_shellpair_to_box_ : auxiliary_shellpair_to_box_;
 
 #pragma omp parallel for schedule(guided)
     for (int task = 0; task < shellpair_tasks.size(); task++) {
         const auto& shellpair = shellpair_list[task];
-        const auto& Vff = shellpair_to_box[task]->far_field_vector();
+        const auto& box = shellpair_to_box[task];
+        const auto& Vff = box->far_field_vector();
         const auto& shellpair_mpoles = shellpair->get_mpoles();
 
         int P = shellpair_tasks[task].first;
         int Q = shellpair_tasks[task].second;
 
-        double prefactor = (is_aux || P == Q) ? 1.0 : 2.0;
+        double prefactor = (!is_primary || P == Q) ? 1.0 : 2.0;
 
-        const GaussianShell& Pshell = ref_basis->shell(P);
-        const GaussianShell& Qshell = ref_basis->shell(Q);
+        const GaussianShell& Pshell = shellpair->bs1()->shell(P);
+        const GaussianShell& Qshell = shellpair->bs2()->shell(Q);
 
         int p_start = Pshell.start();
         int num_p = Pshell.nfunction();
@@ -1320,7 +1271,7 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     build_ff_J(J);
 
     // Hermitivitize J matrix afterwards
-    if (contraction_type_ == DIRECT || (contraction_type_ == DF && flip_bra_ket_)) {
+    if (contraction_type_ == ContractionType::DIRECT || (contraction_type_ == ContractionType::DF_PRI_AUX)) {
         for (int ind = 0; ind < D.size(); ind++) {
             J[ind]->hermitivitize();
         }
@@ -1332,7 +1283,7 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 void CFMMTree::print_out() {
     for (int bi = 0; bi < tree_.size(); bi++) {
         std::shared_ptr<CFMMBox> box = tree_[bi];
-        auto sp = box->get_bra_shell_pairs();
+        auto sp = box->get_primary_shell_pairs();
         int nshells = sp.size();
         int level = box->get_level();
         int ws = box->get_ws();

@@ -798,7 +798,7 @@ void LinK::build_G_component(const std::vector<SharedMatrix>& D, std::vector<Sha
 }
 
 CFMM::CFMM(std::shared_ptr<BasisSet> primary, Options& options) : SplitJKBase(primary, options) {
-    cfmmtree_ = std::make_shared<CFMMTree>(primary_, primary_, false, false, options_);
+    cfmmtree_ = std::make_shared<CFMMTree>(primary_, nullptr, options_);
     build_ints();
 }
 
@@ -832,7 +832,7 @@ void CFMM::print_header() {
 DFCFMM::DFCFMM(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, 
                Options& options) : DirectDFJ(primary, auxiliary, options) {
 
-    df_cfmm_tree_ = std::make_shared<CFMMTree>(auxiliary_, primary_, true, false, options_);
+    df_cfmm_tree_ = std::make_shared<CFMMTree>(primary_, auxiliary_, options_);
 }
 
 void DFCFMM::build_G_component(const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
@@ -848,7 +848,7 @@ void DFCFMM::build_G_component(const std::vector<SharedMatrix>& D, std::vector<S
     }
 
     // Build gammaP = (P|uv)Duv
-    df_cfmm_tree_->set_flip_bra_ket(false);
+    df_cfmm_tree_->df_set_contraction(ContractionType::DF_AUX_PRI);
     df_cfmm_tree_->build_J(ints_, D, gamma);
 
     // Solve for gammaQ => (P|Q)*gammaQ = gammaP
@@ -860,7 +860,7 @@ void DFCFMM::build_G_component(const std::vector<SharedMatrix>& D, std::vector<S
     }
 
     // Build Juv = (uv|Q) * gammaQ
-    df_cfmm_tree_->set_flip_bra_ket(true);
+    df_cfmm_tree_->df_set_contraction(ContractionType::DF_PRI_AUX);
     df_cfmm_tree_->build_J(ints_, gamma, J);
 
     timer_off("DFCFMM: J");

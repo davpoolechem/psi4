@@ -52,11 +52,11 @@ namespace psi {
 
 class Options;
 
-enum ContractionType {
+enum class ContractionType {
     DIRECT,
-    DF,
-    METRIC,
-    GENERAL
+    DF_AUX_PRI,
+    DF_PRI_AUX,
+    METRIC
 };
 
 class PSI_API ShellPair {
@@ -94,6 +94,10 @@ class PSI_API ShellPair {
       double get_extent() { return extent_; }
       // Returns the multipole moments of the shell pairs about a center
       std::vector<std::shared_ptr<RealSolidHarmonics>>& get_mpoles() { return mpoles_; }
+      // Returns bs1 of shell pair
+      std::shared_ptr<BasisSet> bs1() { return bs1_; }
+      // Returns bs2 of shell pair
+      std::shared_ptr<BasisSet> bs2() { return bs2_; }
 };
 
 class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
@@ -104,12 +108,10 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       // Children of the CFMMBox
       std::vector<std::shared_ptr<CFMMBox>> children_;
 
-      // The bra shell pairs belonging to this box
-      std::vector<std::shared_ptr<ShellPair>> bra_shell_pairs_;
-      // The ket shell pairs belonging to this box (empty if bra and ket the same)
-      std::vector<std::shared_ptr<ShellPair>> ket_shell_pairs_;
-      // Whether or not the bra and ket shells are the same
-      bool bra_ket_same_;
+      // The primary shell pairs belonging to this box (empty if none)
+      std::vector<std::shared_ptr<ShellPair>> primary_shell_pairs_;
+      // The auxiliary shell pairs belonging to this box (empty if none)
+      std::vector<std::shared_ptr<ShellPair>> auxiliary_shell_pairs_;
 
       // The box's origin (lower-left-front corner)
       Vector3 origin_;
@@ -144,12 +146,9 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       std::shared_ptr<CFMMBox> get() { return shared_from_this(); }
       
     public:
-      // Generic Constructor
-      // CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<ShellPair>> shell_pairs, 
-      //         Vector3 origin, double length, int level, int lmax, int ws);
-
-      CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<ShellPair>> bra_shell_pairs,
-                std::vector<std::shared_ptr<ShellPair>> ket_shell_pairs, Vector3 origin, double length,
+      /// CFMMBox Constructor
+      CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<ShellPair>> primary_shell_pairs,
+                std::vector<std::shared_ptr<ShellPair>> auxiliary_shell_pairs, Vector3 origin, double length,
                 int level, int lmax, int ws);
 
       // Make children for this multipole box
@@ -157,8 +156,8 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       // Sets the near field and local far field regions of the box
       void set_regions();
 
-      // Compute multipoles for the box are contracted with the density matrix (with bra or ket basis)
-      void compute_multipoles(std::shared_ptr<BasisSet>& ref_basis, const std::vector<SharedMatrix>& D, bool is_bra, bool is_aux);
+      // Compute multipoles for the box are contracted with the density matrix (depending on contraction type)
+      void compute_multipoles(const std::vector<SharedMatrix>& D, ContractionType contraction_type);
 
       // Compute multipoles from children
       void compute_mpoles_from_children();
@@ -185,21 +184,23 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       // Get the children of the box
       std::vector<std::shared_ptr<CFMMBox>>& get_children() { return children_; }
       // Get the bra shell pairs of the box
-      std::vector<std::shared_ptr<ShellPair>>& get_bra_shell_pairs() { return bra_shell_pairs_; }
+      std::vector<std::shared_ptr<ShellPair>>& get_primary_shell_pairs() { return primary_shell_pairs_; }
       // Get the ket shell pairs of the box
-      std::vector<std::shared_ptr<ShellPair>>& get_ket_shell_pairs() { return ket_shell_pairs_; }
+      std::vector<std::shared_ptr<ShellPair>>& get_auxiliary_shell_pairs() { return auxiliary_shell_pairs_; }
       // Gets the number of shell pairs in the box
-      int nshell_pair() { return bra_shell_pairs_.size() + ket_shell_pairs_.size(); }
+      int nshell_pair() { return primary_shell_pairs_.size() + auxiliary_shell_pairs_.size(); }
       // Gets the number of bra shell pairs in the box
-      int bra_nshell_pair() { return bra_shell_pairs_.size(); }
+      int primary_nshell_pair() { return primary_shell_pairs_.size(); }
       // Gets the number of ket shell pairs in the box
-      int ket_nshell_pair() { return ket_shell_pairs_.size(); }
+      int auxiliary_nshell_pair() { return auxiliary_shell_pairs_.size(); }
       // Get the center of this box
       Vector3 center() { return center_; }
       // Gets the near_field_boxes of the box
       std::vector<std::shared_ptr<CFMMBox>>& near_field_boxes() { return near_field_; }
       // Gets the local far field boxes of the box
       std::vector<std::shared_ptr<CFMMBox>>& local_far_field_boxes() { return local_far_field_; }
+      // Get the multipoles
+      std::vector<std::shared_ptr<RealSolidHarmonics>>& multipoles() { return mpoles_; }
       // Gets the far field vector
       std::vector<std::shared_ptr<RealSolidHarmonics>>& far_field_vector() { return Vff_; }
 
@@ -210,29 +211,16 @@ class PSI_API CFMMTree {
     protected:
       // The molecule that this tree structure references
       std::shared_ptr<Molecule> molecule_;
-      // The basis set that the molecule uses
-      // std::shared_ptr<BasisSet> basisset_;
-      // The basis set that the contractions are built into
-      std::shared_ptr<BasisSet> bra_basis_;
-      // The basis set that is being contracted
-      std::shared_ptr<BasisSet> ket_basis_;
-      // List of all the significant bra shell-pairs in the molecule
-      // std::vector<std::shared_ptr<ShellPair>> shell_pairs_;
-      // List of all the significant bra shell-pairs in the molecule
-      std::vector<std::shared_ptr<ShellPair>> bra_shell_pairs_;
-      // List of all the significant ket shell-pairs in the molecule (empty if bra and ket the same)
-      std::vector<std::shared_ptr<ShellPair>> ket_shell_pairs_;
-      // Whether the bra basis is an auxiliary basis?
-      bool bra_auxiliary_;
-      // Whether the ket basis is an auxiliary basis?
-      bool ket_auxiliary_;
-      // Whether the bra and ket bases are the same?
-      bool bra_ket_same_;
-      // Flip the role of the bra and ket shells in the CFMMTree (used for DF to avoid redundant work)
-      bool flip_bra_ket_;
+      // The primary basis set
+      std::shared_ptr<BasisSet> primary_;
+      // The auxiliary basis set
+      std::shared_ptr<BasisSet> auxiliary_;
+      // List of all the significant primary shell-pairs in the molecule (U_SHELL, V_SHELL), U >= V
+      std::vector<std::shared_ptr<ShellPair>> primary_shell_pairs_;
+      // List of all the significant auxiliary shell-pairs in the molecule (SHELL, 0)
+      std::vector<std::shared_ptr<ShellPair>> auxiliary_shell_pairs_;
       // What type of contraction is being performed? (Inferred by input parameters)
       ContractionType contraction_type_;
-
 
       // Number of Levels in the CFMM Tree
       int nlevels_;
@@ -255,28 +243,25 @@ class PSI_API CFMMTree {
       // Bench flag, defaults to 0
       int bench_;
 
-      // The integral objects used to compute the integrals
-      std::vector<std::shared_ptr<TwoBodyAOInt>> ints_;
+      // List of all the primary shell-pairs to compute
+      std::vector<std::pair<int, int>> primary_shellpair_tasks_;
+      // Index from the primary shell-pair index to the bra shell pair
+      std::vector<std::shared_ptr<ShellPair>> primary_shellpair_list_;
+      // The box each primary shell-pair belongs to
+      std::vector<std::shared_ptr<CFMMBox>> primary_shellpair_to_box_;
+      // List of all the near field boxes that belong to a given primary shell-pair
+      std::vector<std::vector<std::shared_ptr<CFMMBox>>> primary_shellpair_to_nf_boxes_;
 
-      // List of all the bra shell-pairs to compute
-      std::vector<std::pair<int, int>> bra_shellpair_tasks_;
-      // Index from the bra shell-pair index to the bra shell pair
-      std::vector<std::shared_ptr<ShellPair>> bra_shellpair_list_;
-      // The box each bra shell-pair belongs to
-      std::vector<std::shared_ptr<CFMMBox>> bra_shellpair_to_box_;
-      // List of all the near field boxes that belong to a given bra shell-pair
-      std::vector<std::vector<std::shared_ptr<CFMMBox>>> bra_shellpair_to_nf_boxes_;
+      // List of all the auxiliary shell-pairs to compute
+      std::vector<std::pair<int, int>> auxiliary_shellpair_tasks_;
+      // Index from the auxiliary shell-pair index to the bra shell pair
+      std::vector<std::shared_ptr<ShellPair>> auxiliary_shellpair_list_;
+      // The box each auxiliary shell-pair belongs to
+      std::vector<std::shared_ptr<CFMMBox>> auxiliary_shellpair_to_box_;
+      // List of all the near field boxes that belong to a given auxiliary shell-pair
+      std::vector<std::vector<std::shared_ptr<CFMMBox>>> auxiliary_shellpair_to_nf_boxes_;
 
-      // List of all the ket shell-pairs to compute
-      std::vector<std::pair<int, int>> ket_shellpair_tasks_;
-      // Index from the ket shell-pair index to the bra shell pair
-      std::vector<std::shared_ptr<ShellPair>> ket_shellpair_list_;
-      // The box each ket shell-pair belongs to
-      std::vector<std::shared_ptr<CFMMBox>> ket_shellpair_to_box_;
-      // List of all the near field boxes that belong to a given ket shell-pair
-      std::vector<std::vector<std::shared_ptr<CFMMBox>>> ket_shellpair_to_nf_boxes_;
-
-      // local far-field box pairs at a given level of the tree (Bra/Ket Invariant)
+      // local far-field box pairs at a given level of the tree
       std::vector<std::vector<std::pair<std::shared_ptr<CFMMBox>, std::shared_ptr<CFMMBox>>>> lff_task_pairs_per_level_;
 
       // Use density-based integral screening?
@@ -298,8 +283,8 @@ class PSI_API CFMMTree {
       void setup_shellpair_info();
       // Set up information on local far field task pairs per level
       void setup_local_far_field_task_pairs();
-      // Calculate the shell-pair multipoles at each leaf box (bra or ket)
-      void calculate_shellpair_multipoles(bool is_bra);
+      // Calculate the shell-pair multipoles at each leaf box (primary or auxiliary)
+      void calculate_shellpair_multipoles(bool is_primary);
 
       // => Functions called ONCE per iteration <= //
 
@@ -332,12 +317,9 @@ class PSI_API CFMMTree {
                              const std::vector<SharedMatrix>& D);
     
     public:
-      // Constructor (automatically sets up the tree)
-      // CFMMTree(std::shared_ptr<BasisSet> basis, Options& options);
-      // Builds generalized contractions of the form (B|K)*D_K in O(N) time
-      // Multipoles and are computed for both bases, far-fields are only computed for the K basis
-      CFMMTree(std::shared_ptr<BasisSet> bra_basis, std::shared_ptr<BasisSet> ket_basis, 
-               bool bra_auxiliary, bool ket_auxiliary, Options& options);
+      /// Constructor (automatically sets up the tree)
+      /// Pass in null pointer if no primary or auxiliary
+      CFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
 
       // Build the J matrix of CFMMTree
       void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
@@ -346,8 +328,8 @@ class PSI_API CFMMTree {
       int nlevels() { return nlevels_; }
       // Returns the max multipole AM
       int lmax() { return lmax_; }
-      // Flip the role of the bra and ket bases
-      void set_flip_bra_ket(bool flip_bra_ket) { flip_bra_ket_ = flip_bra_ket; }
+      // Flip the contraction type (for DF integrals)
+      void df_set_contraction(ContractionType contraction_type);
       // Print the CFMM Tree out
       void print_out();
 
