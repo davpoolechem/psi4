@@ -880,7 +880,7 @@ void DFCFMM::print_header() {
 }
 
 LocalDFJ::LocalDFJ(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, 
-               Options& options) : r0_(4.0), r1_(5.0), DirectDFJ(primary, auxiliary, options) {
+               Options& options) : r0_(8.0), r1_(10.0), DirectDFJ(primary, auxiliary, options) {
 
     df_cfmm_tree_ = std::make_shared<CFMMTree>(primary_, auxiliary_, options_);
     molecule_ = primary_->molecule();
@@ -946,26 +946,33 @@ void LocalDFJ::setup_local_regions() {
     }
 
     atom_to_pri_shells_.resize(natom);
-    for (const auto pri_pair : pri_shell_pairs) {
+    for (const auto& pri_pair : pri_shell_pairs) {
         int U = pri_pair.first;
         int V = pri_pair.second;
 
         int Ucenter = primary_->shell(U).ncenter();
         int Vcenter = primary_->shell(V).ncenter();
 
-        atom_to_pri_shells_[Ucenter].push_back(U * pri_nshell + V);
-        atom_to_pri_shells_[Vcenter].push_back(U * pri_nshell + V);       
+        atom_to_pri_shells_[Ucenter].push_back(U * pri_nshell + V);      
     }
 }
 
 void LocalDFJ::build_atomic_inverse() {
     unsigned natom = molecule_->natom();
+    unsigned naux = auxiliary_->nbf();
+    unsigned aux_nshell = auxiliary_->nshell();
 
+    // std::vector<SharedMatrix> Jinv_buffer_;
+
+    // Jinv_buffer_.resize(natom);
     Jinv_X_.resize(natom);
     for (int atom = 0; atom < natom; atom++) {
         int atomic_naux = naux_per_atom_[atom];
         Jinv_X_[atom] = std::make_shared<Matrix>(atomic_naux, atomic_naux);
         Jinv_X_[atom]->zero();
+        // TODO: VERY BAD ERR ERR ERR!!! Fix immediately (N^3 memory sucks)
+        // Jinv_buffer_[atom] = std::make_shared<Matrix>(naux, naux);
+        // Jinv_buffer_[atom]->zero();
     }
 
     double** Jmetp = Jmet_->pointer();
@@ -973,35 +980,67 @@ void LocalDFJ::build_atomic_inverse() {
 #pragma omp parallel for
     for (int atom = 0; atom < natom; atom++) {
         double** JinvXp = Jinv_X_[atom]->pointer();
+        /*
+        double** Jinvbp = Jinv_buffer_[atom]->pointer();
 
+        // Block diagonal
+        for (int K = 0; K < aux_nshell; K++) {
+            int k_start = auxiliary_->shell(K).start();
+            int num_k = auxiliary_->shell(K).nfunction();
+            int Katom = auxiliary_->shell(K).ncenter();
+
+            for (int L = 0; L < aux_nshell; L++) {
+                int l_start = auxiliary_->shell(L).start();
+                int num_l = auxiliary_->shell(L).nfunction();
+                int Latom = auxiliary_->shell(L).ncenter();
+
+                if (Latom != Katom) continue;
+
+                for (int dk = 0; dk < num_k; dk++) {
+                    for (int dl = 0; dl < num_l; dl++) {
+                        Jinvbp[k_start + dk][l_start + dl] += Jmetp[k_start + dk][l_start + dl];
+                    }
+                }
+            }
+        }
+        */
+
+        // Block off-diagonal
         for (int K : atom_to_aux_shells_[atom]) {
             int k_start = auxiliary_->shell(K).start();
             int num_k = auxiliary_->shell(K).nfunction();
             int k_off = atom_aux_shell_function_offset_[atom][K];
             double bump_k = atom_aux_shell_bump_value_[atom][K];
+            int Katom = auxiliary_->shell(K).ncenter();
 
             for (int L : atom_to_aux_shells_[atom]) {
                 int l_start = auxiliary_->shell(L).start();
                 int num_l = auxiliary_->shell(L).nfunction();
                 int l_off = atom_aux_shell_function_offset_[atom][L];
                 double bump_l = atom_aux_shell_bump_value_[atom][L];
+                int Latom = auxiliary_->shell(L).ncenter();
+
+                // if (Katom == Latom) continue;
+                double prefactor = (Katom == Latom) ? 1.0 : bump_k * bump_l;
 
                 for (int dk = 0; dk < num_k; dk++) {
                     for (int dl = 0; dl < num_l; dl++) {
-                        JinvXp[k_off + dk][l_off + dl] += bump_l * bump_k * Jmetp[l_start + dl][k_start + dk];
+#pragma omp atomic
+                        JinvXp[k_off + dk][l_off + dl] += prefactor * Jmetp[k_start + dk][l_start + dl];
                     }
                 }
             }
         }
     }
 
-    // Avoid nested parallelism
+    // Avoid nested parallelism (O(N) inversion with a smart inverter)
     for (int atom = 0; atom < natom; atom++) {
         Jinv_X_[atom]->power(-1.0);
     }
 
 #pragma omp parallel for
     for (int atom = 0; atom < natom; atom++) {
+        // double** Jinvbp = Jinv_buffer_[atom]->pointer();
         double** JinvXp = Jinv_X_[atom]->pointer();
 
         for (int K : atom_to_aux_shells_[atom]) {
@@ -1018,7 +1057,8 @@ void LocalDFJ::build_atomic_inverse() {
 
                 for (int dk = 0; dk < num_k; dk++) {
                     for (int dl = 0; dl < num_l; dl++) {
-                        JinvXp[k_off + dk][l_off + dl] *= bump_l * bump_k;
+#pragma omp atomic
+                        JinvXp[k_off + dk][l_off + dl] *= (bump_l * bump_k);
                     }
                 }
             }
@@ -1075,6 +1115,7 @@ void LocalDFJ::build_rho_a_L(const std::vector<SharedMatrix>& D) {
                     for (int dl = 0; dl < num_l; dl++) {
                         for (int du = 0; du < num_u; du++) {
                             for (int dv = 0; dv < num_v; dv++) {
+#pragma omp atomic
                                 raLp[l_off + dl] += prefactor * (*Luv) * Dp[u_start + du][v_start + dv];
                                 (Luv)++;
                             }
@@ -1229,15 +1270,15 @@ void LocalDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vector
     build_J_L(D);
     build_I_KX();
 
-    rho_tilde_K_[0]->print_out();
-    J_tilde_L_[0]->print_out();
-    J_L_[0]->print_out();
+    // rho_tilde_K_[0]->print_out();
+    // J_tilde_L_[0]->print_out();
+    // J_L_[0]->print_out();
 
     // Contraction in Equation 23
     df_cfmm_tree_->df_set_contraction(ContractionType::DF_PRI_AUX);
     df_cfmm_tree_->build_J(ints_, rho_tilde_K_, J);
 
-    J[0]->print_out();
+    // J[0]->print_out();
 
     // Contraction in Equation 25
 #pragma omp parallel for
@@ -1291,7 +1332,7 @@ void LocalDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vector
         Jmat->hermitivitize();
     }
 
-    J[0]->print_out();
+    // J[0]->print_out();
 
     timer_off("LocalDFJ: J");
 
