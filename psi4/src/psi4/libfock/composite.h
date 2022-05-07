@@ -229,8 +229,8 @@ class LocalDFJ : public DirectDFJ {
    std::vector<std::vector<int>> atom_to_pri_shells_;
    /// Bump matrix for atom X [Expressed as a list of block diagonal matrices for each atom] (Equations 15-17)
    std::vector<std::vector<SharedMatrix>> B_X_;
-   /// Localized metric inverse for atom X (Equation 17 in Sodt 2006)
-   std::vector<SharedMatrix> Jinv_X_;
+   /// Localized metric for atom X (Equation 17 in Sodt 2006)
+   std::vector<SharedMatrix> J_X_;
 
    /// Setup atom_to_aux_shells_ and atom_to_pri_shells_
    void setup_local_regions();
