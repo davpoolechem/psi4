@@ -1075,6 +1075,30 @@ void LocalDFJ::build_rho_a_L(const std::vector<SharedMatrix>& D) {
         }
     }
 
+    // maximum values of Density matrix for shell pair block UV
+    // TODO: Integrate this more smoothly into current density screening framework
+    Matrix D_max(pri_nshell, pri_nshell);
+    auto D_maxp = D_max.pointer();
+
+    for(size_t U = 0; U < pri_nshell; U++) {
+        int u_start = primary_->shell_to_basis_function(U);
+        int num_u = primary_->shell(U).nfunction();
+	
+	for(size_t V = 0; V < pri_nshell; V++) {
+            int v_start = primary_->shell_to_basis_function(V);
+            int num_v = primary_->shell(V).nfunction();
+            
+	    for(size_t i = 0; i < D.size(); i++) {
+                auto Dp = D[i]->pointer();
+                for(size_t u = u_start; u < u_start + num_u; u++) {
+                    for(size_t v = v_start; v < v_start + num_v; v++) {
+                        D_maxp[U][V] = std::max(D_maxp[U][V], std::abs(Dp[u][v]));
+                    }
+                }
+            }
+        }
+    }
+ 
 #pragma omp parallel for
     for (int L = 0; L < aux_nshell; L++) {
         int l_start = auxiliary_->shell(L).start();
@@ -1091,6 +1115,9 @@ void LocalDFJ::build_rho_a_L(const std::vector<SharedMatrix>& D) {
             for (const int& UV_a : atom_to_pri_shells_[atom]) {
                 int U = UV_a / pri_nshell;
                 int V = UV_a % pri_nshell;
+
+    		double screen_val = D_maxp[U][V] * D_maxp[U][V] * Jmet_max_[L] * ints_[thread]->shell_pair_value(U,V);
+                if (screen_val < cutoff_*cutoff_) continue;
 
                 double prefactor = (U == V) ? 1.0 : 2.0;
 
