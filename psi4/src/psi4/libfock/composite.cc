@@ -1319,6 +1319,25 @@ void LocalDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vector
 
     // J[0]->print_out();
 
+    // set up I_KX_max for screening purposes
+    SharedMatrix I_KX_max = std::make_shared<Matrix>(natom, aux_nshell);
+    I_KX_max->zero();
+    auto I_KX_maxp = I_KX_max->pointer();
+
+    for(size_t atom = 0; atom < natom; atom++) {
+        for (const auto K : atom_to_aux_shells_[atom]) { 
+            for(size_t i = 0; i < D.size(); i++) {
+                double* IKXp = I_KX_[atom][i]->pointer()[0];
+            	
+		int k_off = atom_aux_shell_function_offset_[atom][K];
+                int num_k = auxiliary_->shell(K).nfunction();
+                for (int k = k_off; k < k_off + num_k; k++) {
+                    I_KX_maxp[atom][K] = std::max(I_KX_maxp[atom][K], std::abs(IKXp[k]));
+                }
+            }
+        }
+    }
+ 
     // Contraction in Equation 25
 #pragma omp parallel for
     for (int K = 0; K < aux_nshell; K++) {
@@ -1336,6 +1355,9 @@ void LocalDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vector
             for (const int& UV_a : atom_to_pri_shells_[atom]) {
                 int U = UV_a / pri_nshell;
                 int V = UV_a % pri_nshell;
+
+    		double screen_val = I_KX_maxp[atom][K] * I_KX_maxp[atom][K] * Jmet_max_[K] * ints_[thread]->shell_pair_value(U,V);
+		if (screen_val < cutoff_*cutoff_) continue;
 
                 int u_start = primary_->shell(U).start();
                 int num_u = primary_->shell(U).nfunction();
