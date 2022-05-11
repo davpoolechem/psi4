@@ -16,6 +16,7 @@
 #include "psi4/libpsi4util/process.h"
 #include "psi4/libpsi4util/PsiOutStream.h"
 
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <tuple>
@@ -1014,6 +1015,9 @@ void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
     // maximum values of Coulomb Metric for each auxuliary shell pair block PP
     std::vector<double> Jmet_max(aux_nshell, 0.0);
     if (density_screening_) {
+	if (Jmet == nullptr) {
+            throw PSIEXCEPTION("CFMMTree::build_nf_gamma_P was called with density screening enabled, but Jmet is NULL. Check your arguments to build_J.");
+	}
         for (size_t P = 0; P < aux_nshell; P++) {
             int p_start = auxiliary_->shell(P).start();
             int num_p = auxiliary_->shell(P).nfunction();
@@ -1154,6 +1158,10 @@ void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     // maximum values of Coulomb Metric for each auxuliary shell pair block PP
     std::vector<double> Jmet_max(aux_nshell, 0.0);
     if (density_screening_) {
+	if (Jmet == nullptr) {
+            throw PSIEXCEPTION("CFMMTree::build_nf_df_J was called with density screening enabled, but Jmet is NULL. Check your arguments to build_J.");
+	}
+        
         for (size_t P = 0; P < aux_nshell; P++) {
             int p_start = auxiliary_->shell(P).start();
             int num_p = auxiliary_->shell(P).nfunction();

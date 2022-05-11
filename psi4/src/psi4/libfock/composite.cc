@@ -1193,7 +1193,7 @@ void LocalDFJ::build_J_L(const std::vector<SharedMatrix>& D) {
     }
 
     df_cfmm_tree_->df_set_contraction(ContractionType::DF_AUX_PRI);
-    df_cfmm_tree_->build_J(ints_, D, J_L_);
+    df_cfmm_tree_->build_J(ints_, D, J_L_, Jmet_);
 }
 
 void LocalDFJ::build_I_KX() {
@@ -1283,7 +1283,7 @@ void LocalDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vector
 
     // Contraction in Equation 23
     df_cfmm_tree_->df_set_contraction(ContractionType::DF_PRI_AUX);
-    df_cfmm_tree_->build_J(ints_, rho_tilde_K_, J);
+    df_cfmm_tree_->build_J(ints_, rho_tilde_K_, J, Jmet_);
 
     // J[0]->print_out();
 
