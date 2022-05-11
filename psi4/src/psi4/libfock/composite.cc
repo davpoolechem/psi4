@@ -167,6 +167,10 @@ void DirectDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vecto
 
     timer_on("DirectDFJ: J");
 
+    //for (auto& integral : ints_) {
+    //    integral->update_density(D);
+    //}
+
     // => Zeroing <= //
 
     for (auto& Jmat : J) {
@@ -192,11 +196,45 @@ void DirectDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vecto
         shell_partners[U].push_back(V);
     }
 
+    // maximum values of Coulomb Metric for each shell P
+    std::vector<double> Jmet_max(aux_nshell, 0.0);
+    for (size_t P = 0; P < aux_nshell; P++) {
+        int p_start = auxiliary_->shell_to_basis_function(P);
+        int num_p = auxiliary_->shell(P).nfunction();
+        for (size_t p = p_start; p < p_start + num_p; p++) {
+            Jmet_max[P] = std::max(Jmet_max[P], Jmet_->get(p, p));
+        }
+    }
+
+    // maximum values of Density matrix for shell pair block UV
+    // TODO: Integrate this more smoothly into current density screening framework
+    Matrix D_max(pri_nshell, pri_nshell);
+    auto D_maxp = D_max.pointer();
+
+    for(size_t U = 0; U < pri_nshell; U++) {
+        int u_start = primary_->shell_to_basis_function(U);
+        int num_u = primary_->shell(U).nfunction();
+	
+	for(size_t V = 0; V < pri_nshell; V++) {
+            int v_start = primary_->shell_to_basis_function(V);
+            int num_v = primary_->shell(V).nfunction();
+            
+	    for(size_t i = 0; i < D.size(); i++) {
+                auto Dp = D[i]->pointer();
+                for(size_t u = u_start; u < u_start + num_u; u++) {
+                    for(size_t v = v_start; v < v_start + num_v; v++) {
+                        D_maxp[U][V] = std::max(D_maxp[U][V], std::abs(Dp[u][v]));
+                    }
+                }
+            }
+        }
+    }
+    
     // Weigand 2002 doi: 10.1039/b204199p (Figure 1)
     // The gamma intermediates defined in Figure 1
     // gammaP = (P|uv) * Duv
     // (P|Q) * gammaQ = gammaP
-    SharedMatrix gamma = std::make_shared<Matrix>(nmat, naux);
+    SharedMatrix gamma = std::make_shared<Matrix>(nmat, naux); 
     gamma->zero();
     double* gamp = gamma->pointer()[0];
 
@@ -233,7 +271,10 @@ void DirectDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vecto
 
             int U = UV.first;
             int V = UV.second;
-
+       
+	    double screen_val = D_maxp[U][V] * D_maxp[U][V] * Jmet_max[P] * ints_[thread]->shell_pair_value(U,V);
+	    if (screen_val < cutoff_*cutoff_) continue;
+ 
             int u_start = primary_->shell_to_basis_function(U);
             int num_u = primary_->shell(U).nfunction();
 
@@ -284,6 +325,18 @@ void DirectDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vecto
     std::vector<int> ipiv(naux);
     C_DGESV(naux, nmat, Jmet_copy->pointer()[0], naux, ipiv.data(), gamp, naux);
 
+    // set up gamp_max for screening purposes
+    std::vector<double> gamp_max(aux_nshell, 0.0);
+    for(size_t i = 0; i < D.size(); i++) {
+        for (int P = 0; P < aux_nshell; P++) {
+            int p_start = auxiliary_->shell_to_basis_function(P);
+            int num_p = auxiliary_->shell(P).nfunction();
+            for (int p = p_start; p < p_start + num_p; p++) {
+                gamp_max[P] = std::max(gamp_max[P], std::abs(gamp[i * naux + p]));
+            }
+        }
+    }
+    
 #pragma omp parallel for num_threads(nthread_) schedule(dynamic)
     for (int U = 0; U < pri_nshell; U++) {
 
@@ -304,8 +357,10 @@ void DirectDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vecto
             if (U == V) prefactor *= 0.5;
 
             for (int Q = 0; Q < aux_nshell; Q++) {
-
-                int q_start = auxiliary_->shell_to_basis_function(Q);
+                double screen_val = gamp_max[Q] * gamp_max[Q] * Jmet_max[Q] * ints_[thread]->shell_pair_value(U,V);
+	        if (screen_val < cutoff_*cutoff_) continue;
+                
+		int q_start = auxiliary_->shell_to_basis_function(Q);
                 int num_q = auxiliary_->shell(Q).nfunction();
 
                 ints_[thread]->compute_shell(Q, 0, U, V);
