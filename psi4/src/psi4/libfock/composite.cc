@@ -906,7 +906,7 @@ void DFCFMM::build_G_component(const std::vector<SharedMatrix>& D, std::vector<S
 
     // Build gammaP = (P|uv)Duv
     df_cfmm_tree_->df_set_contraction(ContractionType::DF_AUX_PRI);
-    df_cfmm_tree_->build_J(ints_, D, gamma);
+    df_cfmm_tree_->build_J(ints_, D, gamma, Jmet_);
 
     // Solve for gammaQ => (P|Q)*gammaQ = gammaP
     for (int i = 0; i < D.size(); i++) {
@@ -918,7 +918,7 @@ void DFCFMM::build_G_component(const std::vector<SharedMatrix>& D, std::vector<S
 
     // Build Juv = (uv|Q) * gammaQ
     df_cfmm_tree_->df_set_contraction(ContractionType::DF_PRI_AUX);
-    df_cfmm_tree_->build_J(ints_, gamma, J);
+    df_cfmm_tree_->build_J(ints_, gamma, J, Jmet_);
 
     timer_off("DFCFMM: J");
 }

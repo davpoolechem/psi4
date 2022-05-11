@@ -77,6 +77,7 @@ ShellPair::ShellPair(std::shared_ptr<BasisSet>& bs1, std::shared_ptr<BasisSet>& 
     extent_ = std::sqrt(-2.0 * std::log(cfmm_extent_tol) / exp_);
 
     mpole_coefs_ = mpole_coefs;
+
 }
 
 void ShellPair::calculate_mpoles(Vector3 box_center, std::shared_ptr<OneBodyAOInt>& s_ints, 
@@ -405,7 +406,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> 
     print_ = options_.get_int("PRINT");
     bench_ = options_.get_int("BENCH");
 
-    density_screening_ = (options_.get_str("SCREENING") == "DENSITY" && contraction_type_ == ContractionType::DIRECT);
+    density_screening_ = (options_.get_str("SCREENING") == "DENSITY"); 
     ints_tolerance_ = options_.get_double("INTS_TOLERANCE");
 
     int num_boxes = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
@@ -791,10 +792,11 @@ void CFMMTree::compute_far_field() {
 }
 
 void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                          const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
+                          const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+			  const SharedMatrix Jmet) {
     if (contraction_type_ == ContractionType::DIRECT) build_nf_direct_J(ints, D, J);
-    else if (contraction_type_ == ContractionType::DF_AUX_PRI) build_nf_gamma_P(ints, D, J);
-    else if (contraction_type_ == ContractionType::DF_PRI_AUX) build_nf_df_J(ints, D, J);
+    else if (contraction_type_ == ContractionType::DF_AUX_PRI) build_nf_gamma_P(ints, D, J, Jmet);
+    else if (contraction_type_ == ContractionType::DF_PRI_AUX) build_nf_df_J(ints, D, J, Jmet);
     else if (contraction_type_ == ContractionType::METRIC) build_nf_metric(ints, D, J);
 }
 
@@ -1000,13 +1002,50 @@ void CFMMTree::build_nf_direct_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
 }
 
 void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
-                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
+                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+		      const SharedMatrix Jmet) {
     timer_on("DF CFMM: Near Field Gamma P");
 
     // => Sizing <= //
     int pri_nshell = primary_->nshell();
     int aux_nshell = auxiliary_->nshell();
     int nmat = D.size();
+
+    // maximum values of Coulomb Metric for each auxuliary shell pair block PP
+    std::vector<double> Jmet_max(aux_nshell, 0.0);
+    if (density_screening_) {
+        for (size_t P = 0; P < aux_nshell; P++) {
+            int p_start = auxiliary_->shell(P).start();
+            int num_p = auxiliary_->shell(P).nfunction();
+            for (size_t p = p_start; p < p_start + num_p; p++) {
+                Jmet_max[P] = std::max(Jmet_max[P], Jmet->get(p, p));
+            }
+        }
+    }
+
+    // maximum values of Density matrix for primary shell pair block UV
+    // TODO: Integrate this more smoothly into current density screening framework
+    Matrix D_max(pri_nshell, pri_nshell);
+    auto D_maxp = D_max.pointer();
+
+    for(size_t U = 0; U < pri_nshell; U++) {
+        int u_start = primary_->shell(U).start();
+        int num_u = primary_->shell(U).nfunction();
+
+        for(size_t V = 0; V < pri_nshell; V++) {
+	    int v_start = primary_->shell(V).start();
+            int num_v = primary_->shell(V).nfunction();
+
+            for(size_t i = 0; i < D.size(); i++) {
+                auto Dp = D[i]->pointer();
+                for(size_t u = u_start; u < u_start + num_u; u++) {
+                    for(size_t v = v_start; v < v_start + num_v; v++) {
+                        D_maxp[U][V] = std::max(D_maxp[U][V], std::abs(Dp[u][v]));
+                    }
+                }
+            }
+        }
+    }
 
 #pragma omp parallel for num_threads(nthread_) schedule(guided)
     for (int task = 0; task < auxiliary_shellpair_tasks_.size(); task++) {
@@ -1030,6 +1069,9 @@ void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
                 int U = UV.first;
                 int V = UV.second;
 
+                double screen_val = D_maxp[U][V] * D_maxp[U][V] * Jmet_max[P] * ints[thread]->shell_pair_value(U,V);
+                if (screen_val < ints_tolerance_*ints_tolerance_) continue; 
+	
                 int u_start = primary_->shell(U).start();
                 int num_u = primary_->shell(U).nfunction();
 
@@ -1081,7 +1123,8 @@ void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
 }
       
 void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
-                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
+                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+		      const SharedMatrix Jmet) {
     timer_on("DF CFMM: Near Field J");
 
     // => Sizing <= //
@@ -1106,6 +1149,32 @@ void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
             J2[ind]->zero();
         }
         JT.push_back(J2);
+    }
+
+    // maximum values of Coulomb Metric for each auxuliary shell pair block PP
+    std::vector<double> Jmet_max(aux_nshell, 0.0);
+    if (density_screening_) {
+        for (size_t P = 0; P < aux_nshell; P++) {
+            int p_start = auxiliary_->shell(P).start();
+            int num_p = auxiliary_->shell(P).nfunction();
+            for (size_t p = p_start; p < p_start + num_p; p++) {
+                Jmet_max[P] = std::max(Jmet_max[P], Jmet->get(p, p));
+            
+        
+	    }
+	}
+    }
+
+    // set up D_max for screening purposes
+    std::vector<double> D_max(aux_nshell, 0.0);
+    for(size_t i = 0; i < D.size(); i++) {
+        for (int P = 0; P < aux_nshell; P++) {
+            int p_start = auxiliary_->shell(P).start();
+            int num_p = auxiliary_->shell(P).nfunction();
+            for (int p = p_start; p < p_start + num_p; p++) {
+                D_max[P] = std::max(D_max[P], std::abs(D[i]->get(p,0)));
+            }
+        }
     }
 
 #pragma omp parallel for schedule(guided)
@@ -1138,6 +1207,9 @@ void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 
                 int Q = Qsh->get_shell_pair_index().first;
 
+		double screen_val = D_max[Q] * D_max[Q] * Jmet_max[Q] * ints[thread]->shell_pair_value(U,V);
+                if (screen_val < ints_tolerance_*ints_tolerance_) continue; 
+	
                 int q_start = auxiliary_->shell(Q).start();
                 int num_q = auxiliary_->shell(Q).nfunction();
 
@@ -1246,7 +1318,8 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 }
 
 void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                        const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
+                        const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+			const SharedMatrix Jmet) {
 
     timer_on("CFMMTree: J");
 
@@ -1256,7 +1329,7 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     }
 
     // Update the densities
-    if (density_screening_) {
+    if (density_screening_ && contraction_type_ == ContractionType::DIRECT) {
         for (int thread = 0; thread < nthread_; thread++) {
             ints[thread]->update_density(D);
         }
@@ -1267,7 +1340,7 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     compute_far_field();
 
     // Compute near field J and far field J
-    build_nf_J(ints, D, J);
+    build_nf_J(ints, D, J, Jmet);
     build_ff_J(J);
 
     // Hermitivitize J matrix afterwards
