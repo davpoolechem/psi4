@@ -48,8 +48,12 @@ class DirectDFJ : public SplitJKBase {
    std::shared_ptr<BasisSet> auxiliary_;
    /// The metrix used in the DF algorithm J_PQ = (P|Q)
    SharedMatrix Jmet_;
+   // maximum values of Coulomb Metric for each auxuliary shell pair block PP
+   std::vector<double> Jmet_max_;
    /// Numerical cutoff for ERI screening
    double cutoff_;
+   // Perform Density matrix-based integral screening?
+   bool density_screening_;
 
    /// Form J_PQ
    void build_metric();

@@ -126,6 +126,8 @@ void CompositeJK::compute_JK() {
 DirectDFJ::DirectDFJ(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options)
                         : SplitJKBase(primary, options), auxiliary_(auxiliary) {
     cutoff_ = options_.get_double("INTS_TOLERANCE");
+    density_screening_ = options_.get_str("SCREENING") == "DENSITY";
+    
     build_metric();
     build_ints();
 }
@@ -143,9 +145,22 @@ void DirectDFJ::print_header() {
 void DirectDFJ::build_metric() {
     timer_on("DirectDFJ: Build Metric");
 
+    // build Coulomb metric
     auto metric = std::make_shared<FittingMetric>(auxiliary_, true);
     metric->form_fitting_metric();
     Jmet_ = metric->get_metric();
+
+    // build Coulomb metric maximums vector
+    Jmet_max_= std::vector<double>(auxiliary_->nshell(), 0.0);
+    if (density_screening_) {
+        for (size_t P = 0; P < auxiliary_->nshell(); P++) {
+            int p_start = auxiliary_->shell_to_basis_function(P);
+            int num_p = auxiliary_->shell(P).nfunction();
+            for (size_t p = p_start; p < p_start + num_p; p++) {
+                Jmet_max_[P] = std::max(Jmet_max_[P], Jmet_->get(p, p));
+            }
+        }
+    }
 
     timer_off("DirectDFJ: Build Metric");
 }
@@ -194,16 +209,6 @@ void DirectDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vecto
         int U = pair.first;
         int V = pair.second;
         shell_partners[U].push_back(V);
-    }
-
-    // maximum values of Coulomb Metric for each shell P
-    std::vector<double> Jmet_max(aux_nshell, 0.0);
-    for (size_t P = 0; P < aux_nshell; P++) {
-        int p_start = auxiliary_->shell_to_basis_function(P);
-        int num_p = auxiliary_->shell(P).nfunction();
-        for (size_t p = p_start; p < p_start + num_p; p++) {
-            Jmet_max[P] = std::max(Jmet_max[P], Jmet_->get(p, p));
-        }
     }
 
     // maximum values of Density matrix for shell pair block UV
@@ -272,7 +277,7 @@ void DirectDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vecto
             int U = UV.first;
             int V = UV.second;
        
-	    double screen_val = D_maxp[U][V] * D_maxp[U][V] * Jmet_max[P] * ints_[thread]->shell_pair_value(U,V);
+	    double screen_val = D_maxp[U][V] * D_maxp[U][V] * Jmet_max_[P] * ints_[thread]->shell_pair_value(U,V);
 	    if (screen_val < cutoff_*cutoff_) continue;
  
             int u_start = primary_->shell_to_basis_function(U);
@@ -357,7 +362,7 @@ void DirectDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vecto
             if (U == V) prefactor *= 0.5;
 
             for (int Q = 0; Q < aux_nshell; Q++) {
-                double screen_val = gamp_max[Q] * gamp_max[Q] * Jmet_max[Q] * ints_[thread]->shell_pair_value(U,V);
+                double screen_val = gamp_max[Q] * gamp_max[Q] * Jmet_max_[Q] * ints_[thread]->shell_pair_value(U,V);
 	        if (screen_val < cutoff_*cutoff_) continue;
                 
 		int q_start = auxiliary_->shell_to_basis_function(Q);
@@ -906,7 +911,7 @@ void DFCFMM::build_G_component(const std::vector<SharedMatrix>& D, std::vector<S
 
     // Build gammaP = (P|uv)Duv
     df_cfmm_tree_->df_set_contraction(ContractionType::DF_AUX_PRI);
-    df_cfmm_tree_->build_J(ints_, D, gamma, Jmet_);
+    df_cfmm_tree_->build_J(ints_, D, gamma, Jmet_max_);
 
     // Solve for gammaQ => (P|Q)*gammaQ = gammaP
     for (int i = 0; i < D.size(); i++) {
@@ -918,7 +923,7 @@ void DFCFMM::build_G_component(const std::vector<SharedMatrix>& D, std::vector<S
 
     // Build Juv = (uv|Q) * gammaQ
     df_cfmm_tree_->df_set_contraction(ContractionType::DF_PRI_AUX);
-    df_cfmm_tree_->build_J(ints_, gamma, J, Jmet_);
+    df_cfmm_tree_->build_J(ints_, gamma, J, Jmet_max_);
 
     timer_off("DFCFMM: J");
 }
@@ -1193,7 +1198,7 @@ void LocalDFJ::build_J_L(const std::vector<SharedMatrix>& D) {
     }
 
     df_cfmm_tree_->df_set_contraction(ContractionType::DF_AUX_PRI);
-    df_cfmm_tree_->build_J(ints_, D, J_L_, Jmet_);
+    df_cfmm_tree_->build_J(ints_, D, J_L_, Jmet_max_);
 }
 
 void LocalDFJ::build_I_KX() {
@@ -1283,7 +1288,7 @@ void LocalDFJ::build_G_component(const std::vector<SharedMatrix>& D, std::vector
 
     // Contraction in Equation 23
     df_cfmm_tree_->df_set_contraction(ContractionType::DF_PRI_AUX);
-    df_cfmm_tree_->build_J(ints_, rho_tilde_K_, J, Jmet_);
+    df_cfmm_tree_->build_J(ints_, rho_tilde_K_, J, Jmet_max_);
 
     // J[0]->print_out();
 

@@ -794,10 +794,10 @@ void CFMMTree::compute_far_field() {
 
 void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
                           const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-			  const SharedMatrix Jmet) {
+			  const std::vector<double>& Jmet_max) {
     if (contraction_type_ == ContractionType::DIRECT) build_nf_direct_J(ints, D, J);
-    else if (contraction_type_ == ContractionType::DF_AUX_PRI) build_nf_gamma_P(ints, D, J, Jmet);
-    else if (contraction_type_ == ContractionType::DF_PRI_AUX) build_nf_df_J(ints, D, J, Jmet);
+    else if (contraction_type_ == ContractionType::DF_AUX_PRI) build_nf_gamma_P(ints, D, J, Jmet_max);
+    else if (contraction_type_ == ContractionType::DF_PRI_AUX) build_nf_df_J(ints, D, J, Jmet_max);
     else if (contraction_type_ == ContractionType::METRIC) build_nf_metric(ints, D, J);
 }
 
@@ -1004,7 +1004,7 @@ void CFMMTree::build_nf_direct_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
 
 void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-		      const SharedMatrix Jmet) {
+		      const std::vector<double>& Jmet_max) {
     timer_on("DF CFMM: Near Field Gamma P");
 
     // => Sizing <= //
@@ -1012,19 +1012,9 @@ void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
     int aux_nshell = auxiliary_->nshell();
     int nmat = D.size();
 
-    // maximum values of Coulomb Metric for each auxuliary shell pair block PP
-    std::vector<double> Jmet_max(aux_nshell, 0.0);
-    if (density_screening_) {
-	if (Jmet == nullptr) {
-            throw PSIEXCEPTION("CFMMTree::build_nf_gamma_P was called with density screening enabled, but Jmet is NULL. Check your arguments to build_J.");
-	}
-        for (size_t P = 0; P < aux_nshell; P++) {
-            int p_start = auxiliary_->shell(P).start();
-            int num_p = auxiliary_->shell(P).nfunction();
-            for (size_t p = p_start; p < p_start + num_p; p++) {
-                Jmet_max[P] = std::max(Jmet_max[P], Jmet->get(p, p));
-            }
-        }
+    // check that Jmet_max is not empty is density screening is enabled
+    if (density_screening_ && Jmet_max.empty()) {
+        throw PSIEXCEPTION("CFMMTree::build_nf_gamma_P was called with density screening enabled, but Jmet is NULL. Check your arguments to build_J.");
     }
 
     // maximum values of Density matrix for primary shell pair block UV
@@ -1128,7 +1118,7 @@ void CFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
       
 void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-		      const SharedMatrix Jmet) {
+		      const std::vector<double>& Jmet_max) {
     timer_on("DF CFMM: Near Field J");
 
     // => Sizing <= //
@@ -1155,22 +1145,9 @@ void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
         JT.push_back(J2);
     }
 
-    // maximum values of Coulomb Metric for each auxuliary shell pair block PP
-    std::vector<double> Jmet_max(aux_nshell, 0.0);
-    if (density_screening_) {
-	if (Jmet == nullptr) {
-            throw PSIEXCEPTION("CFMMTree::build_nf_df_J was called with density screening enabled, but Jmet is NULL. Check your arguments to build_J.");
-	}
-        
-        for (size_t P = 0; P < aux_nshell; P++) {
-            int p_start = auxiliary_->shell(P).start();
-            int num_p = auxiliary_->shell(P).nfunction();
-            for (size_t p = p_start; p < p_start + num_p; p++) {
-                Jmet_max[P] = std::max(Jmet_max[P], Jmet->get(p, p));
-            
-        
-	    }
-	}
+    // check that Jmet_max is not empty is density screening is enabled
+    if (density_screening_ && Jmet_max.empty()) {
+        throw PSIEXCEPTION("CFMMTree::build_nf_gamma_P was called with density screening enabled, but Jmet is NULL. Check your arguments to build_J.");
     }
 
     // set up D_max for screening purposes
@@ -1327,7 +1304,7 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 
 void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
                         const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-			const SharedMatrix Jmet) {
+			const std::vector<double>& Jmet_max) {
 
     timer_on("CFMMTree: J");
 
@@ -1348,7 +1325,7 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     compute_far_field();
 
     // Compute near field J and far field J
-    build_nf_J(ints, D, J, Jmet);
+    build_nf_J(ints, D, J, Jmet_max);
     build_ff_J(J);
 
     // Hermitivitize J matrix afterwards

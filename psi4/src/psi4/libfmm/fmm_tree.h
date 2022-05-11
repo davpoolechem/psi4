@@ -298,18 +298,18 @@ class PSI_API CFMMTree {
       // Build near-field J (Gateway function, links to specific J builds based on contraction 
       void build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-		      const SharedMatrix Jmet = nullptr);
+		      const std::vector<double>& Jmet_max);
       // Build near-field J using Direct SCF algorithm (Jpq = (pq|rs)Drs)
       void build_nf_direct_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J);
       // Build gammaP's near field (gammaP = (P|uv)Duv)
       void build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-		      const SharedMatrix Jmet);
+		      const std::vector<double>& Jmet_max);
       // Build density-fitted J's near field (Jpq = (pq|Q)*gammaQ)
       void build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-		      const SharedMatrix Jmet);
+		      const std::vector<double>& Jmet_max);
       // Builds the near field interactions of the Coulomb metric with an auxiliary density
       void build_nf_metric(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J);
@@ -329,7 +329,7 @@ class PSI_API CFMMTree {
       // Build the J matrix of CFMMTree
       void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
                     const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-		    const SharedMatrix Jmet = nullptr);
+		    const std::vector<double>& Jmet_max = {});
       // Returns the max tree depth
       int nlevels() { return nlevels_; }
       // Returns the max multipole AM
