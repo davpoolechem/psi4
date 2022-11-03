@@ -196,12 +196,22 @@ void UHF::form_G() {
     const std::vector<SharedMatrix>& J = jk_->J();
     const std::vector<SharedMatrix>& K = jk_->K();
     const std::vector<SharedMatrix>& wK = jk_->wK();
-    J_->copy(J[0]);
-    J_->add(J[1]);
-    if (functional_->is_x_hybrid()) {
+    
+    if (J.empty()) {
+        J_->zero();
+    } else {
+        J_->copy(J[0]);
+        J_->add(J[1]);
+    }
+
+    if (K.empty()) {
+        Ka_->zero();
+        Kb_->zero();
+    } else if (functional_->is_x_hybrid()) {
         Ka_ = K[0];
         Kb_ = K[1];
     }
+
     if (functional_->is_x_lrc()) {
         wKa_ = wK[0];
         wKb_ = wK[1];
