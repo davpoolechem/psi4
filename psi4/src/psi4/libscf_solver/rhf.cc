@@ -195,8 +195,16 @@ void RHF::form_G() {
     const std::vector<SharedMatrix>& J = jk_->J();
     const std::vector<SharedMatrix>& K = jk_->K();
     const std::vector<SharedMatrix>& wK = jk_->wK();
-    J_ = J[0];
-    if (functional_->is_x_hybrid()) {
+    
+    if (J.empty()) {
+        J_->zero();
+    } else {
+        J_ = J[0];
+    }
+
+    if (K.empty()) {
+        K_->zero();
+    } else if (functional_->is_x_hybrid()) {
         K_ = K[0];
     }
     if (functional_->is_x_lrc()) {
