@@ -207,6 +207,7 @@ void RHF::form_G() {
     } else if (functional_->is_x_hybrid()) {
         K_ = K[0];
     }
+
     if (functional_->is_x_lrc()) {
         wK_ = wK[0];
     }

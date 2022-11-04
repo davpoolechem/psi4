@@ -158,6 +158,7 @@ void CUHF::form_G() {
     // Pull the J and K matrices off
     const std::vector<SharedMatrix>& J = jk_->J();
     const std::vector<SharedMatrix>& K = jk_->K();
+    
     if (J.empty()) {
         J_->zero();
     } else {

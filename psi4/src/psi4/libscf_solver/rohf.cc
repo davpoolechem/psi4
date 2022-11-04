@@ -951,6 +951,7 @@ void ROHF::form_G() {
     // Pull the J and K matrices off
     const std::vector<SharedMatrix>& J = jk_->J();
     const std::vector<SharedMatrix>& K = jk_->K();
+    
     if (!(J.empty())) {
         Ga_->copy(J[0]);
         Ga_->scale(2.0);

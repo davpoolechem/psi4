@@ -216,6 +216,7 @@ void UHF::form_G() {
         wKa_ = wK[0];
         wKb_ = wK[1];
     }
+
     Ga_->add(J_);
     Gb_->add(J_);
 
