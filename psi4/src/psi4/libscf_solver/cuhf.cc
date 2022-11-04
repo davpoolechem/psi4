@@ -158,10 +158,20 @@ void CUHF::form_G() {
     // Pull the J and K matrices off
     const std::vector<SharedMatrix>& J = jk_->J();
     const std::vector<SharedMatrix>& K = jk_->K();
-    J_->copy(J[0]);
-    J_->add(J[1]);
-    Ka_ = K[0];
-    Kb_ = K[1];
+    if (J.empty()) {
+        J_->zero();
+    } else {
+        J_->copy(J[0]);
+        J_->add(J[1]);
+    }
+
+    if (K.empty()) {
+        Ka_->zero();
+        Kb_->zero();
+    } else {
+        Ka_ = K[0];
+        Kb_ = K[1];
+    }
 }
 
 void CUHF::compute_spin_contamination() {
