@@ -1204,6 +1204,10 @@ class PSI_API DFJCOSK : public JK {
     Options& options_;
     /// Previous iteration pseudo-density matrix
     std::vector<SharedMatrix> D_prev_;
+    // D_ref_, the effective pseudo-density matrix is either:
+    //   (1) the regular density: D_eff == D_lr = C_lo x C*ro
+    //   (2) the difference density: D_eff == dD_lr = (C_lo x C_ro)_{iter} - (C_lo x C_ro)_{iter - 1}
+    std::vector<SharedMatrix> D_ref_;
 
     // => Density Fitting Stuff <= //
 
@@ -1238,6 +1242,10 @@ class PSI_API DFJCOSK : public JK {
     void compute_JK() override;
     /// Delete integrals, files, etc
     void postiterations() override;
+    /// Set up Incfock variables per iteration
+    void incfock_setup();
+    /// Post-iteration Incfock processing
+    void incfock_postiter();
 
     /// Build the coulomb (J) matrix
     void build_J(std::vector<std::shared_ptr<Matrix> >& D,
@@ -1326,7 +1334,7 @@ class PSI_API DFJLinK : public JK {
     // Density-based ERI Screening tolerance to use in the LinK algorithm
     double linK_ints_cutoff_;
 
-    std::string name() override { return "DFJCOSK"; }
+    std::string name() override { return "DFJLinK"; }
     size_t memory_estimate() override;
 
     // => Required Algorithm-Specific Methods <= //
