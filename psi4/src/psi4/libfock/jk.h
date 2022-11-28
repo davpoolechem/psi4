@@ -1202,8 +1202,14 @@ class PSI_API DFJCOSK : public JK {
     int nthreads_;
     /// Options object
     Options& options_;
+
+    /// Perform Incremental Fock Build for J and K Matrices? (default false)
+    bool incfock_;
+    bool do_incfock_iter_;
+
     /// Previous iteration pseudo-density matrix
     std::vector<SharedMatrix> D_prev_;
+    
     // D_ref_, the effective pseudo-density matrix is either:
     //   (1) the regular density: D_eff == D_lr = C_lo x C*ro
     //   (2) the difference density: D_eff == dD_lr = (C_lo x C_ro)_{iter} - (C_lo x C_ro)_{iter - 1}
@@ -1273,6 +1279,7 @@ class PSI_API DFJCOSK : public JK {
     ~DFJCOSK() override;
 
     // => Knobs <= //
+    bool do_incfock_iter() { return do_incfock_iter_; }
 
     /**
     * Print header information regarding JK
@@ -1314,7 +1321,9 @@ class PSI_API DFJLinK : public JK {
     /// Previous iteration pseudo-density matrix
     std::vector<SharedMatrix> D_prev_;
 
-    /// Pseudo-density matrix to be used this iteration
+    // D_ref_, the effective pseudo-density matrix is either:
+    //   (1) the regular density: D_eff == D_lr = C_lo x C*ro
+    //   (2) the difference density: D_eff == dD_lr = (C_lo x C_ro)_{iter} - (C_lo x C_ro)_{iter - 1}
     std::vector<SharedMatrix> D_ref_;
 
     // Is the JK currently on a guess iteration

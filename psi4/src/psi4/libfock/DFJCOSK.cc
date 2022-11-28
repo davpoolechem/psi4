@@ -165,6 +165,9 @@ void DFJCOSK::common_init() {
     // and a large grid for the final iterations
     early_screening_ = true;
 
+    // incremental Fock setup
+    incfock_ = options_.get_bool("COSX_INCFOCK");
+    
     // => Direct Density-Fitted Coulomb Setup <= //
 
     // pre-compute coulomb fitting metric
@@ -298,7 +301,7 @@ void DFJCOSK::print_header() const {
         if (do_wK_) outfile->Printf("    Omega:              %11.3E\n", omega_);
         outfile->Printf("    Integrals threads:  %11d\n", nthreads_);
         outfile->Printf("    Memory [MiB]:       %11ld\n", (memory_ *8L) / (1024L * 1024L));
-        outfile->Printf("    Incremental Fock :  %11s\n", (options_.get_bool("COSX_INCFOCK") ? "Yes" : "No"));
+        outfile->Printf("    Incremental Fock :  %11s\n", (incfock_ ? "Yes" : "No"));
         outfile->Printf("    J Screening Type:   %11s\n", screen_type.c_str());
         outfile->Printf("    J Screening Cutoff: %11.0E\n", cutoff_);
         outfile->Printf("    K Screening Cutoff: %11.0E\n", options_.get_double("COSX_INTS_TOLERANCE"));
@@ -311,8 +314,8 @@ void DFJCOSK::print_header() const {
 void DFJCOSK::preiterations() {}
 
 void DFJCOSK::incfock_setup() {
-    if (options_.get_bool("COSX_INCFOCK")) {
-        size_t njk = D_ao_.size();
+    if (do_incfock_iter_) {
+	size_t njk = D_ao_.size();
 
         // If there is no previous pseudo-density, this iteration is normal
         if(D_prev_.size() != njk) {
@@ -331,7 +334,7 @@ void DFJCOSK::incfock_setup() {
 }
 
 void DFJCOSK::incfock_postiter() {
-    if (options_.get_bool("COSX_INCFOCK")) {
+    if (do_incfock_iter_) {
         // Save a copy of the density for the next iteration
         D_prev_.clear();
         for(auto const &Di : D_ao_) {
@@ -344,7 +347,22 @@ void DFJCOSK::compute_JK() {
     // range-separated semi-numerical exchange needs https://github.com/psi4/psi4/pull/2473
     if (do_wK_) throw PSIEXCEPTION("COSK does not support wK integrals yet!");
 
-    // incremental Fock setup, if needed
+    // explicit setup of Incfock for this SCF iteration
+    if (incfock_) {
+        timer_on("DFJCOSK: INCFOCK Preprocessing");
+
+        // always do incfock on this iteration
+	// TODO: Adds bells and whistles from DFJLinK
+        do_incfock_iter_ = incfock_; 
+        
+	incfock_setup();
+        
+	timer_off("DFJCOSK: INCFOCK Preprocessing");
+    } else {
+	D_ref_ = D_ao_;
+        zero();
+    }
+ 
     incfock_setup();
     
     // Direct DF-J
@@ -361,8 +379,12 @@ void DFJCOSK::compute_JK() {
         timer_off("COSK");
     }
 
-    // finalize incfock necessities
-    incfock_postiter();
+    // => Finalize Incremental Fock if required <= //
+    if (incfock_) {
+        timer_on("DFJCOSK: INCFOCK Postprocessing");
+        incfock_postiter();
+        timer_off("DFJCOSK: INCFOCK Postprocessing");
+    }
 }
 
 void DFJCOSK::postiterations() {}
