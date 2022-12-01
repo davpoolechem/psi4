@@ -253,9 +253,17 @@ class PSI_API JK {
     size_t num_computed_shells_;
     /// Tally of ERI shell quartets computed per SCF iteration 
     std::vector<size_t> computed_shells_per_iter_;
-
-    // => Tasks <= //
-
+    /// Perform Incremental Fock Build for J and K Matrices in Direct SCF? (default false)
+    bool incfock_;
+    /// The number of times INCFOCK has been performed (includes resets)
+    int incfock_count_;
+    /// Does this SCF iteration utilize incremental Fock construction?
+    bool do_incfock_iter_;
+    /// Previous iteration pseudo-density matrix 
+    std::vector<SharedMatrix> D_prev_;
+    /// Pseudo-density matrix to be used this iteration
+    std::vector<SharedMatrix> D_ref_;
+ 
     /// Do J matrices? Defaults to true
     bool do_J_;
     /// Do K matrices? Defaults to true
@@ -350,9 +358,15 @@ class PSI_API JK {
     size_t memory_overhead() const;
     /// Zero out all J, K, and wK matrices
     void zero();
-    /**
-    * Return number of ERI shell quartets computed during the JK build process.
-    */
+
+    /// Set up Incfock variables per iteration
+    void incfock_setup();
+    /// Post-iteration Incfock processing
+    void incfock_postiter();
+    /// Return if this SCF iteration used IncFock
+    bool do_incfock_iter() { return do_incfock_iter_; }
+ 
+    /// Return number of ERI shell quartets computed during the JK build process
     virtual size_t num_computed_shells();
 
    public:
@@ -772,12 +786,7 @@ class PSI_API DirectJK : public JK {
     /// Delete integrals, files, etc
     void postiterations() override;
 
-    /// Set up Incfock variables per iteration
-    void incfock_setup();
-    /// Post-iteration Incfock processing
-    void incfock_postiter();
-
-    /**
+   /**
      * @brief The standard J and K matrix builds for this integral class
      *
      * @param ints A list of TwoBodyAOInt objects (one per thread) to optimize parallel efficiency
@@ -818,10 +827,7 @@ class PSI_API DirectJK : public JK {
      */
     void set_df_ints_num_threads(int val) { df_ints_num_threads_ = val; }
 
-    // => Accessors <= //
-    bool do_incfock_iter() { return do_incfock_iter_; }
-
-    /**
+   /**
     * Print header information regarding JK
     * type on output file
     */
