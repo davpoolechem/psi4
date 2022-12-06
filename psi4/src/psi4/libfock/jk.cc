@@ -145,7 +145,10 @@ std::shared_ptr<JK> JK::build_JK(std::shared_ptr<BasisSet> primary, std::shared_
         if (options["INTS_TOLERANCE"].has_changed()) jk->set_cutoff(options.get_double("INTS_TOLERANCE"));
         if (options["SCREENING"].has_changed()) jk->set_csam(options.get_str("SCREENING") == "CSAM");
         if (options["INCFOCK"].has_changed()) jk->set_incfock(options.get_int("INCFOCK"));
-        if (options["PRINT"].has_changed()) jk->set_print(options.get_int("PRINT"));
+        if (options.get_int("INCFOCK_FULL_FOCK_EVERY") <= 0) {
+            throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
+        }
+	if (options["PRINT"].has_changed()) jk->set_print(options.get_int("PRINT"));
         if (options["DEBUG"].has_changed()) jk->set_debug(options.get_int("DEBUG"));
         if (options["BENCH"].has_changed()) jk->set_bench(options.get_int("BENCH"));
         if (options["DF_INTS_NUM_THREADS"].has_changed())
@@ -159,7 +162,10 @@ std::shared_ptr<JK> JK::build_JK(std::shared_ptr<BasisSet> primary, std::shared_
         if (options["INTS_TOLERANCE"].has_changed()) jk->set_cutoff(options.get_double("INTS_TOLERANCE"));
         if (options["SCREENING"].has_changed()) jk->set_csam(options.get_str("SCREENING") == "CSAM");
         if (options["INCFOCK"].has_changed()) jk->set_incfock(options.get_int("INCFOCK"));
-        if (options["PRINT"].has_changed()) jk->set_print(options.get_int("PRINT"));
+        if (options.get_int("INCFOCK_FULL_FOCK_EVERY") <= 0) {
+            throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
+        }
+	if (options["PRINT"].has_changed()) jk->set_print(options.get_int("PRINT"));
         if (options["DEBUG"].has_changed()) jk->set_debug(options.get_int("DEBUG"));
         if (options["BENCH"].has_changed()) jk->set_bench(options.get_int("BENCH"));
 
@@ -171,7 +177,10 @@ std::shared_ptr<JK> JK::build_JK(std::shared_ptr<BasisSet> primary, std::shared_
         if (options["INTS_TOLERANCE"].has_changed()) jk->set_cutoff(options.get_double("INTS_TOLERANCE"));
         if (options["SCREENING"].has_changed()) jk->set_csam(options.get_str("SCREENING") == "CSAM");
         if (options["INCFOCK"].has_changed()) jk->set_incfock(options.get_int("INCFOCK"));
-        if (options["PRINT"].has_changed()) jk->set_print(options.get_int("PRINT"));
+        if (options.get_int("INCFOCK_FULL_FOCK_EVERY") <= 0) {
+            throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
+        }
+	if (options["PRINT"].has_changed()) jk->set_print(options.get_int("PRINT"));
         if (options["DEBUG"].has_changed()) jk->set_debug(options.get_int("DEBUG"));
         if (options["BENCH"].has_changed()) jk->set_bench(options.get_int("BENCH"));
 
@@ -248,12 +257,8 @@ void JK::common_init() {
     omega_alpha_ = 1.0;
     omega_beta_ = 0.0;
     early_screening_ = false;
-
     incfock_count_ = 0;
     do_incfock_iter_ = false;
-    if (options.get_int("INCFOCK_FULL_FOCK_EVERY") <= 0) {
-        throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
-    }
  
     num_computed_shells_ = 0L;
     computed_shells_per_iter_ = {};
