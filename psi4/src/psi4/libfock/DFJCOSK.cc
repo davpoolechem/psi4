@@ -165,9 +165,6 @@ void DFJCOSK::common_init() {
     // and a large grid for the final iterations
     early_screening_ = true;
 
-    // incremental Fock setup
-    incfock_ = options_.get_bool("INCFOCK");
-    
     // => Direct Density-Fitted Coulomb Setup <= //
 
     // pre-compute coulomb fitting metric
@@ -312,36 +309,6 @@ void DFJCOSK::print_header() const {
 }
 
 void DFJCOSK::preiterations() {}
-
-void DFJCOSK::incfock_setup() {
-    if (do_incfock_iter_) {
-	    auto njk = D_ao_.size();
-
-        // If there is no previous pseudo-density, this iteration is normal
-        if(initial_iteration_ || D_prev_.size() != njk) {
-            initial_iteration_ = true;
-	    
-	        D_ref_ = D_ao_;
-            zero();
-        } else { // Otherwise, the iteraction is incremental
-            for (size_t jki = 0; jki < njk; jki++) {
-                D_ref_[jki] = D_ao_[jki]->clone();
-                D_ref_[jki]->subtract(D_prev_[jki]);
-            }
-        }
-    } else {
-        D_ref_ = D_ao_;
-        zero();
-    }
-}
-
-void DFJCOSK::incfock_postiter() {
-    // Save a copy of the density for the next iteration
-    D_prev_.clear();
-    for(auto const &Di : D_ao_) {
-        D_prev_.push_back(Di->clone());
-    }
-}
 
 void DFJCOSK::compute_JK() {
     // range-separated semi-numerical exchange needs https://github.com/psi4/psi4/pull/2473

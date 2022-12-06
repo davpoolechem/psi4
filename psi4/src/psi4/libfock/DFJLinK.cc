@@ -69,14 +69,6 @@ void DFJLinK::common_init() {
     nthreads_ = Process::environment.get_n_threads();
 #endif
 
-    // incremental Fock build
-    incfock_ = options_.get_bool("INCFOCK");
-    incfock_count_ = 0;
-    do_incfock_iter_ = false;
-    if (options_.get_int("INCFOCK_FULL_FOCK_EVERY") <= 0) {
-        throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
-    }
-
     // other options
     density_screening_ = options_.get_str("SCREENING") == "DENSITY";
     set_cutoff(options_.get_double("INTS_TOLERANCE"));
@@ -158,36 +150,6 @@ void DFJLinK::print_header() const {
 }
 
 void DFJLinK::preiterations() {}
-
-void DFJLinK::incfock_setup() {
-    if (do_incfock_iter_) {
-        size_t njk = D_ao_.size();
-
-        // If there is no previous pseudo-density, this iteration is normal
-        if (initial_iteration_ || D_prev_.size() != njk) {
-	        initial_iteration_ = true;
-
-            D_ref_ = D_ao_;
-            zero();
-        } else { // Otherwise, the iteration is incremental
-            for (size_t jki = 0; jki < njk; jki++) {
-                D_ref_[jki] = D_ao_[jki]->clone();
-                D_ref_[jki]->subtract(D_prev_[jki]);
-            }
-        }
-    } else {
-        D_ref_ = D_ao_;
-        zero();
-    }
-}
-
-void DFJLinK::incfock_postiter() {
-    // Save a copy of the density for the next iteration
-    D_prev_.clear();
-    for(auto const &Di : D_ao_) {
-        D_prev_.push_back(Di->clone());
-    }
-}
 
 void DFJLinK::compute_JK() {
   

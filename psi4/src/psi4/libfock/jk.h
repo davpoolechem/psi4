@@ -509,6 +509,15 @@ class PSI_API JK {
     void set_early_screening(bool early_screening) { early_screening_ = early_screening; }
     bool get_early_screening() { return early_screening_; }
 
+    /**
+     * Enable incremental Fock (IncFock) construction for 
+     *      integral-direct SCF methods. 
+     *      In conjunction with density screening, IncFock can
+     *      notably improve performance
+     */
+    void set_incfock(bool incfock) { incfock_ = incfock; }
+    bool get_incfock() { return incfock_; }
+
     // => Computers <= //
 
     /**
