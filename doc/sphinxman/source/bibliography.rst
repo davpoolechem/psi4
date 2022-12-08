@@ -701,7 +701,7 @@ Bibliography
    https://doi.org/10.1063/5.0035811
 
 .. [Weigend:2002:directdfj]
-   F. Weigend, 
+   F. Weigend,
    *Phys. Chem. Chem. Phys.* **4**, 4285-4291 (2002).
    https://doi.org/10.1039/B204199P
 
