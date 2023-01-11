@@ -40,8 +40,6 @@ PRAGMA_WARNING_POP
 #include "psi4/libmints/typedefs.h"
 #include "psi4/libmints/dimension.h"
 
-#include "psi4/libfock/SplitJK.h"
-
 namespace psi {
 class MinimalInterface;
 class BasisSet;
@@ -52,6 +50,7 @@ class Options;
 class PSIO;
 class DFHelper;
 class DFTGrid;
+class SplitJK;
 
 namespace pk {
 class PKManager;
@@ -1205,6 +1204,10 @@ class PSI_API CompositeJK : public JK {
     int nthreads_;
     /// Options object
     Options& options_;
+    /// Auxiliary basis set
+    std::shared_ptr<BasisSet> auxiliary_;
+    /// per-thread TwoBodyAOInt object (for computing three/four-center ERIs)
+    std::unordered_map<std::string, std::vector<std::shared_ptr<TwoBodyAOInt>>> eri_computers_;
 
     /// CompositeJK algorithm info
     std::shared_ptr<SplitJK> j_algo_;

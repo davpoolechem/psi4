@@ -39,21 +39,9 @@ PRAGMA_WARNING_IGNORE_DEPRECATED_DECLARATIONS
 PRAGMA_WARNING_POP
 #include "psi4/libmints/typedefs.h"
 #include "psi4/libmints/dimension.h"
+#include "jk.h"
 
 namespace psi {
-class MinimalInterface;
-class BasisSet;
-class Matrix;
-class ERISieve;
-class TwoBodyAOInt;
-class Options;
-class PSIO;
-class DFHelper;
-class DFTGrid;
-
-namespace pk {
-class PKManager;
-}
 
 /**
  * Class SplitJK 
@@ -68,16 +56,20 @@ class PKManager;
  * K: COSX, LinK
  *
  */
-class PSI_API SplitJK : public JK {
+class PSI_API SplitJK {
    protected:
 
     /// The number of threads to be used for integral computation
     int nthreads_;
-    /// Options object
-    Options& options_;
-
+    /// Primary basis set
+    std::shared_ptr<BasisSet> primary_;
+ 
     /// SplitJK algorithm info
     std::string algo_; 
+
+    /// general options
+    bool bench_;
+    double cutoff_;
 
     // Perform Density matrix-based integral screening?
     bool density_screening_;
@@ -92,27 +84,30 @@ class PSI_API SplitJK : public JK {
      *        C matrices must have the same spatial symmetry
      *        structure as this molecule
      */
-    SplitJK(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
+    SplitJK(std::shared_ptr<BasisSet> primary, Options& options);
     /// Destructor
-    ~SplitJK() override;
+    virtual ~SplitJK(); 
 
     /// Build either the coulomb (J) matrix or the exchange (K) matrix
     /// using a given algorithm 
-    void build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
-                 std::vector<std::shared_ptr<Matrix> >& G_comp) = 0;
+    virtual void build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
+                 std::vector<std::shared_ptr<Matrix> >& G_comp,
+		 std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) = 0;
 
     // => Knobs <= //
     /**
     * Print header information regarding JK
     * type on output file
     */
-    void print_header() = 0; 
+    virtual void print_header() const = 0; 
  
+    virtual size_t num_computed_shells();
+
     /**
     * print name of method
     */ 
-    std::string name() = 0; 
-}
+    virtual std::string name() = 0; 
+};
 
 // ==> Start SplitJK Coulomb (J) Algorithms here <==
 
@@ -125,11 +120,6 @@ class PSI_API DirectDFJ : public SplitJK {
     std::shared_ptr<BasisSet> auxiliary_;
     /// Coulomb Metric
     SharedMatrix J_metric_;
-    /// per-thread TwoBodyAOInt object (for computing three/four-center ERIs)
-    std::unordered_map<std::string, std::vector<std::shared_ptr<TwoBodyAOInt>>> eri_computers_;
-
-    /// Common initialization
-    void common_init();
 
    public:
     // => Constructors < = //
@@ -146,7 +136,8 @@ class PSI_API DirectDFJ : public SplitJK {
     ~DirectDFJ() override;
 
    void build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
-                 std::vector<std::shared_ptr<Matrix> >& G_comp) override;
+                 std::vector<std::shared_ptr<Matrix> >& G_comp,
+		 std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) override;
 
     // => Knobs <= //
     /**
@@ -155,12 +146,7 @@ class PSI_API DirectDFJ : public SplitJK {
     */
     void print_header() const override;
 
-    size_t num_computed_shells() {
-        outfile->Printf("WARNING: JK::num_computed_shells() was called, but benchmarking is disabled for the chosen JK algorithm.");
-        outfile->Printf(" Returning 0 as computed shells count.\n");
-
-        return 0;
-    }
+    size_t num_computed_shells() override;
 
     /**
     * print name of method

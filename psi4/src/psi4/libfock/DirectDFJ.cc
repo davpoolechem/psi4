@@ -27,6 +27,7 @@
  */
 
 #include "jk.h"
+#include "SplitJK.h"
 #include "psi4/libqt/qt.h"
 #include "psi4/libfock/cubature.h"
 #include "psi4/libfock/points.h"
@@ -51,16 +52,11 @@ using namespace psi;
 
 namespace psi {
 
-DirectDFJ::DirectDFJ(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options) : JK(primary), auxiliary_(auxiliary), options_(options) {
+DirectDFJ::DirectDFJ(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options) :
+    SplitJK(primary, options), auxiliary_(auxiliary) { 
+    
     timer_on("DirectDFJ: Setup");
-    common_init(); 
-    timer_off("DirectDFJ: Setup");
-}
-
-DirectDFJ::~DirectDFJ() {}
-
-void DirectDFJ::common_init() {
-
+    
     // => General Setup <= //
 
     // thread count
@@ -77,30 +73,27 @@ void DirectDFJ::common_init() {
     J_metric_ = J_metric_obj.get_metric();
 
     timer_off("DirectDFJ: DIRECTDFJ Coulomb Metric");
+    timer_off("DirectDFJ: Setup");
 }
+
+DirectDFJ::~DirectDFJ() {}
 
 size_t DirectDFJ::num_computed_shells() {
     //no bench data returned - to come in a future update
-    return SplitJK::num_computed_shells();
-}
-
-size_t DirectDFJ::memory_estimate() {
-    return 0;  // Memory is O(N^2), which psi4 counts as effectively 0
+    return num_computed_shells_; 
 }
 
 void DirectDFJ::print_header() const {
-    if (print_) {
-        outfile->Printf("\n");
-        outfile->Printf("  ==> DirectDFJ: Integral-Direct Density-Fitted J <==\n\n");
+    outfile->Printf("\n");
+    outfile->Printf("  ==> DirectDFJ: Integral-Direct Density-Fitted J <==\n\n");
 
-        outfile->Printf("    J Screening Cutoff:%11.0E\n", cutoff_);
-    }
+    outfile->Printf("    J Screening Cutoff:%11.0E\n", cutoff_);
 }
 
 // build the J matrix using Weigend's integral-direct density fitting algorithm
 // algorithm is in Figure 1 of https://doi.org/10.1039/B204199P
-void DirectDFJ::build_G_comp(onentstd::vector<std::shared_ptr<Matrix>>& D, std::vector<std::shared_ptr<Matrix>>& G_comp,
-    std::vector<std::shared_ptr<TwoBodyAOInt> eri_computers) {
+void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vector<std::shared_ptr<Matrix>>& J,
+    std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) {
     
     timer_on("Setup");
 
@@ -117,7 +110,7 @@ void DirectDFJ::build_G_comp(onentstd::vector<std::shared_ptr<Matrix>>& D, std::
     size_t computed_triplets1 = 0, computed_triplets2 = 0;
 
     // screening threshold
-    double thresh2 = options_.get_double("INTS_TOLERANCE") * options_.get_double("INTS_TOLERANCE");
+    double thresh2 = cutoff_ * cutoff_; 
 
     // per-thread G Vector buffers (for accumulating thread contributions to G)
     // G is the contraction of the density matrix with the 3-index ERIs
@@ -170,6 +163,9 @@ void DirectDFJ::build_G_comp(onentstd::vector<std::shared_ptr<Matrix>>& D, std::
     }
 
     timer_off("Setup");
+
+    // Number of computed shell triplets is tracked for benchmarking purposes
+    num_computed_shells_ = 0L;
 
     //  => First Contraction <= //
 
@@ -321,12 +317,11 @@ void DirectDFJ::build_G_comp(onentstd::vector<std::shared_ptr<Matrix>>& D, std::
 
     timer_off("ERI2");
 
-    if (bench_) {
-        auto mode = std::ostream::app;
-        PsiOutStream printer("bench.dat", mode);
-        printer.Printf(" ERI Shells: %zu,%zu,%zu\n", computed_triplets1, computed_triplets2, nshelltriplet);
+    num_computed_shells_ = computed_triplets1 + computed_triplets2;
+    if (get_bench()) {
+        computed_shells_per_iter_["Triplets"].push_back(num_computed_shells());
     }
-
+    
     for(size_t jki = 0; jki < njk; jki++) {
         for (size_t thread = 0; thread < nthreads_; thread++) {
             J[jki]->add(JT[jki][thread]);
