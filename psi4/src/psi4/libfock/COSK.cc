@@ -145,8 +145,8 @@ Matrix compute_esp_bound(const BasisSet &primary) {
     }
 
     return esp_bound;
-
 }
+
 COSK::COSK(std::shared_ptr<BasisSet> primary, Options& options) : SplitJK(primary, options) {
     timer_on("COSK: Setup");
 
@@ -158,10 +158,14 @@ COSK::COSK(std::shared_ptr<BasisSet> primary, Options& options) : SplitJK(primar
     nthreads_ = Process::environment.get_n_threads();
 #endif
 
+    // set options
+    early_screening_ = false;
+    lr_symmetric_ = true;
+
     if (options["COSX_INTS_TOLERANCE"].has_changed()) kscreen_ = options.get_double("COSX_INTS_TOLERANCE");
     if (options["COSX_DENSITY_TOLERANCE"].has_changed()) dscreen_ = options.get_double("COSX_DENSITY_TOLERANCE");
-    if (options["COSX_BASIS_TOLERANCE"].has_changed()) basis_tol_ = options.get_double("COSX_BASIS_TOLERANCE")
-    if (options["COSX_OVERLAP_FITTING"].has_changed() overlap_fitted_ = options.get_bool("COSX_OVERLAP_FITTING");
+    if (options["COSX_BASIS_TOLERANCE"].has_changed()) basis_tol_ = options.get_double("COSX_BASIS_TOLERANCE");
+    if (options["COSX_OVERLAP_FITTING"].has_changed()) overlap_fitted_ = options.get_bool("COSX_OVERLAP_FITTING");
 
     timer_on("COSK: COSX Grid Construction");
 
@@ -275,7 +279,7 @@ void COSK::print_header() const {
         outfile->Printf("    K Screening Cutoff: %11.0E\n", kscreen_);
         outfile->Printf("    K Density Cutoff:   %11.0E\n", dscreen_); 
         outfile->Printf("    K Basis Cutoff:     %11.0E\n", basis_tol_);
-        outfile->Printf("    K Overlap Fitting:  %11s\n", (overlap_fitting_ ? "Yes" : "No"));
+        outfile->Printf("    K Overlap Fitting:  %11s\n", (overlap_fitted_ ? "Yes" : "No"));
     }
 }
 
@@ -345,6 +349,7 @@ void COSK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
     // => Integral Computation <= //
 
     // benchmarking statistics
+    num_computed_shells_ = 0L;
     size_t int_shells_total = 0;
     size_t int_shells_computed = 0;
 
@@ -670,13 +675,10 @@ void COSK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
         }
     }
 
-    if (bench_) {
-        auto mode = std::ostream::app;
-        PsiOutStream printer("bench.dat", mode);
-        size_t ints_per_atom = int_shells_computed  / (size_t) natom;
-        printer.Printf("COSK ESP Shells: %zu,%zu,%zu\n", ints_per_atom, int_shells_computed, int_shells_total);
+    num_computed_shells_ = int_shells_computed;
+    if (get_bench()) {
+        computed_shells_per_iter_["Quartets"].push_back(num_computed_shells());
     }
-
 }
 
 }  // namespace psi
