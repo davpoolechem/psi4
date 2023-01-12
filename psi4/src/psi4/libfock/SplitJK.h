@@ -208,7 +208,6 @@ class PSI_API LinK : public SplitJK {
     std::string name() override { return "LinK"; }
 };
 
-#if 0
 class PSI_API COSK : public SplitJK {
     // => Semi-Numerical Stuff <= //
 
@@ -220,9 +219,11 @@ class PSI_API COSK : public SplitJK {
     SharedMatrix Q_init_;
     /// Overlap fitting metric for grid_final_
     SharedMatrix Q_final_;
- 
-    /// Common initialization
-    void common_init();
+
+    double kscreen_; 
+    double dscreen_; 
+    double basis_tol_; 
+    bool overlap_fitted_; 
 
    public:
     // => Constructors < = //
@@ -234,20 +235,28 @@ class PSI_API COSK : public SplitJK {
      *        C matrices must have the same spatial symmetry
      *        structure as this molecule
      */
-    COSK(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
+    COSK(std::shared_ptr<BasisSet> primary, Options& options);
     /// Destructor
     ~COSK() override;
 
     /// Build the exchange (K) matrix using COSX
     void build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
-                 std::vector<std::shared_ptr<Matrix> >& G_comp) override;
-
+                 std::vector<std::shared_ptr<Matrix> >& G_comp,
+		 std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) override;
+    
     // => Knobs <= //
     /**
     * Print header information regarding JK
     * type on output file
     */
     void print_header() const override;
+
+    size_t num_computed_shells() override;
+
+    /**
+    * print name of method
+    */ 
+    std::string name() override { return "COSX"; }
 };
 #endif
 }
