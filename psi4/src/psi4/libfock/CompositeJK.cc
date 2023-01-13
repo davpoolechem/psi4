@@ -143,9 +143,6 @@ void CompositeJK::common_init() {
     } else if (k_type_ == "COSX") {
 	// initialize SplitJK algo
 	k_algo_ = std::make_shared<COSK>(primary_, options_);
-    
-        // set up other options
-	k_algo_->set_early_screening(early_screening_);
     } else {
         throw PSIEXCEPTION("Invalid Composite K algorithm selected!");
     }
@@ -222,7 +219,11 @@ void CompositeJK::compute_JK() {
     // range-separated semi-numerical exchange needs https://github.com/psi4/psi4/pull/2473
     if (do_wK_) throw PSIEXCEPTION("CompositeJK algorithms do not support wK integrals yet!");
 
-    // set left-right symmetry for LinK/COSX    
+    // set compute()-specific parameters 
+    j_algo_->set_early_screening(early_screening_);
+    k_algo_->set_early_screening(early_screening_);
+    
+    j_algo_->set_lr_symmetric(lr_symmetric_);
     k_algo_->set_lr_symmetric(lr_symmetric_);
 
     // explicit setup of Incfock for this SCF iteration
