@@ -1665,7 +1665,14 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         /*- Pruning scheme for COSX grids !expert -*/
         options.add_str("COSX_PRUNING_SCHEME", "ROBUST", 
                         "ROBUST TREUTLER NONE FLAT P_GAUSSIAN D_GAUSSIAN P_SLATER D_SLATER LOG_GAUSSIAN LOG_SLATER NONE");
-        /*- Do reduce numerical COSX errors with overlap fitting? !expert -*/
+        /*- Radial Scheme for COSX grids. -*/
+        options.add_str("COSX_RADIAL_SCHEME", "TREUTLER", "TREUTLER BECKE MULTIEXP EM MURA");
+        /*- Nuclear Scheme for COSX grids. -*/
+        options.add_str("COSX_NUCLEAR_SCHEME", "TREUTLER", "TREUTLER BECKE NAIVE STRATMANN SBECKE");
+         /*- The blocking scheme for COSX. !expert -*/
+        options.add_str("COSX_BLOCK_SCHEME", "OCTREE", "NAIVE OCTREE ATOMIC");
+ 
+	/*- Do reduce numerical COSX errors with overlap fitting? !expert -*/
         options.add_bool("COSX_OVERLAP_FITTING", true);
 
         /*- SUBSECTION SAD Guess Algorithm -*/
@@ -1717,9 +1724,9 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_int("DFT_RADIAL_POINTS", 75);
         /*- Spherical Scheme. -*/
         options.add_str("DFT_SPHERICAL_SCHEME", "LEBEDEV", "LEBEDEV");
-        /*- Radial Scheme. -*/
+        /*- Radial Scheme for DFT grids. -*/
         options.add_str("DFT_RADIAL_SCHEME", "TREUTLER", "TREUTLER BECKE MULTIEXP EM MURA");
-        /*- Nuclear Scheme. -*/
+        /*- Nuclear Scheme for DFta grids. -*/
         options.add_str("DFT_NUCLEAR_SCHEME", "TREUTLER", "TREUTLER BECKE NAIVE STRATMANN SBECKE");
         /*- Factor for effective BS radius in radial grid. -*/
         options.add_double("DFT_BS_RADIUS_ALPHA", 1.0);

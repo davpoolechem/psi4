@@ -197,10 +197,10 @@ void DFJCOSK::common_init() {
     // Create a small DFTGrid for the initial SCF iterations
     std::map<std::string, std::string> grid_init_str_options = {
         {"DFT_PRUNING_SCHEME", options_.get_str("COSX_PRUNING_SCHEME")},
-        {"DFT_RADIAL_SCHEME",  "TREUTLER"},
-        {"DFT_NUCLEAR_SCHEME", "TREUTLER"},
+        {"DFT_RADIAL_SCHEME",  options_.get_str("COSX_RADIAL_SCHEME")},
+        {"DFT_NUCLEAR_SCHEME", options_.get_str("COSX_NUCLEAR_SCHEME")},
         {"DFT_GRID_NAME",      ""},
-        {"DFT_BLOCK_SCHEME",   "OCTREE"},
+        {"DFT_BLOCK_SCHEME",   options_.get_str("COSX_BLOCK_SCHEME")},
     };
     std::map<std::string, int> grid_init_int_options = {
         {"DFT_SPHERICAL_POINTS", options_.get_int("COSX_SPHERICAL_POINTS_INITIAL")}, 
@@ -220,10 +220,10 @@ void DFJCOSK::common_init() {
     // Create a large DFTGrid for the final SCF iteration
     std::map<std::string, std::string> grid_final_str_options = {
         {"DFT_PRUNING_SCHEME", options_.get_str("COSX_PRUNING_SCHEME")},
-        {"DFT_RADIAL_SCHEME",  "TREUTLER"},
-        {"DFT_NUCLEAR_SCHEME", "TREUTLER"},
+        {"DFT_RADIAL_SCHEME",  options_.get_str("COSX_RADIAL_SCHEME")},
+        {"DFT_NUCLEAR_SCHEME", options_.get_str("COSX_NUCLEAR_SCHEME")},
         {"DFT_GRID_NAME",      ""},
-        {"DFT_BLOCK_SCHEME",   "OCTREE"},
+        {"DFT_BLOCK_SCHEME",   options_.get_str("COSX_BLOCK_SCHEME")},
     };
     std::map<std::string, int> grid_final_int_options = {
         {"DFT_SPHERICAL_POINTS", options_.get_int("COSX_SPHERICAL_POINTS_FINAL")}, 
