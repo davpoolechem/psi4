@@ -210,10 +210,10 @@ void DFJCOSK::common_init() {
     };
     std::map<std::string, double> grid_init_float_options = {
         {"DFT_BASIS_TOLERANCE",   options_.get_double("COSX_BASIS_TOLERANCE")}, 
-        {"DFT_BS_RADIUS_ALPHA",   1.0},
-        {"DFT_PRUNING_ALPHA",     1.0},
-        {"DFT_BLOCK_MAX_RADIUS",  3.0},
-        {"DFT_WEIGHTS_TOLERANCE", 1e-15},
+        {"DFT_BS_RADIUS_ALPHA",   options_.get_double("COSX_BS_RADIUS_ALPHA")},
+        {"DFT_PRUNING_ALPHA",     options_.get_double("COSX_PRUNING_ALPHA")},
+        {"DFT_BLOCK_MAX_RADIUS",  options_.get_double("COSX_BLOCK_MAX_RADIUS")},
+        {"DFT_WEIGHTS_TOLERANCE", options_.get_double("COSX_WEIGHTS_TOLERANCE")},
     };
     grid_init_ = std::make_shared<DFTGrid>(primary_->molecule(), primary_, grid_init_int_options, grid_init_str_options, grid_init_float_options, options_);
 
@@ -228,15 +228,15 @@ void DFJCOSK::common_init() {
     std::map<std::string, int> grid_final_int_options = {
         {"DFT_SPHERICAL_POINTS", options_.get_int("COSX_SPHERICAL_POINTS_FINAL")}, 
         {"DFT_RADIAL_POINTS",    options_.get_int("COSX_RADIAL_POINTS_FINAL")},
-        {"DFT_BLOCK_MIN_POINTS", 100},
-        {"DFT_BLOCK_MAX_POINTS", 256},
+        {"DFT_BLOCK_MIN_POINTS", options_.get_int("COSX_BLOCK_MIN_POINTS")},
+        {"DFT_BLOCK_MAX_POINTS", options_.get_int("COSX_BLOCK_MAX_POINTS")},
     };
     std::map<std::string, double> grid_final_float_options = {
         {"DFT_BASIS_TOLERANCE",   options_.get_double("COSX_BASIS_TOLERANCE")}, 
-        {"DFT_BS_RADIUS_ALPHA",   1.0},
-        {"DFT_PRUNING_ALPHA",     1.0},
-        {"DFT_BLOCK_MAX_RADIUS",  3.0},
-        {"DFT_WEIGHTS_TOLERANCE", 1e-15},
+        {"DFT_BS_RADIUS_ALPHA",   options_.get_double("COSX_BS_RADIUS_ALPHA")},
+        {"DFT_PRUNING_ALPHA",     options_.get_double("COSX_PRUNING_ALPHA")},
+        {"DFT_BLOCK_MAX_RADIUS",  options_.get_double("COSX_BLOCK_MAX_RADIUS")},
+        {"DFT_WEIGHTS_TOLERANCE", options_.get_double("COSX_WEIGHTS_TOLERANCE")},
     };
     grid_final_ = std::make_shared<DFTGrid>(primary_->molecule(), primary_, grid_final_int_options, grid_final_str_options, grid_final_float_options, options_);
 

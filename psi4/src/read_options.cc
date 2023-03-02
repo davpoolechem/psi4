@@ -1675,6 +1675,14 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_int("COSX_BLOCK_MAX_POINTS", 256);
         /*- The minimum number of grid points per evaluation block for COSX. !expert -*/
         options.add_int("COSX_BLOCK_MIN_POINTS", 100);
+         /*- Factor for effective BS radius in radial COSX grid. -*/
+        options.add_double("COSX_BS_RADIUS_ALPHA", 1.0);
+         /*- Spread alpha for logarithmic pruning in COSX grids. !expert -*/
+        options.add_double("COSX_PRUNING_ALPHA", 1.0);
+         /*- The maximum radius to terminate subdivision of an octree block in a COSX grid [au]. !expert -*/
+        options.add_double("COSX_BLOCK_MAX_RADIUS", 3.0);
+         /*- grid weight cutoff in COSX grids. Disable with -1.0. !expert -*/
+        options.add_double("COSX_WEIGHTS_TOLERANCE", 1.0E-15);
  
 	/*- Do reduce numerical COSX errors with overlap fitting? !expert -*/
         options.add_bool("COSX_OVERLAP_FITTING", true);
@@ -1732,11 +1740,11 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_str("DFT_RADIAL_SCHEME", "TREUTLER", "TREUTLER BECKE MULTIEXP EM MURA");
         /*- Nuclear Scheme for DFta grids. -*/
         options.add_str("DFT_NUCLEAR_SCHEME", "TREUTLER", "TREUTLER BECKE NAIVE STRATMANN SBECKE");
-        /*- Factor for effective BS radius in radial grid. -*/
+        /*- Factor for effective BS radius in radial DFT grid. -*/
         options.add_double("DFT_BS_RADIUS_ALPHA", 1.0);
         /*- DFT basis cutoff. -*/
         options.add_double("DFT_BASIS_TOLERANCE", 1.0E-12);
-        /*- grid weight cutoff. Disable with -1.0. !expert -*/
+        /*- grid weight cutoff in DFT grids. Disable with -1.0. !expert -*/
         options.add_double("DFT_WEIGHTS_TOLERANCE", 1.0E-15);
         /*- density cutoff for LibXC. A negative value turns the feature off and LibXC defaults are used. !expert -*/
         options.add_double("DFT_DENSITY_TOLERANCE", -1.0);
@@ -1747,13 +1755,13 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         The recommended scheme is ``ROBUST``. -*/
         options.add_str("DFT_PRUNING_SCHEME", "NONE",
                         "ROBUST TREUTLER NONE FLAT P_GAUSSIAN D_GAUSSIAN P_SLATER D_SLATER LOG_GAUSSIAN LOG_SLATER NONE");
-        /*- Spread alpha for logarithmic pruning. !expert -*/
+        /*- Spread alpha for logarithmic pruning in DFT grids. !expert -*/
         options.add_double("DFT_PRUNING_ALPHA", 1.0);
         /*- The maximum number of grid points per evaluation block for DFT. !expert -*/
         options.add_int("DFT_BLOCK_MAX_POINTS", 256);
         /*- The minimum number of grid points per evaluation block for DFT. !expert -*/
         options.add_int("DFT_BLOCK_MIN_POINTS", 100);
-        /*- The maximum radius to terminate subdivision of an octree block [au]. !expert -*/
+        /*- The maximum radius to terminate subdivision of an octree block in a DFT grid [au]. !expert -*/
         options.add_double("DFT_BLOCK_MAX_RADIUS", 3.0);
         /*- Remove points from the quadrature grid that exceed the spatial extend of the basis functions. !expert -*/
         options.add_bool("DFT_REMOVE_DISTANT_POINTS",true);
