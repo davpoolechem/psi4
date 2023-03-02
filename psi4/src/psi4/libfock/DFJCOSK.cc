@@ -205,8 +205,8 @@ void DFJCOSK::common_init() {
     std::map<std::string, int> grid_init_int_options = {
         {"DFT_SPHERICAL_POINTS", options_.get_int("COSX_SPHERICAL_POINTS_INITIAL")}, 
         {"DFT_RADIAL_POINTS",    options_.get_int("COSX_RADIAL_POINTS_INITIAL")},
-        {"DFT_BLOCK_MIN_POINTS", 100},
-        {"DFT_BLOCK_MAX_POINTS", 256},
+        {"DFT_BLOCK_MIN_POINTS", options_.get_int("COSX_BLOCK_MIN_POINTS")},
+        {"DFT_BLOCK_MAX_POINTS", options_.get_int("COSX_BLOCK_MAX_POINTS")},
     };
     std::map<std::string, double> grid_init_float_options = {
         {"DFT_BASIS_TOLERANCE",   options_.get_double("COSX_BASIS_TOLERANCE")}, 

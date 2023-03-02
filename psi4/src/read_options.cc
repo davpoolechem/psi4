@@ -1671,6 +1671,10 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_str("COSX_NUCLEAR_SCHEME", "TREUTLER", "TREUTLER BECKE NAIVE STRATMANN SBECKE");
          /*- The blocking scheme for COSX. !expert -*/
         options.add_str("COSX_BLOCK_SCHEME", "OCTREE", "NAIVE OCTREE ATOMIC");
+        /*- The maximum number of grid points per evaluation block for COSX. !expert -*/
+        options.add_int("COSX_BLOCK_MAX_POINTS", 256);
+        /*- The minimum number of grid points per evaluation block for COSX. !expert -*/
+        options.add_int("COSX_BLOCK_MIN_POINTS", 100);
  
 	/*- Do reduce numerical COSX errors with overlap fitting? !expert -*/
         options.add_bool("COSX_OVERLAP_FITTING", true);
@@ -1745,9 +1749,9 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
                         "ROBUST TREUTLER NONE FLAT P_GAUSSIAN D_GAUSSIAN P_SLATER D_SLATER LOG_GAUSSIAN LOG_SLATER NONE");
         /*- Spread alpha for logarithmic pruning. !expert -*/
         options.add_double("DFT_PRUNING_ALPHA", 1.0);
-        /*- The maximum number of grid points per evaluation block. !expert -*/
+        /*- The maximum number of grid points per evaluation block for DFT. !expert -*/
         options.add_int("DFT_BLOCK_MAX_POINTS", 256);
-        /*- The minimum number of grid points per evaluation block. !expert -*/
+        /*- The minimum number of grid points per evaluation block for DFT. !expert -*/
         options.add_int("DFT_BLOCK_MIN_POINTS", 100);
         /*- The maximum radius to terminate subdivision of an octree block [au]. !expert -*/
         options.add_double("DFT_BLOCK_MAX_RADIUS", 3.0);
