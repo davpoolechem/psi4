@@ -74,7 +74,6 @@ DirectDFJ::DirectDFJ(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet
 DirectDFJ::~DirectDFJ() {}
 
 size_t DirectDFJ::num_computed_shells() {
-    //no bench data returned - to come in a future update
     return num_computed_shells_; 
 }
 
@@ -313,9 +312,6 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
     timer_off("ERI2");
 
     num_computed_shells_ = computed_triplets1 + computed_triplets2;
-    if (get_bench()) {
-        computed_shells_per_iter_["Triplets"].push_back(num_computed_shells());
-    }
     
     for(size_t jki = 0; jki < njk; jki++) {
         for (size_t thread = 0; thread < nthreads_; thread++) {
