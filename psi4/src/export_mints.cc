@@ -999,6 +999,11 @@ void export_mints(py::module& m) {
         .def("full_pg_n", &Molecule::full_pg_n,
              "Gets n in Cnv, etc.; If there is no n (e.g. Td) it's the highest-order rotation axis")
         .def("point_group", &Molecule::point_group, "Returns the current point group object")
+        .def("nunique", &Molecule::nunique, "Returns the number of unique atoms")
+        .def("unique", &Molecule::unique, "Returns the indices of unique atoms")
+        .def("nequivalent", &Molecule::nequivalent, "Returns the number of atoms equivalent to the atom with the input argument index")
+        .def("equivalent", &Molecule::equivalent, "Returns an atom j equivalent to the atom i")
+        .def("atom_to_unique", &Molecule::atom_to_unique, "Returns the index of the atom, for which the input atom index is symmetry-equivalent")
         .def("schoenflies_symbol", &Molecule::schoenflies_symbol, "Returns the Schoenflies symbol")
         .def("form_symmetry_information", &Molecule::form_symmetry_information,
              "Uses the point group object obtain by calling point_group()")
