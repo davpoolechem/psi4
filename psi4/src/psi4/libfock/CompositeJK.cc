@@ -179,7 +179,13 @@ void CompositeJK::common_init() {
     k_type_ = jk_type.substr(jk_type.find("+") + 1, jk_type.length());
 
     // other options
-    density_screening_ = options_.get_str("SCREENING") == "DENSITY";
+    auto screening_type = options_.get_str("SCREENING");
+    if (screening_type == "NONE") {
+        throw PSIEXCEPTION("Composite JK build methods do not support SCREENING=NONE at the moment!");
+    } else {
+        density_screening_ = screening_type == "DENSITY";
+    }
+
     set_cutoff(options_.get_double("INTS_TOLERANCE"));
     early_screening_ = true;
 
