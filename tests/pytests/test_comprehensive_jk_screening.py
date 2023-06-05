@@ -65,8 +65,8 @@ def test_comprehensive_jk_screening(scf_type, scf_subtype, screening):
     should_error_out = False
     should_error_out = should_error_out or (scf_type == "DFDIRJ+LINK" and screening in [ "SCHWARZ", "CSAM" ])
     should_error_out = should_error_out or (scf_type == "DISK_DF" and screening == "NONE")
-    should_error_out = should_error_out or (scf_type == "DIRECT" and screening == "NONE")
- 
+    #should_error_out = should_error_out or (scf_type == "DIRECT" and screening == "NONE")
+      
     E = 0.0 
     
     #== check that should_error_out and should_throw are not simultaneously true, for better testing ==# 
