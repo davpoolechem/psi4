@@ -252,7 +252,7 @@ void CompositeJK::common_init() {
     // Linear Exchange (LinK)
     if (k_type_ == "LINK") {
         // set up LinK integral tolerance
-        if (options_["LINK_INTS_TOLERANCE"].has_changed()) {
+        if (options_["LINK_INTS_TOLERANCE"].has_changed() && screening_type != "NONE") {
             linK_ints_cutoff_ = options_.get_double("LINK_INTS_TOLERANCE");
         } else {
             linK_ints_cutoff_ = cutoff_;
@@ -526,12 +526,28 @@ void CompositeJK::compute_JK() {
         zero();
     }
 
-    // update ERI engine density matrices for density screening
-    if (density_screening_) {
+    // update ERI engine density matrices for density screening...
+    if (density_screening_ || k_type_ == "LINK") {
         for (auto eri_computer : eri_computers_["4-Center"]) {
             eri_computer->update_density(D_ref_);
         }
     }
+    // ... or set ERI engine density matrices to zero for no screening 
+    /*
+    } else if (options_.get_str("SCREENING") == "NONE") {
+        std::vector<SharedMatrix> zero_matrices;
+            
+        auto zero_matrix = D_ref_[0]->clone();
+        zero_matrix->zero();
+        for (int izero = 0; izero != D_ref_.size(); ++izero) {
+            zero_matrices.push_back(zero_matrix->clone());
+        }
+     
+        for (auto eri_computer : eri_computers_["4-Center"]) {
+            eri_computer->update_density(zero_matrices);
+        }
+    }
+    */
 
     // => Perform matrix calculations <= //
 
@@ -940,6 +956,7 @@ void CompositeJK::build_linK(std::vector<SharedMatrix>& D, std::vector<SharedMat
     std::vector<std::vector<int>> significant_bras(nshell);
     double max_integral = eri_computers_["4-Center"][0]->max_integral();
 
+    outfile->Printf("Significant Bras:\n");
 #pragma omp parallel for
     for (size_t P = 0; P < nshell; P++) {
         std::vector<std::pair<int, double>> PQ_shell_values;
@@ -955,6 +972,7 @@ void CompositeJK::build_linK(std::vector<SharedMatrix>& D, std::vector<SharedMat
         for (const auto& value : PQ_shell_values) {
             significant_bras[P].push_back(value.first);
         }
+        outfile->Printf("  P, num_bra -> %d, %d\n", P, significant_bras[P].size());
     }
 
     // ==> Prep Bra-Ket Shell Pairs <== //
@@ -975,6 +993,7 @@ void CompositeJK::build_linK(std::vector<SharedMatrix>& D, std::vector<SharedMat
 
     std::vector<std::vector<int>> significant_kets(nshell);
 
+    outfile->Printf("Significant Kets:\n");
     // => Use shell ceilings to compute significant ket-shells for each bra-shell <= //
     // => Implementation of Eq. 4 in paper <= //
 #pragma omp parallel for
@@ -984,6 +1003,8 @@ void CompositeJK::build_linK(std::vector<SharedMatrix>& D, std::vector<SharedMat
             double screen_val = shell_ceilings[P] * shell_ceilings[R] * eri_computers_["4-Center"][0]->shell_pair_max_density(P, R);
             if (screen_val >= linK_ints_cutoff_) {
                 PR_shell_values.emplace_back(R, screen_val);
+            } else {
+                outfile->Printf("P_ceil, R_ceil, PR_density -> screen_val: %e, %e, %e, %e\n", shell_ceilings[P], shell_ceilings[R], eri_computers_["4-Center"][0]->shell_pair_max_density(P, R), screen_val);
             }
         }
         std::sort(PR_shell_values.begin(), PR_shell_values.end(), screen_compare);
@@ -991,6 +1012,7 @@ void CompositeJK::build_linK(std::vector<SharedMatrix>& D, std::vector<SharedMat
         for (const auto& value : PR_shell_values) {
             significant_kets[P].push_back(value.first);
         }
+        outfile->Printf("  P, num_ket -> %d, %d\n", P, significant_kets[P].size());
     }
 
     size_t natom_pair = atom_pairs.size();
