@@ -200,7 +200,6 @@ void CompositeJK::common_init() {
     auto zero = BasisSet::zero_ao_basis_set();
 
     // initialize 4-Center ERIs
-    outfile->Printf("Create 4-center ERIs\n");
     eri_computers_["4-Center"].emplace({});
     eri_computers_["4-Center"].resize(nthreads_);
 
@@ -209,7 +208,6 @@ void CompositeJK::common_init() {
     if (!eri_computers_["4-Center"][0]->initialized()) eri_computers_["4-Center"][0]->initialize_sieve();  
  
     // initialize 3-Center ERIs
-    outfile->Printf("Create 3-center ERIs\n");
     eri_computers_["3-Center"].emplace({});
     eri_computers_["3-Center"].resize(nthreads_);
 
@@ -235,7 +233,6 @@ void CompositeJK::common_init() {
         // pre-compute coulomb fitting metric
         timer_on("CompositeJK: DFDIRJ Coulomb Metric");
 
-        outfile->Printf("Create J metric\n");
         FittingMetric J_metric_obj(auxiliary_, true);
         J_metric_obj.form_fitting_metric();
         J_metric_ = J_metric_obj.get_metric();
@@ -612,8 +609,6 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
     // screening threshold
     double thresh2 = cutoff_ * cutoff_; 
 
-    outfile->Printf("nshellpair, nshelltriplet, thresh2: %d, %d, %e\n", nshellpair, nshelltriplet, thresh2);
-
     // per-thread G Vector buffers (for accumulating thread contributions to G)
     // G is the contraction of the density matrix with the 3-index ERIs
     std::vector<std::vector<SharedVector>> GT(njk, std::vector<SharedVector>(nthreads_));
@@ -689,10 +684,6 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
         size_t M = bra.first;
         size_t N = bra.second;
         if(Dshellp[M][N] * Dshellp[M][N] * J_metric_shell_diag[P] * eri_computers_["3-Center"][rank]->shell_pair_value(M,N) < thresh2) {
-#pragma omp critical
-{
-           outfile->Printf("%e, %e, %e, %e -> %e\n", Dshellp[M][N], Dshellp[M][N], J_metric_shell_diag[P], eri_computers_["3-Center"][rank]->shell_pair_value(M,N), Dshellp[M][N] * Dshellp[M][N] * J_metric_shell_diag[P] * eri_computers_["3-Center"][rank]->shell_pair_value(M,N)); 
-}
            continue;
         }
         computed_triplets1++;
@@ -723,17 +714,6 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
 
     }
 
-    /*
-    if (debug_) {
-        outfile->Printf("G vectors:\n");
-        outfile->Printf("----------\n");
-        for (auto iGT : GT) {
-            iGT->print();
-        }
-        outfile->Printf("----------\n\n");
-    }
-    */
-
     timer_off("ERI1");
 
     //  => Second Contraction <= //
@@ -746,29 +726,11 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
 
     std::vector<int> ipiv(nbf_aux);
 
-    if (debug_) {
-        outfile->Printf("J metric:\n");
-        outfile->Printf("----------\n");
-        for (auto iH : H) { 
-            J_metric_->print_out();
-        }
-        outfile->Printf("----------\n\n");
-    }
-
     for(size_t jki = 0; jki < njk; jki++) {
         for(size_t thread = 0; thread < nthreads_; thread++) {
             H[jki]->add(*GT[jki][thread]);
         }
         C_DGESV(nbf_aux, 1, J_metric_->clone()->pointer()[0], nbf_aux, ipiv.data(), H[jki]->pointer(), nbf_aux);
-    }
-
-    if (debug_) {
-        outfile->Printf("H vectors:\n");
-        outfile->Printf("----------\n");
-        for (auto iH : H) { 
-            iH->print();
-        }
-        outfile->Printf("----------\n\n");
     }
 
     // I believe C_DSYSV should be faster than C_GESV, but I've found the opposite to be true.
@@ -855,7 +817,6 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
     num_computed_shells_ = computed_triplets1 + computed_triplets2;
     if (get_bench()) {
         computed_shells_per_iter_["Triplets"].push_back(num_computed_shells());
-        outfile->Printf("num_computed_shells: %d\n", num_computed_shells()); 
     }
 
     for(size_t jki = 0; jki < njk; jki++) {
@@ -956,7 +917,6 @@ void CompositeJK::build_linK(std::vector<SharedMatrix>& D, std::vector<SharedMat
     std::vector<std::vector<int>> significant_bras(nshell);
     double max_integral = eri_computers_["4-Center"][0]->max_integral();
 
-    outfile->Printf("Significant Bras:\n");
 #pragma omp parallel for
     for (size_t P = 0; P < nshell; P++) {
         std::vector<std::pair<int, double>> PQ_shell_values;
@@ -972,7 +932,6 @@ void CompositeJK::build_linK(std::vector<SharedMatrix>& D, std::vector<SharedMat
         for (const auto& value : PQ_shell_values) {
             significant_bras[P].push_back(value.first);
         }
-        outfile->Printf("  P, num_bra -> %d, %d\n", P, significant_bras[P].size());
     }
 
     // ==> Prep Bra-Ket Shell Pairs <== //
@@ -993,7 +952,6 @@ void CompositeJK::build_linK(std::vector<SharedMatrix>& D, std::vector<SharedMat
 
     std::vector<std::vector<int>> significant_kets(nshell);
 
-    outfile->Printf("Significant Kets:\n");
     // => Use shell ceilings to compute significant ket-shells for each bra-shell <= //
     // => Implementation of Eq. 4 in paper <= //
 #pragma omp parallel for
@@ -1003,8 +961,6 @@ void CompositeJK::build_linK(std::vector<SharedMatrix>& D, std::vector<SharedMat
             double screen_val = shell_ceilings[P] * shell_ceilings[R] * eri_computers_["4-Center"][0]->shell_pair_max_density(P, R);
             if (screen_val >= linK_ints_cutoff_) {
                 PR_shell_values.emplace_back(R, screen_val);
-            } else {
-                outfile->Printf("P_ceil, R_ceil, PR_density -> screen_val: %e, %e, %e, %e\n", shell_ceilings[P], shell_ceilings[R], eri_computers_["4-Center"][0]->shell_pair_max_density(P, R), screen_val);
             }
         }
         std::sort(PR_shell_values.begin(), PR_shell_values.end(), screen_compare);
@@ -1012,7 +968,6 @@ void CompositeJK::build_linK(std::vector<SharedMatrix>& D, std::vector<SharedMat
         for (const auto& value : PR_shell_values) {
             significant_kets[P].push_back(value.first);
         }
-        outfile->Printf("  P, num_ket -> %d, %d\n", P, significant_kets[P].size());
     }
 
     size_t natom_pair = atom_pairs.size();
