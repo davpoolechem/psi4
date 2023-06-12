@@ -316,7 +316,10 @@ void DFHelper::prepare_sparsity() {
 #ifdef _OPENMP
         rank = omp_get_thread_num();
 #endif
-        if (rank) eri[rank] = std::shared_ptr<TwoBodyAOInt>(eri.front()->clone());
+        if (rank) {
+            eri[rank] = std::shared_ptr<TwoBodyAOInt>(eri.front()->clone());
+            if (!eri[rank]->initialized()) eri[rank]->initialize_sieve();
+        }
     }
 
     // => For each shell pair and basis pair, store the max (mn|mn)-type integral for screening. <=
@@ -417,7 +420,8 @@ void DFHelper::prepare_AO() {
     std::vector<std::shared_ptr<TwoBodyAOInt>> eri(nthreads_);
     eri[0] = std::shared_ptr<TwoBodyAOInt>(rifactory->eri());
     for(int rank = 1; rank < nthreads_; rank++) {
-	eri[rank] = std::shared_ptr<TwoBodyAOInt>(eri.front()->clone());
+	    eri[rank] = std::shared_ptr<TwoBodyAOInt>(eri.front()->clone());
+        if (!eri[rank]->initialized()) eri[rank]->initialize_sieve();
     }
 
     // gather blocking info
@@ -494,6 +498,7 @@ void DFHelper::prepare_AO_wK() {
         rank = omp_get_thread_num();
 #endif
         eri[rank] = std::shared_ptr<TwoBodyAOInt>(eri.front()->clone());
+        if (!eri[rank]->initialized()) eri[rank]->initialize_sieve();
     }
 
     // gather blocking info
@@ -513,6 +518,7 @@ void DFHelper::prepare_AO_core() {
         rank = omp_get_thread_num();
 #endif
         if(rank) eri[rank] = std::shared_ptr<TwoBodyAOInt>(eri.front()->clone());
+        if (!eri[rank]->initialized()) eri[rank]->initialize_sieve();
     }
 
     // determine blocking
@@ -591,7 +597,10 @@ void DFHelper::prepare_AO_wK_core() {
 #endif
         if (rank) {
             eri[rank] = std::shared_ptr<TwoBodyAOInt>(eri.front()->clone());
+            if (!eri[rank]->initialized()) eri[rank]->initialize_sieve();
+            
             weri[rank] = std::shared_ptr<TwoBodyAOInt>(weri.front()->clone());
+            if (!weri[rank]->initialized()) weri[rank]->initialize_sieve();
         }
     }
 
@@ -1878,7 +1887,10 @@ void DFHelper::transform() {
 #endif
         std::vector<double> Cp(nbf_ * wtmp);
         C_buffers[rank] = Cp;
-        if (rank) eri[rank] = std::shared_ptr<TwoBodyAOInt>(eri.front()->clone());
+        if (rank) {
+            eri[rank] = std::shared_ptr<TwoBodyAOInt>(eri.front()->clone());
+            if (!eri[rank]->initialized()) eri[rank]->initialize_sieve();
+        }
     }
 
     // allocate in-core transformed integrals if necessary

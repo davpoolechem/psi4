@@ -185,13 +185,13 @@ void CompositeJK::common_init() {
 
     // other options
     auto screening_type = options_.get_str("SCREENING");
-    if (screening_type == "NONE") {
-        throw PSIEXCEPTION("Composite methods do not support SCREENING=NONE yet!");
-    } else {
-        density_screening_ = options_.get_str("SCREENING") == "DENSITY";
-    }
+    density_screening_ = screening_type == "DENSITY";
 
-    set_cutoff(options_.get_double("INTS_TOLERANCE"));
+    if (screening_type == "NONE") {
+        set_cutoff(0.0);
+    } else {
+        set_cutoff(options_.get_double("INTS_TOLERANCE"));
+    }
     early_screening_ = k_type_ == "COSX" ? true : false;
 
     // pre-construct per-thread TwoBodyAOInt objects for computing 3- and 4-index ERIs
@@ -200,6 +200,7 @@ void CompositeJK::common_init() {
     auto zero = BasisSet::zero_ao_basis_set();
 
     // initialize 4-Center ERIs
+    outfile->Printf("Create 4-center ERIs\n");
     eri_computers_["4-Center"].emplace({});
     eri_computers_["4-Center"].resize(nthreads_);
 
@@ -208,6 +209,7 @@ void CompositeJK::common_init() {
     if (!eri_computers_["4-Center"][0]->initialized()) eri_computers_["4-Center"][0]->initialize_sieve();  
  
     // initialize 3-Center ERIs
+    outfile->Printf("Create 3-center ERIs\n");
     eri_computers_["3-Center"].emplace({});
     eri_computers_["3-Center"].resize(nthreads_);
 
@@ -218,7 +220,10 @@ void CompositeJK::common_init() {
     // create each threads' ERI computers
     for(int rank = 1; rank < nthreads_; rank++) {
         eri_computers_["4-Center"][rank] = std::shared_ptr<TwoBodyAOInt>(eri_computers_["4-Center"].front()->clone());
+        if (!eri_computers_["4-Center"][rank]->initialized()) eri_computers_["4-Center"][rank]->initialize_sieve();
+
         eri_computers_["3-Center"][rank] = std::shared_ptr<TwoBodyAOInt>(eri_computers_["3-Center"].front()->clone());
+        if (!eri_computers_["3-Center"][rank]->initialized()) eri_computers_["3-Center"][rank]->initialize_sieve();
     }
 
     timer_off("CompositeJK: ERI Computers");
@@ -230,6 +235,7 @@ void CompositeJK::common_init() {
         // pre-compute coulomb fitting metric
         timer_on("CompositeJK: DFDIRJ Coulomb Metric");
 
+        outfile->Printf("Create J metric\n");
         FittingMetric J_metric_obj(auxiliary_, true);
         J_metric_obj.form_fitting_metric();
         J_metric_ = J_metric_obj.get_metric();
@@ -588,7 +594,9 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
     size_t computed_triplets1 = 0, computed_triplets2 = 0;
 
     // screening threshold
-    double thresh2 = options_.get_double("INTS_TOLERANCE") * options_.get_double("INTS_TOLERANCE");
+    double thresh2 = cutoff_ * cutoff_; 
+
+    outfile->Printf("nshellpair, nshelltriplet, thresh2: %d, %d, %e\n", nshellpair, nshelltriplet, thresh2);
 
     // per-thread G Vector buffers (for accumulating thread contributions to G)
     // G is the contraction of the density matrix with the 3-index ERIs
@@ -665,7 +673,11 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
         size_t M = bra.first;
         size_t N = bra.second;
         if(Dshellp[M][N] * Dshellp[M][N] * J_metric_shell_diag[P] * eri_computers_["3-Center"][rank]->shell_pair_value(M,N) < thresh2) {
-            continue;
+#pragma omp critical
+{
+           outfile->Printf("%e, %e, %e, %e -> %e\n", Dshellp[M][N], Dshellp[M][N], J_metric_shell_diag[P], eri_computers_["3-Center"][rank]->shell_pair_value(M,N), Dshellp[M][N] * Dshellp[M][N] * J_metric_shell_diag[P] * eri_computers_["3-Center"][rank]->shell_pair_value(M,N)); 
+}
+           continue;
         }
         computed_triplets1++;
         int np = auxiliary_->shell(P).nfunction();
@@ -695,6 +707,17 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
 
     }
 
+    /*
+    if (debug_) {
+        outfile->Printf("G vectors:\n");
+        outfile->Printf("----------\n");
+        for (auto iGT : GT) {
+            iGT->print();
+        }
+        outfile->Printf("----------\n\n");
+    }
+    */
+
     timer_off("ERI1");
 
     //  => Second Contraction <= //
@@ -707,6 +730,15 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
 
     std::vector<int> ipiv(nbf_aux);
 
+    if (debug_) {
+        outfile->Printf("J metric:\n");
+        outfile->Printf("----------\n");
+        for (auto iH : H) { 
+            J_metric_->print_out();
+        }
+        outfile->Printf("----------\n\n");
+    }
+
     for(size_t jki = 0; jki < njk; jki++) {
         for(size_t thread = 0; thread < nthreads_; thread++) {
             H[jki]->add(*GT[jki][thread]);
@@ -714,6 +746,14 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
         C_DGESV(nbf_aux, 1, J_metric_->clone()->pointer()[0], nbf_aux, ipiv.data(), H[jki]->pointer(), nbf_aux);
     }
 
+    if (debug_) {
+        outfile->Printf("H vectors:\n");
+        outfile->Printf("----------\n");
+        for (auto iH : H) { 
+            iH->print();
+        }
+        outfile->Printf("----------\n\n");
+    }
 
     // I believe C_DSYSV should be faster than C_GESV, but I've found the opposite to be true.
     // This performance issue should be investigated, but is not consequential here.
@@ -799,6 +839,7 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
     num_computed_shells_ = computed_triplets1 + computed_triplets2;
     if (get_bench()) {
         computed_shells_per_iter_["Triplets"].push_back(num_computed_shells());
+        outfile->Printf("num_computed_shells: %d\n", num_computed_shells()); 
     }
 
     for(size_t jki = 0; jki < njk; jki++) {
