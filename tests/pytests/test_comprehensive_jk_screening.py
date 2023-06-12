@@ -6,8 +6,14 @@ from utils import compare, compare_integers, compare_values
 pytestmark = [pytest.mark.psi, pytest.mark.api] 
 
 @pytest.mark.parametrize("scf_type", [ "PK", "DIRECT", "OUT_OF_CORE", "DISK_DF", "MEM_DF", "DFDIRJ+LINK", "DFDIRJ+COSX" ])
+#@pytest.mark.parametrize("scf_type", [ "PK", "DIRECT", "OUT_OF_CORE", "DISK_DF", "MEM_DF", "DFDIRJ+COSX" ])
+#@pytest.mark.parametrize("scf_type", [ "MEM_DF", "DFDIRJ+LINK", "DFDIRJ+COSX" ])
+#@pytest.mark.parametrize("scf_type", [ "DFDIRJ+LINK" ]) 
+
 @pytest.mark.parametrize("scf_subtype", [ "AUTO", "INCORE", "OUT_OF_CORE", "YOSHIMINE_OUT_OF_CORE", "REORDER_OUT_OF_CORE" ])
+
 @pytest.mark.parametrize("screening", [ "SCHWARZ", "DENSITY", "CSAM", "NONE" ])
+#@pytest.mark.parametrize("screening", [ "NONE" ]) 
 def test_comprehensive_jk_screening(scf_type, scf_subtype, screening):
     """Checks the energy values computed by different JK methods using different
     screening types. The differences in energies should be insignificant.""" 
@@ -57,15 +63,14 @@ def test_comprehensive_jk_screening(scf_type, scf_subtype, screening):
     #== this includes Composite methods with SCREENING=NONE... ==#
     should_throw = should_throw or (scf_type in Eref["Singlet"]["Composite"].keys() and screening == "NONE")
     #== .. the Yoshimine PK subalgo with SCREENING=NONE... ==#
-    should_throw = should_throw or (scf_type == "PK" and scf_subtype == "YOSHIMINE_OUT_OF_CORE" and screening == "NONE")
+    #should_throw = should_throw or (scf_type == "PK" and scf_subtype == "YOSHIMINE_OUT_OF_CORE" and screening == "NONE")
     #== ..non-integral-direct methods and DFDirJ+COSX with SCREENING=DENSITY... ==# 
     should_throw = should_throw or (scf_type not in [ "DIRECT", "DFDIRJ+LINK" ] and screening == "DENSITY")
 
     #== other combinations error out badly and need to be fixed; skip them here ==#
     should_error_out = False
     should_error_out = should_error_out or (scf_type == "DFDIRJ+LINK" and screening in [ "SCHWARZ", "CSAM" ])
-    should_error_out = should_error_out or (scf_type == "DISK_DF" and screening == "NONE")
-    #should_error_out = should_error_out or (scf_type == "DIRECT" and screening == "NONE")
+    should_error_out = should_error_out or (scf_type == "DISK_DF" and scf_subtype != "OUT_OF_CORE" and screening == "NONE")
       
     E = 0.0 
     
