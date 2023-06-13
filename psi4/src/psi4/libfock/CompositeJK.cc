@@ -205,7 +205,7 @@ void CompositeJK::common_init() {
 
     IntegralFactory factory(primary_, primary_, primary_, primary_);
     eri_computers_["4-Center"][0] = std::shared_ptr<TwoBodyAOInt>(factory.eri());
-    if (!eri_computers_["4-Center"][0]->initialized()) eri_computers_["4-Center"][0]->initialize_sieve();  
+    if (!eri_computers_["4-Center"][0]->initialized()) eri_computers_["4-Center"][0]->initialize_sieve();
  
     // initialize 3-Center ERIs
     eri_computers_["3-Center"].emplace({});
@@ -213,7 +213,7 @@ void CompositeJK::common_init() {
 
     IntegralFactory rifactory(auxiliary_, zero, primary_, primary_);
     eri_computers_["3-Center"][0] = std::shared_ptr<TwoBodyAOInt>(rifactory.eri());
-    if (!eri_computers_["3-Center"][0]->initialized()) eri_computers_["3-Center"][0]->initialize_sieve();  
+    if (!eri_computers_["3-Center"][0]->initialized()) eri_computers_["3-Center"][0]->initialize_sieve();
 
     // create each threads' ERI computers
     for(int rank = 1; rank < nthreads_; rank++) {
@@ -523,28 +523,12 @@ void CompositeJK::compute_JK() {
         zero();
     }
 
-    // update ERI engine density matrices for density screening...
+    // update ERI engine density matrices for density screening
     if (density_screening_ || k_type_ == "LINK") {
         for (auto eri_computer : eri_computers_["4-Center"]) {
             eri_computer->update_density(D_ref_);
         }
     }
-    // ... or set ERI engine density matrices to zero for no screening 
-    /*
-    } else if (options_.get_str("SCREENING") == "NONE") {
-        std::vector<SharedMatrix> zero_matrices;
-            
-        auto zero_matrix = D_ref_[0]->clone();
-        zero_matrix->zero();
-        for (int izero = 0; izero != D_ref_.size(); ++izero) {
-            zero_matrices.push_back(zero_matrix->clone());
-        }
-     
-        for (auto eri_computer : eri_computers_["4-Center"]) {
-            eri_computer->update_density(zero_matrices);
-        }
-    }
-    */
 
     // => Perform matrix calculations <= //
 
@@ -607,7 +591,7 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
     size_t computed_triplets1 = 0, computed_triplets2 = 0;
 
     // screening threshold
-    double thresh2 = cutoff_ * cutoff_; 
+    double thresh2 = cutoff_ * cutoff_;
 
     // per-thread G Vector buffers (for accumulating thread contributions to G)
     // G is the contraction of the density matrix with the 3-index ERIs
@@ -684,7 +668,7 @@ void CompositeJK::build_DirectDFJ(std::vector<std::shared_ptr<Matrix>>& D, std::
         size_t M = bra.first;
         size_t N = bra.second;
         if(Dshellp[M][N] * Dshellp[M][N] * J_metric_shell_diag[P] * eri_computers_["3-Center"][rank]->shell_pair_value(M,N) < thresh2) {
-           continue;
+            continue;
         }
         computed_triplets1++;
         int np = auxiliary_->shell(P).nfunction();
