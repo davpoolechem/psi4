@@ -206,7 +206,7 @@ void CompositeJK::common_init() {
     IntegralFactory factory(primary_, primary_, primary_, primary_);
     eri_computers_["4-Center"][0] = std::shared_ptr<TwoBodyAOInt>(factory.eri());
     if (!eri_computers_["4-Center"][0]->initialized()) eri_computers_["4-Center"][0]->initialize_sieve();
- 
+
     // initialize 3-Center ERIs
     eri_computers_["3-Center"].emplace({});
     eri_computers_["3-Center"].resize(nthreads_);
