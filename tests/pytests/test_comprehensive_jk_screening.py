@@ -70,7 +70,6 @@ def test_comprehensive_jk_screening(scf_type, scf_subtype, screening):
     #== other combinations error out badly and need to be fixed; skip them here ==#
     should_error_out = False
     should_error_out = should_error_out or (scf_type == "DFDIRJ+LINK" and screening in [ "SCHWARZ", "CSAM" ])
-    should_error_out = should_error_out or (scf_type == "DISK_DF" and scf_subtype != "OUT_OF_CORE" and screening == "NONE")
       
     E = 0.0 
     
