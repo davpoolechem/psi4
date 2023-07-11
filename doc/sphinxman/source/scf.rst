@@ -693,17 +693,20 @@ CD
     vectors is not designed for computations with thousands of basis
     functions.
 
-|PSIfour| also features the capability to use "composite" Fock matrix build 
-algorithms - arbitrary combinations of specialized algorithms that construct 
-either the Coulomb or the Exchange matrix separately. In general, since 
-separate Coulomb and Exchange matrix build algorithms exploit properties specific to 
+|PSIfour| also features the capability to use "composite" Fock matrix build
+algorithms - arbitrary combinations of specialized algorithms that construct
+either the Coulomb or the Exchange matrix separately. In general, since
+separate Coulomb and Exchange matrix build algorithms exploit properties specific to
 their respective matrix, composite algorithms display lower
-scaling factors than their combined Fock build counterparts. However, composite algorithms also 
+scaling factors than their combined Fock build counterparts. However, composite algorithms also
 introduce redundant ERI computations into the calculation. Therefore, composite Fock build
-algorithms tend to perform better for larger systems, but worse for smaller systems. Arbitrary 
-composite algorithms can be accessed by setting |globals__scf_type| to ``J_alg+K_alg``, 
+algorithms tend to perform better for larger systems, but worse for smaller systems. For general use,
+arbitrary composite algorithms are accessed by setting |globals__scf_type| to ``J_alg+K_alg``,
 where *J_alg* and *K_alg* are the names of the separate Coulomb
-and Exchange construction algorithms to use, respectively.
+and Exchange construction algorithms to use, respectively. For cases in which the Exchange
+construction algorithm is unused, such as DFT calculations with an LDA or GGA functional, a specific
+Coulomb matrix build algorithm can be specified by setting |globals__scf_type|
+to ``J_alg``, skipping the specification of *K_alg*.
 
 Specialized algorithms available to construct the Coulomb term within a composite framework 
 are as follows:
