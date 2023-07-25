@@ -197,6 +197,13 @@ class PSI_API CFMMTree {
       // Maximum Multipole Angular Momentum
       int lmax_;
 
+      // Number of leaf boxes for adaptive CFMM
+      // see White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
+      int N_target_; 
+      // Dimensionality of system modeled by CFMM Tree
+      // Always 3 for molecular systems
+      static const int dimensionality_ = 3;
+      
       // The tree structure (implemented as list for random access)
       std::vector<std::shared_ptr<CFMMBox>> tree_;
       // List of all the leaf boxes (sorted by number of shell pairs for parallel efficiency)

@@ -347,11 +347,31 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
                     : basisset_(basis), options_(options) {
 
     molecule_ = basisset_->molecule();
-    nlevels_ = options_.get_int("CFMM_GRAIN");
+   
+    double n = static_cast<double>(basisset_->nbf());
+    double M_target = 50.0; 
+    double g = 1.0;
+    // Eq. 1 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
+    N_target_ = ceil(n / (M_target * g)); 
+    outfile->Printf("N_target: %f, %f, %f -> %d \n", n, M_target, g, N_target_);
+    
+    // Eq. 2 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
+    //nlevels_ = 1 + ceil( log(options_.get_int("CFMM_GRAIN")) / dimensionality_ * log(2)) ;
+    nlevels_ = 1 + 1 + ceil( log(N_target_) / (1 + static_cast<double>(dimensionality_)) * log(2)) ;
+    outfile->Printf("nlevels: %d %d \n", nlevels_, dimensionality_);
+
     if (nlevels_ <= 2) {
-        throw PSIEXCEPTION("Too little boxes! Why do you wanna do CFMM with Direct SCF?");
+        std::string error_message = "Too few tree levels ("; 
+        error_message += nlevels_;
+        error_message += ")! Why do you wanna do CFMM with Direct SCF?";
+
+        throw PSIEXCEPTION(error_message);
     } else if (nlevels_ >= 6) {
-        throw PSIEXCEPTION("Too many boxes! You memory hog.");
+        std::string error_message = "Too many tree levels ("; 
+        error_message += nlevels_;
+        error_message += ")! You memory hog.";
+
+        throw PSIEXCEPTION(error_message);
     }
     lmax_ = options_.get_int("CFMM_ORDER");
 
@@ -368,6 +388,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
 
     int num_boxes = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
     tree_.resize(num_boxes);
+    outfile->Printf("num_boxes: %d \n", num_boxes);
 
     mpole_coefs_ = std::make_shared<HarmonicCoefficients>(lmax_, Regular);
     double cfmm_extent_tol = options.get_double("CFMM_EXTENT_TOLERANCE");
@@ -434,10 +455,21 @@ void CFMMTree::make_root_node() {
         max_dim = std::max(z, max_dim);
     }
 
-    max_dim += 0.1; // Add a small buffer to the box
+    //max_dim += 0.1; // Add a small buffer to the box
 
     Vector3 origin = Vector3(min_dim, min_dim, min_dim);
     double length = (max_dim - min_dim);
+
+    // Scale root CFMM box for adaptive CFMM
+    // Eq. 3 of White 1996 
+    outfile->Printf("Original box volume: %f\n", length*length*length);
+    
+    double f = N_target_ / std::pow(2, dimensionality_ * (nlevels_ - 1));
+    outfile->Printf("f scaling factor: %f\n", f);
+    if (f > 1.0) throw PSIEXCEPTION("Bad f scaling factor value!");
+ 
+    length /= std::pow(f, 1.0 / dimensionality_);
+    outfile->Printf("New box volume: %f\n\n", length*length*length);
 
     tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin, length, 0, lmax_, 2);
 }
@@ -947,6 +979,7 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 }
 
 void CFMMTree::print_out() {
+    std::vector<int> level_to_box_count(6, 0);
     for (int bi = 0; bi < tree_.size(); bi++) {
         std::shared_ptr<CFMMBox> box = tree_[bi];
         auto sp = box->get_shell_pairs();
@@ -955,7 +988,15 @@ void CFMMTree::print_out() {
         int ws = box->get_ws();
         if (nshells > 0) {
             outfile->Printf("  BOX INDEX: %d, LEVEL: %d, WS: %d, NSHELLS: %d\n", bi, level, ws, nshells);
+            ++level_to_box_count[level];
         }
+    }
+    
+    outfile->Printf("OCCUPIED BOXES PER LEVEL:\n");
+    int ilevel = 0;
+    while (level_to_box_count[ilevel] > 0) {
+        outfile->Printf("  LEVEL: %d, BOXES: %d \n", ilevel, level_to_box_count[ilevel]);
+        ++ilevel;
     }
 }
 
