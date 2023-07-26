@@ -1256,9 +1256,11 @@ class PSI_API CompositeJK : public JK {
     // => Semi-Numerical Stuff, for COSX <= //
 
     /// Small DFTGrid for initial SCF iterations
-    std::shared_ptr<DFTGrid> grid_init_;
+    // std::shared_ptr<DFTGrid> grid_init_;
     /// Large DFTGrid for the final SCF iteration
-    std::shared_ptr<DFTGrid> grid_final_;
+    // std::shared_ptr<DFTGrid> grid_final_;
+    std::unordered_map<std::string, std::shared_ptr<DFTGrid> > grids;
+
     /// Overlap fitting metric for grid_initial_
     SharedMatrix Q_init_;
     /// Overlap fitting metric for grid_final_

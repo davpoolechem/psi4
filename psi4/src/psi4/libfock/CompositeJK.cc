@@ -43,6 +43,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <cctype>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -271,7 +272,7 @@ void CompositeJK::common_init() {
             {"DFT_BLOCK_MAX_RADIUS",  3.0},
             {"DFT_WEIGHTS_TOLERANCE", 1e-15},
         };
-        grid_init_ = std::make_shared<DFTGrid>(primary_->molecule(), primary_, grid_init_int_options, grid_init_str_options, grid_init_float_options, options_);
+        grids["Initial"] = std::make_shared<DFTGrid>(primary_->molecule(), primary_, grid_init_int_options, grid_init_str_options, grid_init_float_options, options_);
 
         // Create a large DFTGrid for the final SCF iteration
         std::map<std::string, std::string> grid_final_str_options = {
@@ -294,26 +295,47 @@ void CompositeJK::common_init() {
             {"DFT_BLOCK_MAX_RADIUS",  3.0},
             {"DFT_WEIGHTS_TOLERANCE", 1e-15},
         };
-        grid_final_ = std::make_shared<DFTGrid>(primary_->molecule(), primary_, grid_final_int_options, grid_final_str_options, grid_final_float_options, options_);
+        grids["Final"] = std::make_shared<DFTGrid>(primary_->molecule(), primary_, grid_final_int_options, grid_final_str_options, grid_final_float_options, options_);
+
+        // Print out specific grid info upon request
+        /*
+        if (debug_) {
+            // Initial grid debug output
+            outfile->Printf("  ==> COSX: Initial Grid Details <==\n\n");
+            outfile->Printf("    Total number of grid points: %d \n");
+            outfile->Printf("    Total number of batches: %d \n");
+            outfile->Printf("    Average number of points per batch: %f \n");
+            outfile->Printf("    Average number of grid points per atom: %f \n");
+        
+            // Final grid debug output
+            outfile->Printf("  ==> COSX: Initial Grid Details <==\n\n");
+            outfile->Printf("    Total number of grid points: %d \n");
+            outfile->Printf("    Total number of batches: %d \n");
+            outfile->Printf("    Average number of points per batch: %f \n");
+            outfile->Printf("    Average number of grid points per atom: %f \n");
+        }
+        */
 
         // Sanity-check of grids to ensure no negative grid weights
         // COSX crashes when grids with negative weights are used,
         // which can happen with certain grid configurations
         // See https://github.com/psi4/psi4/issues/2890
-        for (const auto &init_block : grid_init_->blocks()) {
-            const auto w = init_block->w();
-            for (int ipoint = 0; ipoint < init_block->npoints(); ++ipoint) {
-                if (w[ipoint] < 0.0) {
-                    throw PSIEXCEPTION("The definition of the current initial grid includes negative weights. As these are not suitable for the COSX implementation, please choose another initial grid through adjusting either COSX_PRUNING_SCHEME or COSX_SPHERICAL_POINTS_INITIAL.");
-                }
-            }
-        }
+        for (auto& [gridname, grid] : grids) { 
+            for (const auto &block : grid->blocks()) {
+                const auto w = block->w();
+                for (int ipoint = 0; ipoint < block->npoints(); ++ipoint) {
+                    if (w[ipoint] < 0.0) {
+                        std::string gridname_uppercase;
+                        std::transform(gridname.begin(), gridname.end(), gridname_uppercase.begin(), ::toupper);
 
-        for (const auto &final_block : grid_final_->blocks()) {
-            const auto w = final_block->w();
-            for (int ipoint = 0; ipoint < final_block->npoints(); ++ipoint) {
-                if (w[ipoint] < 0.0) {
-                    throw PSIEXCEPTION("The definition of the current final grid includes negative weights. As these are not suitable for the COSX implementation, please choose another final grid through adjusting either COSX_PRUNING_SCHEME or COSX_SPHERICAL_POINTS_FINAL.");
+                        std::string error_message = "The definition of the current "; 
+                        error_message += gridname; 
+                        error_message += " grid includes negative weights. As these are not suitable for the COSX implementation, please choose another initial grid through adjusting either COSX_PRUNING_SCHEME or COSX_SPHERICAL_POINTS_";
+                        error_message += gridname_uppercase;
+                        error_message += "."; 
+                        
+                        throw PSIEXCEPTION(error_message);
+                    }
                 }
             }
         }
@@ -332,8 +354,8 @@ void CompositeJK::common_init() {
         timer_on("CompositeJK: COSX Numeric Overlap");
 
         // compute the numeric overlap matrix for each grid
-        auto S_num_init = compute_numeric_overlap(*grid_init_, primary_);
-        auto S_num_final = compute_numeric_overlap(*grid_final_, primary_ );
+        auto S_num_init = compute_numeric_overlap(*(grids["Initial"]), primary_);
+        auto S_num_final = compute_numeric_overlap(*(grids["Final"]), primary_ );
 
         timer_off("CompositeJK: COSX Numeric Overlap");
 
@@ -1228,7 +1250,7 @@ void CompositeJK::build_COSK(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
 
     // use a small DFTGrid grid (and overlap metric) for early SCF iterations
     // otherwise use a large DFTGrid
-    auto grid = early_screening_ ? grid_init_ : grid_final_;
+    auto grid = early_screening_ ? grids["Initial"] : grids["Final"];
     auto Q = early_screening_ ? Q_init_ : Q_final_;
 
     // => Initialization <= //
