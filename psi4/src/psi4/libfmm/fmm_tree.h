@@ -200,9 +200,12 @@ class PSI_API CFMMTree {
       // Number of leaf boxes for adaptive CFMM
       // see White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
       int N_target_; 
+      // Scaling factor connecting number of target distributions to number of target boxes
+      // Always 1.0 for systems of randomly-placed distributions (i.e. molecules)
+      static constexpr double g_ = 1.0; 
       // Dimensionality of system modeled by CFMM Tree
       // Always 3 for molecular systems
-      static const int dimensionality_ = 3;
+      static constexpr int dimensionality_ = 3;
       
       // The tree structure (implemented as list for random access)
       std::vector<std::shared_ptr<CFMMBox>> tree_;

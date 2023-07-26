@@ -349,16 +349,32 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     molecule_ = basisset_->molecule();
    
     double n = static_cast<double>(basisset_->nbf());
-    double M_target = 50.0; 
-    double g = 1.0;
-    // Eq. 1 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
-    N_target_ = ceil(n / (M_target * g)); 
-    outfile->Printf("N_target: %f, %f, %f -> %d \n", n, M_target, g, N_target_);
     
-    // Eq. 2 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
-    //nlevels_ = 1 + ceil( log(options_.get_int("CFMM_GRAIN")) / dimensionality_ * log(2)) ;
-    nlevels_ = 1 + 1 + ceil( log(N_target_) / (1 + static_cast<double>(dimensionality_)) * log(2)) ;
-    outfile->Printf("nlevels: %d %d \n", nlevels_, dimensionality_);
+    // ==> time to define the number of lowest-level boxes in the CFMM tree! <== // 
+    int grain = options_.get_int("CFMM_GRAIN");
+    
+    // CFMM_GRAIN < -1 is invalid 
+    if (grain < -1) { 
+        std::string error_message = "CFMM grain set to below -1! If you meant to use adaptive CFMM, please set CFMM_GRAIN to exactly -1 or 0.";
+        
+        throw PSIEXCEPTION(error_message);
+ 
+    // CFMM_GRAIN = -1 or 0 enables adaptive CFMM 
+    } else if (grain == -1 || grain == 0) { 
+        double M_target = 50.0; 
+        // Eq. 1 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
+        N_target_ = ceil(n / (M_target * g_)); 
+        //outfile->Printf("N_target: %f, %f, %f -> %d \n", n, M_target, g, N_target_);
+   
+    // CFMM_GRAIN > n (s.t. n > 0) uses n lowest-level boxes in the CFMM tree
+    } else { 
+        N_target_ = grain;
+    }
+
+    // Modified form of Eq. 2 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
+    // further modifications arise from differences between regular and Continuous FMM
+    nlevels_ = 1 + 1 + ceil( log(N_target_) / (1 + static_cast<double>(dimensionality_)) * log(2));
+    //outfile->Printf("nlevels: %d %d \n", nlevels_, dimensionality_);
 
     if (nlevels_ <= 2) {
         std::string error_message = "Too few tree levels ("; 
@@ -388,7 +404,6 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
 
     int num_boxes = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
     tree_.resize(num_boxes);
-    outfile->Printf("num_boxes: %d \n", num_boxes);
 
     mpole_coefs_ = std::make_shared<HarmonicCoefficients>(lmax_, Regular);
     double cfmm_extent_tol = options.get_double("CFMM_EXTENT_TOLERANCE");
@@ -462,14 +477,14 @@ void CFMMTree::make_root_node() {
 
     // Scale root CFMM box for adaptive CFMM
     // Eq. 3 of White 1996 
-    outfile->Printf("Original box volume: %f\n", length*length*length);
+    //outfile->Printf("Original box volume: %f\n", length*length*length);
     
-    double f = N_target_ / std::pow(2, dimensionality_ * (nlevels_ - 1));
-    outfile->Printf("f scaling factor: %f\n", f);
+    double f = N_target_ / std::pow(2,  dimensionality_ * (nlevels_ - 1));
+    //outfile->Printf("f scaling factor: %f\n", f);
     if (f > 1.0) throw PSIEXCEPTION("Bad f scaling factor value!");
  
     length /= std::pow(f, 1.0 / dimensionality_);
-    outfile->Printf("New box volume: %f\n\n", length*length*length);
+    //outfile->Printf("New box volume: %f\n\n", length*length*length);
 
     tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin, length, 0, lmax_, 2);
 }
