@@ -203,6 +203,7 @@ class PSI_API CFMMTree {
       // Scaling factor connecting number of target distributions to number of target boxes
       // Always 1.0 for systems of randomly-placed distributions (i.e. molecules)
       static constexpr double g_ = 1.0; 
+      // static constexpr double g_ = 0.523598; // pi/6, ratio of cube to sphere 
       // Dimensionality of system modeled by CFMM Tree
       // Always 3 for molecular systems
       static constexpr int dimensionality_ = 3;

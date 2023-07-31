@@ -348,61 +348,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
 
     molecule_ = basisset_->molecule();
    
-    double n = static_cast<double>(basisset_->nbf());
-    
-    // ==> time to define the number of lowest-level boxes in the CFMM tree! <== // 
-    int grain = options_.get_int("CFMM_GRAIN");
-    
-    // CFMM_GRAIN < -1 is invalid 
-    if (grain < -1) { 
-        std::string error_message = "CFMM grain set to below -1! If you meant to use adaptive CFMM, please set CFMM_GRAIN to exactly -1 or 0.";
-        
-        throw PSIEXCEPTION(error_message);
- 
-    // CFMM_GRAIN = -1 or 0 enables adaptive CFMM 
-    } else if (grain == -1 || grain == 0) { 
-        double M_target = 50.0; 
-        // Eq. 1 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
-        N_target_ = ceil(n / (M_target * g_)); 
-        outfile->Printf("N_target: %f, %f, %f -> %d \n", n, M_target, g_, N_target_);
-   
-    // CFMM_GRAIN > n (s.t. n > 0) uses n lowest-level boxes in the CFMM tree
-    } else { 
-        N_target_ = grain;
-    }
-
-    // Modified form of Eq. 2 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
-    // further modifications arise from differences between regular and Continuous FMM
-    //nlevels_ = 1 + ceil( log(N_target_) / ( (1 + static_cast<double>(dimensionality_)) * log(2) ));
-    //outfile->Printf("nlevels: %d %f \n", nlevels_, nlevels_alt);
-
-    nlevels_ = 1;
-    int num_lowest_level_boxes = 1;
-
-    nlevels_ += 1;
-    num_lowest_level_boxes *= 8;
-
-    while (num_lowest_level_boxes < N_target_) {
-        nlevels_ += 1;
-        num_lowest_level_boxes *= 16;
-    }
- 
-    if (nlevels_ <= 2) {
-        std::string error_message = "Too few tree levels ("; 
-        error_message += std::to_string(nlevels_);
-        error_message += ")! Why do you wanna do CFMM with Direct SCF?";
-
-        throw PSIEXCEPTION(error_message);
-    } else if (nlevels_ >= 6) {
-        std::string error_message = "Too many tree levels ("; 
-        error_message += std::to_string(nlevels_);
-        error_message += ")! You memory hog.";
-
-        throw PSIEXCEPTION(error_message);
-    }
-    lmax_ = options_.get_int("CFMM_ORDER");
-
-    nthread_ = 1;
+   nthread_ = 1;
 #ifdef _OPENMP
     nthread_ = Process::environment.get_n_threads();
 #endif
@@ -413,8 +359,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     density_screening_ = (options_.get_str("SCREENING") == "DENSITY");
     ints_tolerance_ = options_.get_double("INTS_TOLERANCE");
 
-    int num_boxes = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
-    tree_.resize(num_boxes);
+    lmax_ = options_.get_int("CFMM_ORDER");
 
     mpole_coefs_ = std::make_shared<HarmonicCoefficients>(lmax_, Regular);
     double cfmm_extent_tol = options.get_double("CFMM_EXTENT_TOLERANCE");
@@ -431,6 +376,60 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
         const auto& pair = ints_shell_pairs[pair_index];
         shell_pairs_[pair_index] = std::make_shared<ShellPair>(basisset_, pair, mpole_coefs_, cfmm_extent_tol);
     }
+
+    // ==> time to define the number of lowest-level boxes in the CFMM tree! <== // 
+    int grain = options_.get_int("CFMM_GRAIN");
+    
+    // CFMM_GRAIN < -1 is invalid 
+    if (grain < -1) { 
+        std::string error_message = "CFMM grain set to below -1! If you meant to use adaptive CFMM, please set CFMM_GRAIN to exactly -1 or 0.";
+        
+        throw PSIEXCEPTION(error_message);
+ 
+    // CFMM_GRAIN = -1 or 0 enables adaptive CFMM 
+    } else if (grain == -1 || grain == 0) { 
+        double M_target = 5000.0; // target number of shell pairs per occupied lowest-level box 
+        // Eq. 1 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
+        N_target_ = ceil(static_cast<double>(nshell_pairs) / (M_target * g_)); 
+        outfile->Printf("N_target: %d, %f, %f -> %d \n", nshell_pairs, M_target, g_, N_target_);
+   
+    // CFMM_GRAIN > n (s.t. n > 0) uses n lowest-level boxes in the CFMM tree
+    } else { 
+        N_target_ = grain;
+    }
+
+    // Modified form of Eq. 2 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
+    // further modifications arise from differences between regular and Continuous FMM
+    //nlevels_ = 1 + ceil( log(N_target_) / ( (1 + static_cast<double>(dimensionality_)) * log(2) ));
+
+    nlevels_ = 1;
+    int num_lowest_level_boxes = 1;
+
+    nlevels_ += 1;
+    num_lowest_level_boxes *= 8;
+
+    while (num_lowest_level_boxes < N_target_) {
+        nlevels_ += 1;
+        num_lowest_level_boxes *= 16;
+    }
+    outfile->Printf("nlevels: %d \n", nlevels_);
+ 
+    if (nlevels_ <= 2) {
+        std::string error_message = "Too few tree levels ("; 
+        error_message += std::to_string(nlevels_);
+        error_message += ")! Why do you wanna do CFMM with Direct SCF?";
+
+        throw PSIEXCEPTION(error_message);
+    } else if (nlevels_ >= 6) {
+        std::string error_message = "Too many tree levels ("; 
+        error_message += std::to_string(nlevels_);
+        error_message += ")! You memory hog.";
+
+        throw PSIEXCEPTION(error_message);
+    }
+
+    int num_boxes = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
+    tree_.resize(num_boxes);
 
     timer_on("CFMMTree: Setup");
 
@@ -1011,6 +1010,7 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 
 void CFMMTree::print_out() {
     std::vector<int> level_to_box_count(6, 0);
+    std::vector<int> level_to_shell_count(6, 0);
     for (int bi = 0; bi < tree_.size(); bi++) {
         std::shared_ptr<CFMMBox> box = tree_[bi];
         auto sp = box->get_shell_pairs();
@@ -1018,15 +1018,16 @@ void CFMMTree::print_out() {
         int level = box->get_level();
         int ws = box->get_ws();
         if (nshells > 0) {
-            outfile->Printf("  BOX INDEX: %d, LEVEL: %d, WS: %d, NSHELLS: %d\n", bi, level, ws, nshells);
+            outfile->Printf("  BOX INDEX: %d, LEVEL: %d, WS: %d, NSHP: %d\n", bi, level, ws, nshells);
             ++level_to_box_count[level];
+            level_to_shell_count[level] += nshells;
         }
     }
     
-    outfile->Printf("OCCUPIED BOXES PER LEVEL:\n");
+    outfile->Printf("CFMM TREE LEVEL INFO:\n");
     int ilevel = 0;
     while (level_to_box_count[ilevel] > 0) {
-        outfile->Printf("  LEVEL: %d, BOXES: %d \n", ilevel, level_to_box_count[ilevel]);
+        outfile->Printf("  LEVEL: %d, BOXES: %d NSHP/BOX: %f \n", ilevel, level_to_box_count[ilevel], static_cast<double>(level_to_shell_count[ilevel]) / static_cast<double>(level_to_box_count[ilevel]) );
         ++ilevel;
     }
 }
