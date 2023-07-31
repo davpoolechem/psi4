@@ -1465,6 +1465,8 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_int("CFMM_ORDER", 10);
         /*- The maximum tree depth to use in the CFMM algorithm (Must be at least 3) -*/
         options.add_int("CFMM_GRAIN", 4);
+        /*- Number of shell pairs to aim for per occupied lowest-level box in adaptive CFMM. -*/
+        options.add_int("CFMM_TARGET_NSHP", 10000);
         /*- CFMM Extent Tolerance (for well-separated) -*/
         options.add_double("CFMM_EXTENT_TOLERANCE", 1.0e-10);
         

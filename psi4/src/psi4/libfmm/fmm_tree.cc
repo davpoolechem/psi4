@@ -379,6 +379,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
 
     // ==> time to define the number of lowest-level boxes in the CFMM tree! <== // 
     int grain = options_.get_int("CFMM_GRAIN");
+    int M_target = options_.get_int("CFMM_TARGET_NSHP");
     
     // CFMM_GRAIN < -1 is invalid 
     if (grain < -1) { 
@@ -388,10 +389,9 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
  
     // CFMM_GRAIN = -1 or 0 enables adaptive CFMM 
     } else if (grain == -1 || grain == 0) { 
-        double M_target = 5000.0; // target number of shell pairs per occupied lowest-level box 
         // Eq. 1 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
-        N_target_ = ceil(static_cast<double>(nshell_pairs) / (M_target * g_)); 
-        outfile->Printf("N_target: %d, %f, %f -> %d \n", nshell_pairs, M_target, g_, N_target_);
+        N_target_ = ceil(static_cast<double>(nshell_pairs) / (static_cast<double>(M_target) * g_)); 
+        outfile->Printf("N_target: %d, %d, %f -> %d \n", nshell_pairs, M_target, g_, N_target_);
    
     // CFMM_GRAIN > n (s.t. n > 0) uses n lowest-level boxes in the CFMM tree
     } else { 
