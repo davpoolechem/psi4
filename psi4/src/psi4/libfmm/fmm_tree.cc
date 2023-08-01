@@ -396,6 +396,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     // CFMM_GRAIN > n (s.t. n > 0) uses n lowest-level boxes in the CFMM tree
     } else { 
         N_target_ = grain;
+        outfile->Printf("N_target: %d \n", N_target_);
     }
 
     // Modified form of Eq. 2 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
@@ -487,7 +488,8 @@ void CFMMTree::make_root_node() {
 
     // Scale root CFMM box for adaptive CFMM
     // Logic follows Eq. 3 of White 1996, adapted for CFMM 
-    outfile->Printf("Original box volume: %f\n", length*length*length);
+    outfile->Printf("Original box volume: %f \n", length*length*length);
+    outfile->Printf("Original box origin: %f \n\n", origin[0]);
     
     int num_lowest_level_boxes = 8 * std::pow(2,  (1 + dimensionality_) * (nlevels_ - 2)); 
 
@@ -499,9 +501,14 @@ void CFMMTree::make_root_node() {
  
     double length_tmp = length;
     length = length_tmp / std::pow(f, 1.0 / dimensionality_);
-    outfile->Printf("New box volume: %f, %f -> %f, %f\n\n", length_tmp, f, length, length*length*length);
+ 
+    min_dim -= (length - length_tmp) / 2.0;
+    Vector3 origin_new = Vector3(min_dim, min_dim, min_dim);
 
-    tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin, length, 0, lmax_, 2);
+    outfile->Printf("New box volume: %f, %f -> %f, %f\n\n", length_tmp, f, length, length*length*length);
+    outfile->Printf("New box origin: %f \n\n", origin_new[0]); 
+
+    tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin_new, length, 0, lmax_, 2);
 }
 
 void CFMMTree::make_children() {
