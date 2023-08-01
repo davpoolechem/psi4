@@ -403,15 +403,19 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     // further modifications arise from differences between regular and Continuous FMM
     //nlevels_ = 1 + ceil( log(N_target_) / ( (1 + static_cast<double>(dimensionality_)) * log(2) ));
 
+    // root box
     nlevels_ = 1;
     int num_lowest_level_boxes = 1;
 
+    // split root box into 8 parts spatially
     nlevels_ += 1;
-    num_lowest_level_boxes *= 8;
+    num_lowest_level_boxes *= std::pow(2, dimensionality_);
 
+    // split box into 8 parts spatially, and 2 parts on WS
     while (num_lowest_level_boxes < N_target_) {
         nlevels_ += 1;
-        num_lowest_level_boxes *= 16;
+        num_lowest_level_boxes *= 2 * std::pow(2, dimensionality_);
+        //num_lowest_level_boxes *= std::pow(2, dimensionality_);
     }
     outfile->Printf("nlevels: %d \n", nlevels_);
  
@@ -492,6 +496,7 @@ void CFMMTree::make_root_node() {
     outfile->Printf("Original box origin: %f \n\n", origin[0]);
     
     int num_lowest_level_boxes = 8 * std::pow(2,  (1 + dimensionality_) * (nlevels_ - 2)); 
+    // int num_lowest_level_boxes_per_branch = std::pow(2,  (dimensionality_) * (nlevels_ - 1)); 
 
     double f = static_cast<double>(N_target_) / static_cast<double>(num_lowest_level_boxes); 
     outfile->Printf("f scaling factor: %f\n", f);
@@ -500,6 +505,7 @@ void CFMMTree::make_root_node() {
     //f = std::pow(f, 1.0 / dimensionality_); // account for CFMM tree structure
  
     double length_tmp = length;
+    //length = length_tmp / std::pow(f, 1.0 / (1.0 + dimensionality_));
     length = length_tmp / std::pow(f, 1.0 / dimensionality_);
  
     min_dim -= (length - length_tmp) / 2.0;
