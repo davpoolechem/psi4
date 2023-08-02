@@ -176,17 +176,17 @@ void CompositeJK::common_init() {
     // derive separate J+K algorithms from scf_type
     auto jk_type = options_.get_str("SCF_TYPE");
     j_type_ = jk_type.substr(0, jk_type.find("+"));
-    k_type_ = jk_type.substr(jk_type.find("+") + 1, jk_type.length());
+    k_type_ = std::make_optional<std::string>(jk_type.substr(jk_type.find("+") + 1, jk_type.length()));
 
     // occurs if no composite K algorithm was specified; useful for LDA/GGA DFT runs
-    if (k_type_ == j_type_) {
-      k_type_ = "NONE";
+    if (k_type_.value() == j_type_) {
+      k_type_ = std::nullopt;
     }
 
     // other options
     density_screening_ = options_.get_str("SCREENING") == "DENSITY";
     set_cutoff(options_.get_double("INTS_TOLERANCE"));
-    early_screening_ = k_type_ == "COSX" ? true : false;
+    early_screening_ = k_type_.value_or("NONE") == "COSX" ? true : false;
 
     // pre-construct per-thread TwoBodyAOInt objects for computing 3- and 4-index ERIs
     timer_on("CompositeJK: ERI Computers");
@@ -236,7 +236,7 @@ void CompositeJK::common_init() {
     // => Set up separate K algorithm <= //
 
     // Linear Exchange (LinK)
-    if (k_type_ == "LINK") {
+    if (k_type_.value_or("NONE") == "LINK") {
         // set up LinK integral tolerance
         if (options_["LINK_INTS_TOLERANCE"].has_changed()) {
             linK_ints_cutoff_ = options_.get_double("LINK_INTS_TOLERANCE");
@@ -245,7 +245,7 @@ void CompositeJK::common_init() {
         }
 
     // Chain-of-Spheres Exchange (COSX)
-    } else if (k_type_ == "COSX") {
+    } else if (k_type_.value_or("NONE") == "COSX") {
         timer_on("CompositeJK: COSX Grid Construction");
 
         // TODO: specify bool "DFT_REMOVE_DISTANT_POINTS" in the DFTGrid constructors
@@ -363,7 +363,7 @@ void CompositeJK::common_init() {
         timer_off("CompositeJK: COSX Overlap Metric Solve");
 
     // Do nothing special if no composite K algorithm
-    } else if (k_type_ == "NONE") {
+    } else if (!k_type_.has_value()) {
         ;
     } else {
         throw PSIEXCEPTION("Invalid Composite K algorithm selected!");
@@ -372,15 +372,15 @@ void CompositeJK::common_init() {
 
 void CompositeJK::set_do_K(bool do_K) {
     // if doing K, we need an associated composite K build algorithm
-    if (do_K && k_type_ == "NONE") {
+    if (do_K && !k_type_.has_value()) {
         std::string error_message = "No composite K build algorithm was specified, but K matrix is required for current method! Please specify a composite K build algorithm by setting SCF_TYPE to ";
         error_message += j_type_;
         error_message += "+{K_ALGO}.";
 
         throw PSIEXCEPTION(error_message);
-    } else if (!do_K && k_type_ != "NONE") {
+    } else if (!do_K && k_type_.has_value()) {
         std::string info_message = "  INFO: A K algorithm (";
-        info_message += k_type_;
+        info_message += k_type_.value();
         info_message += ") was specified in SCF_TYPE, but the current method does not use a K matrix!\n";
         info_message += "  Thus, the specified K algorithm will be unused.\n\n";
 
@@ -406,7 +406,7 @@ void CompositeJK::print_header() const {
         outfile->Printf("    J tasked:          %11s\n", (do_J_ ? "Yes" : "No"));
         if (do_J_) outfile->Printf("    J algorithm:       %11s\n", j_type_.c_str());
         outfile->Printf("    K tasked:          %11s\n", (do_K_ ? "Yes" : "No"));
-        if (do_K_) outfile->Printf("    K algorithm:       %11s\n", k_type_.c_str());
+        if (do_K_) outfile->Printf("    K algorithm:       %11s\n", k_type_.value().c_str());
         outfile->Printf("    wK tasked:         %11s\n", (do_wK_ ? "Yes" : "No"));
         if (do_wK_) outfile->Printf("    Omega:             %11.3E\n", omega_);
         outfile->Printf("    Integrals threads: %11d\n", nthreads_);
@@ -418,8 +418,8 @@ void CompositeJK::print_header() const {
             if (j_type_ == "DFDIRJ") { print_DirectDFJ_header(); }
         }
         if (do_K_) {
-            if (k_type_ == "LINK") { print_linK_header(); }
-            else if (k_type_ == "COSX") { print_COSX_header(); }
+            if (k_type_.value() == "LINK") { print_linK_header(); }
+            else if (k_type_.value() == "COSX") { print_COSX_header(); }
         }
         outfile->Printf("\n");
     }
@@ -538,10 +538,10 @@ void CompositeJK::compute_JK() {
         timer_on("CompositeJK: K");
 
         // LinK
-        if (k_type_ == "LINK") {
+        if (k_type_.value() == "LINK") {
             build_linK(D_ref_, K_ao_);
         // COSX
-        } else if (k_type_ == "COSX") {
+        } else if (k_type_.value() == "COSX") {
             build_COSK(D_ref_, K_ao_);
         }
 

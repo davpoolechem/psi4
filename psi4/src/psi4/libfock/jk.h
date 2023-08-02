@@ -29,6 +29,7 @@
 #ifndef JK_H
 #define JK_H
 
+#include <optional>
 #include <vector>
 
 #include "psi4/pragma.h"
@@ -1222,7 +1223,7 @@ class PSI_API CompositeJK : public JK {
 
     /// CompositeJK algorithm info
     std::string j_type_;
-    std::string k_type_;
+    std::optional<std::string> k_type_;
 
     // Perform Density matrix-based integral screening?
     bool density_screening_;
