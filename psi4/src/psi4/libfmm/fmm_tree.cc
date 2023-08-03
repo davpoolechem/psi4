@@ -514,7 +514,7 @@ void CFMMTree::make_root_node() {
     outfile->Printf("New box volume: %f, %f -> %f, %f\n\n", length_tmp, f, length, length*length*length);
     outfile->Printf("New box origin: %f \n\n", origin_new[0]); 
 
-    tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin_new, length, 0, lmax_, 2);
+    tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin, length, 0, lmax_, 2);
 }
 
 void CFMMTree::make_children() {
