@@ -297,25 +297,6 @@ void CompositeJK::common_init() {
         };
         grids["Final"] = std::make_shared<DFTGrid>(primary_->molecule(), primary_, grid_final_int_options, grid_final_str_options, grid_final_float_options, options_);
 
-        // Print out specific grid info upon request
-        /*
-        if (debug_) {
-            // Initial grid debug output
-            outfile->Printf("  ==> COSX: Initial Grid Details <==\n\n");
-            outfile->Printf("    Total number of grid points: %d \n");
-            outfile->Printf("    Total number of batches: %d \n");
-            outfile->Printf("    Average number of points per batch: %f \n");
-            outfile->Printf("    Average number of grid points per atom: %f \n");
-        
-            // Final grid debug output
-            outfile->Printf("  ==> COSX: Initial Grid Details <==\n\n");
-            outfile->Printf("    Total number of grid points: %d \n");
-            outfile->Printf("    Total number of batches: %d \n");
-            outfile->Printf("    Average number of points per batch: %f \n");
-            outfile->Printf("    Average number of grid points per atom: %f \n");
-        }
-        */
-
         // Sanity-check of grids to ensure no negative grid weights
         // COSX crashes when grids with negative weights are used,
         // which can happen with certain grid configurations
@@ -337,6 +318,26 @@ void CompositeJK::common_init() {
                         throw PSIEXCEPTION(error_message);
                     }
                 }
+            }
+        }
+
+        // Print out specific grid info upon request
+        if (true) {
+            for (auto& [gridname, grid] : grids) { 
+                outfile->Printf("  ==> COSX: ");
+                outfile->Printf(gridname); 
+                outfile->Printf(" Grid Details <==\n\n");
+
+                auto npoints = grid->npoints();
+                auto nblocks = grid->blocks().size();
+                auto natoms = primary_->molecule()->natom();
+                double npoints_per_batch = static_cast<double>(npoints) / static_cast<double>(nblocks);
+                double npoints_per_atom = static_cast<double>(npoints) / static_cast<double>(natoms);
+            
+                outfile->Printf("    Total number of grid points: %d \n", npoints);
+                outfile->Printf("    Total number of batches: %d \n", nblocks);
+                outfile->Printf("    Average number of points per batch: %f \n", npoints_per_batch);
+                outfile->Printf("    Average number of grid points per atom: %f \n\n", npoints_per_atom);
             }
         }
 
