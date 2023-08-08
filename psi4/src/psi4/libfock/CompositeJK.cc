@@ -250,9 +250,11 @@ void CompositeJK::common_init() {
         timer_on("CompositeJK: COSX Grid Construction");
 
         // for now, we use two COSX grids:
-        //   - a small DFTGrid for the initial SCF iterations
+        //   - a small DFTGrid for the early pre-converged SCF iterations
+        //   - a medium DFTGrid for the later pre-converged SCF iterations
         //   - a large DFTGrid for the final SCF iteration
         grids["Initial"] = nullptr;
+        grids["Middle"] = nullptr;
         grids["Final"] = nullptr;
 
         for (auto& [ gridname, grid ] : grids) {
