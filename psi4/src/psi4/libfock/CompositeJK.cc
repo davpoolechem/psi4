@@ -558,7 +558,11 @@ void CompositeJK::compute_JK() {
 
     // Exchange Matrix
     if (do_K_) {
-        timer_on("CompositeJK: K");
+        if (early_screening_) {
+            timer_on("CompositeJK: K Initial");
+        } else {
+            timer_on("CompositeJK: K Final");
+        }
 
         // LinK
         if (k_type_ == "LINK") {
@@ -568,7 +572,11 @@ void CompositeJK::compute_JK() {
             build_COSK(D_ref_, K_ao_);
         }
 
-        timer_off("CompositeJK: K");
+        if (early_screening_) {
+            timer_off("CompositeJK: K Initial");
+        } else {
+            timer_off("CompositeJK: K Final");
+        }
     }
 
     // => Finalize Incremental Fock if required <= //
