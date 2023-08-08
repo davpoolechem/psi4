@@ -1677,6 +1677,10 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_int("COSX_SPHERICAL_POINTS_INITIAL", 50);
         /*- Number of radial points in initial COSX grid. -*/
         options.add_int("COSX_RADIAL_POINTS_INITIAL", 25);
+        /*- Number of spherical points in initial COSX grid. -*/
+        options.add_int("COSX_SPHERICAL_POINTS_MIDDLE", 50);
+        /*- Number of radial points in middle COSX grid. -*/
+        options.add_int("COSX_RADIAL_POINTS_MIDDLE", 25);
         /*- Number of spherical points in final COSX grid. -*/
         options.add_int("COSX_SPHERICAL_POINTS_FINAL", 110);
         /*- Number of radial points in final COSX grid. -*/
