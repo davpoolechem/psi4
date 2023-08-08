@@ -305,7 +305,7 @@ void CompositeJK::common_init() {
             }
 
             // Print out specific grid info upon request
-            if (true) {
+            if (options_.get_int("DEBUG")) {
                 outfile->Printf("  ==> COSX: ");
                 outfile->Printf(gridname);
                 outfile->Printf(" Grid Details <==\n\n");
@@ -1239,7 +1239,7 @@ void CompositeJK::build_COSK(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
     // otherwise use a large DFTGrid
     std::string gridname = early_screening_ ? "Initial" : "Final";
     auto grid = grids[gridname];
-    
+
     auto Q = early_screening_ ? Q_init_ : Q_final_;
 
     // => Initialization <= //
