@@ -191,7 +191,7 @@ void CompositeJK::common_init() {
 
     // pre-construct per-thread TwoBodyAOInt objects for computing 3- and 4-index ERIs
     timer_on("CompositeJK: ERI Computers");
-    
+
     auto zero = BasisSet::zero_ao_basis_set();
 
     // initialize 4-Center ERIs
@@ -249,18 +249,17 @@ void CompositeJK::common_init() {
     } else if (k_type_ == "COSX") {
         timer_on("CompositeJK: COSX Grid Construction");
 
- 
         // for now, we use two COSX grids:
-        //   - a small DFTGrid for the initial SCF iterations        
+        //   - a small DFTGrid for the initial SCF iterations
         //   - a large DFTGrid for the final SCF iteration
-        grids["Initial"] = nullptr; 
-        grids["Final"] = nullptr; 
-        
-        for (auto& [ gridname, grid ] : grids) { 
+        grids["Initial"] = nullptr;
+        grids["Final"] = nullptr;
+
+        for (auto& [ gridname, grid ] : grids) {
             std::string gridname_uppercase = gridname;
             std::transform(gridname.begin(), gridname.end(), gridname_uppercase.begin(), ::toupper);
-        
-            // initialize grid 
+
+            // initialize grid
             // TODO: specify bool "DFT_REMOVE_DISTANT_POINTS" in the DFTGrid constructors
             std::map<std::string, std::string> grid_str_options = {
                 {"DFT_PRUNING_SCHEME", options_.get_str("COSX_PRUNING_SCHEME")},
@@ -269,11 +268,8 @@ void CompositeJK::common_init() {
                 {"DFT_GRID_NAME",      ""},
                 {"DFT_BLOCK_SCHEME",   "OCTREE"},
             };
-   
-            //std::string cosx_spherical_points = "COSX_SPHERICAL_POINTS_"; cosx_spherical_points = cosx_spherical_points.append(gridname_uppercase);
+
             std::map<std::string, int> grid_int_options = {
-                //{"DFT_SPHERICAL_POINTS", options_.get_int(cosx_spherical_points)},
-                //{"DFT_RADIAL_POINTS",    options_.get_int(static_cast<std::string>("COSX_RADIAL_POINTS_").append(gridname_uppercase))},
                 {"DFT_SPHERICAL_POINTS", options_.get_int("COSX_SPHERICAL_POINTS_" + gridname_uppercase)},
                 {"DFT_RADIAL_POINTS",    options_.get_int("COSX_RADIAL_POINTS_" + gridname_uppercase)},
                 {"DFT_BLOCK_MIN_POINTS", 100},
@@ -297,12 +293,12 @@ void CompositeJK::common_init() {
                 const auto w = block->w();
                 for (int ipoint = 0; ipoint < block->npoints(); ++ipoint) {
                     if (w[ipoint] < 0.0) {
-                        std::string error_message = "The definition of the current "; 
-                        error_message += gridname; 
+                        std::string error_message = "The definition of the current ";
+                        error_message += gridname;
                         error_message += " grid includes negative weights. As these are not suitable for the COSX implementation, please choose another initial grid through adjusting either COSX_PRUNING_SCHEME or COSX_SPHERICAL_POINTS_";
                         error_message += gridname_uppercase;
-                        error_message += "."; 
-                        
+                        error_message += ".";
+
                         throw PSIEXCEPTION(error_message);
                     }
                 }
@@ -311,7 +307,7 @@ void CompositeJK::common_init() {
             // Print out specific grid info upon request
             if (true) {
                 outfile->Printf("  ==> COSX: ");
-                outfile->Printf(gridname); 
+                outfile->Printf(gridname);
                 outfile->Printf(" Grid Details <==\n\n");
 
                 auto npoints = grid->npoints();
@@ -319,7 +315,7 @@ void CompositeJK::common_init() {
                 auto natoms = primary_->molecule()->natom();
                 double npoints_per_batch = static_cast<double>(npoints) / static_cast<double>(nblocks);
                 double npoints_per_atom = static_cast<double>(npoints) / static_cast<double>(natoms);
-            
+
                 outfile->Printf("    Total number of grid points: %d \n", npoints);
                 outfile->Printf("    Total number of batches: %d \n", nblocks);
                 outfile->Printf("    Average number of points per batch: %f \n", npoints_per_batch);
@@ -532,32 +528,32 @@ void CompositeJK::compute_JK() {
     // Coulomb Matrix
     if (do_J_) {
         timer_on("CompositeJK: " + j_type_);
-        
+
         // Direct DF-J
         if (j_type_ == "DFDIRJ") {
             build_DirectDFJ(D_ref_, J_ao_);
         }
-        
+
         timer_off("CompositeJK: " + j_type_);
     }
 
     // Exchange Matrix
     if (do_K_) {
         timer_on("CompositeJK: " + k_type_);
-        
+
         // LinK
         if (k_type_ == "LINK") {
             build_linK(D_ref_, K_ao_);
-        
+
         // COSX
         } else if (k_type_ == "COSX") {
             std::string gridname = early_screening_ ? "Initial" : "Final";
-            
+
             timer_on("COSX " + gridname + " Grid");
             build_COSK(D_ref_, K_ao_);
             timer_off("COSX " + gridname + " Grid");
         }
-        
+
         timer_off("CompositeJK: " + k_type_);
     }
 
