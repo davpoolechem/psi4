@@ -151,7 +151,6 @@ void CompositeJK::common_init() {
     } else if (k_type == "NONE") {
         k_algo_ = nullptr;
     
-    // Invalid K algorithm selected
     } else {
         throw PSIEXCEPTION("Invalid Composite K algorithm selected!");
     }

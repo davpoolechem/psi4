@@ -250,8 +250,9 @@ class PSI_API COSK : public SplitJK {
 
     /// COSX grids
     /// Currently contains two grids:
-    /// -  A small DFTGrid for the pre-convergence SCF iterations
-    /// -  A large DFTGrid for the final SCF iteration
+    /// -  A small DFTGrid for the early pre-convergence SCF iterations
+    /// -  A medium DFTGrid for the later pre-convergence SCF iterations
+    /// -  A large DFTGrid for the final SCF iteration(s)
     std::unordered_map<std::string, std::shared_ptr<DFTGrid> > grids_;
     /// COSX grid currently in use for this iteration
     std::string current_grid_;

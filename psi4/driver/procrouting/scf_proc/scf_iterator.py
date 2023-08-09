@@ -463,6 +463,9 @@ def scf_iterate(self, e_conv=None, d_conv=None):
                 if incfock_performed:
                     status.append("INCFOCK")
 
+                if cosx_enabled and Dnorm < 1e-3 and self.jk().get_COSX_grid() != "Final":
+                    self.jk().set_COSX_grid("Middle")
+
                 # Reset occupations if necessary
                 if (self.iteration_ == 0) and self.reset_occ_:
                     self.reset_occupation()
@@ -494,7 +497,7 @@ def scf_iterate(self, e_conv=None, d_conv=None):
 
         # Print out the iteration
         core.print_out(
-            "   @%s%s iter %3s: %20.14f   %12.5e   %-11.5e %s\n" %
+            "   @%s%s iter %3s: %20.14f   %12.5e   %-11.5e %s \n" %
             ("DF-" if is_dfjk else "", reference, "SAD" if
              ((self.iteration_ == 0) and self.sad_) else self.iteration_, SCFE, Ediff, Dnorm, '/'.join(status)))
 
