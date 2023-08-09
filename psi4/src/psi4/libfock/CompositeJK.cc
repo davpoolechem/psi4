@@ -249,15 +249,15 @@ void CompositeJK::common_init() {
     } else if (k_type_ == "COSX") {
         timer_on("CompositeJK: COSX Grid Construction");
 
-        // for now, we use two COSX grids:
+        // for now, we use three COSX grids:
         //   - a small DFTGrid for the early pre-converged SCF iterations
         //   - a medium DFTGrid for the later pre-converged SCF iterations
         //   - a large DFTGrid for the final SCF iteration
-        grids["Initial"] = nullptr;
-        grids["Middle"] = nullptr;
-        grids["Final"] = nullptr;
+        grids_["Initial"] = nullptr;
+        grids_["Middle"] = nullptr;
+        grids_["Final"] = nullptr;
 
-        for (auto& [ gridname, grid ] : grids) {
+        for (auto& [ gridname, grid ] : grids_) {
             std::string gridname_uppercase = gridname;
             std::transform(gridname.begin(), gridname.end(), gridname_uppercase.begin(), ::toupper);
 
@@ -338,8 +338,10 @@ void CompositeJK::common_init() {
         timer_on("CompositeJK: COSX Numeric Overlap");
 
         // compute the numeric overlap matrix for each grid
-        auto S_num_init = compute_numeric_overlap(*(grids["Initial"]), primary_);
-        auto S_num_final = compute_numeric_overlap(*(grids["Final"]), primary_ );
+        std::unordered_map<std::string, Matrix> S_num;
+        for (auto& [ gridname, grid ] : grids_) {
+            S_num[gridname] = compute_numeric_overlap(*grid, primary_);
+        }
 
         timer_off("CompositeJK: COSX Numeric Overlap");
 
@@ -358,13 +360,11 @@ void CompositeJK::common_init() {
         int nbf = primary_->nbf();
         std::vector<int> ipiv(nbf);
 
-        // solve: Q_init_ = S_an @ S_num_init_^{-1}
-        Q_init_ = S_an->clone();
-        C_DGESV(nbf, nbf, S_num_init.pointer()[0], nbf, ipiv.data(), Q_init_->pointer()[0], nbf);
-
-        // solve: Q_final_ = S_an @ S_num_final_^{-1}
-        Q_final_ = S_an->clone();
-        C_DGESV(nbf, nbf, S_num_final.pointer()[0], nbf, ipiv.data(), Q_final_->pointer()[0], nbf);
+        // solve: Q_mat_ = S_an @ S_num_^{-1} for each grid
+        for (auto& [ gridname, grid ] : grids_) {
+            Q_mat_[gridname] = S_an->clone();
+            C_DGESV(nbf, nbf, S_num[gridname].pointer()[0], nbf, ipiv.data(), Q_mat_[gridname]->pointer()[0], nbf);
+        }
 
         timer_off("CompositeJK: COSX Overlap Metric Solve");
 
@@ -549,11 +549,9 @@ void CompositeJK::compute_JK() {
 
         // COSX
         } else if (k_type_ == "COSX") {
-            std::string gridname = early_screening_ ? "Initial" : "Final";
-
-            timer_on("COSX " + gridname + " Grid");
+            timer_on("COSX " + gridopt_ + " Grid");
             build_COSK(D_ref_, K_ao_);
-            timer_off("COSX " + gridname + " Grid");
+            timer_off("COSX " + gridopt_ + " Grid");
         }
 
         timer_off("CompositeJK: " + k_type_);
@@ -1237,12 +1235,9 @@ void CompositeJK::build_COSK(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
     double dscreen = options_.get_double("COSX_DENSITY_TOLERANCE");
     bool overlap_fitted = options_.get_bool("COSX_OVERLAP_FITTING");
 
-    // use a small DFTGrid grid (and overlap metric) for early SCF iterations
-    // otherwise use a large DFTGrid
-    std::string gridname = early_screening_ ? "Initial" : "Final";
-    auto grid = grids[gridname];
-
-    auto Q = early_screening_ ? Q_init_ : Q_final_;
+    // select DFTGrid specified for this SCF iteration
+    auto grid = grids_[gridopt_];
+    auto Q = Q_mat_[gridopt_];
 
     // => Initialization <= //
 

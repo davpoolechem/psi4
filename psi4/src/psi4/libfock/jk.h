@@ -1256,15 +1256,16 @@ class PSI_API CompositeJK : public JK {
     // => Semi-Numerical Stuff, for COSX <= //
 
     /// COSX grids
-    /// Currently contains two grids:
-    /// -  A small DFTGrid for initial SCF iterations
+    /// Currently contains three grids:
+    /// -  A small DFTGrid for initial pre-convergence SCF iterations
+    /// -  A small DFTGrid for later pre-convergence SCF iterations
     /// -  A large DFTGrid for the final SCF iteration
-    std::unordered_map<std::string, std::shared_ptr<DFTGrid> > grids;
+    std::unordered_map<std::string, std::shared_ptr<DFTGrid> > grids_;
+    /// COSX grid currently in use for this iteration
+    std::string gridopt_;
 
-    /// Overlap fitting metric for initial grid
-    SharedMatrix Q_init_;
-    /// Overlap fitting metric for final grid
-    SharedMatrix Q_final_;
+    /// Overlap fitting metric for different COSX grids
+    std::unordered_map<std::string, SharedMatrix> Q_mat_;
  
     // => LinK variables <= //
 
@@ -1351,6 +1352,12 @@ class PSI_API CompositeJK : public JK {
     *        defaults to true
     */
     virtual void set_do_K(bool do_K) override;
+
+    /**
+    * Knobs for getting and setting current COSX grid
+    */
+    void set_COSX_grid(std::string gridopt) { gridopt_ = gridopt; };
+    std::string get_COSX_grid() { return gridopt_; };
 
     /**
     * Print header information regarding JK
