@@ -463,8 +463,10 @@ def scf_iterate(self, e_conv=None, d_conv=None):
                 if incfock_performed:
                     status.append("INCFOCK")
 
-                if cosx_enabled and Dnorm < 1e-3 and self.jk().get_COSX_grid() != "Final":
-                    self.jk().set_COSX_grid("Middle")
+                if cosx_enabled:
+                    if Dnorm < core.get_option('SCF', 'COSX_SCF_DNORM') and self.jk().get_COSX_grid() == "Initial":
+                        self.jk().set_COSX_grid("Middle")
+                    status.append(self.jk().get_COSX_grid().upper())
 
                 # Reset occupations if necessary
                 if (self.iteration_ == 0) and self.reset_occ_:

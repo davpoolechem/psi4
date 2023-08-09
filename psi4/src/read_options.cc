@@ -1676,8 +1676,8 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         /*- Number of spherical points in initial COSX grid. -*/
         options.add_int("COSX_SPHERICAL_POINTS_INITIAL", 50);
         /*- Number of radial points in initial COSX grid. -*/
-        options.add_int("COSX_RADIAL_POINTS_INITIAL", 25);
-        /*- Number of spherical points in initial COSX grid. -*/
+        options.add_int("COSX_RADIAL_POINTS_INITIAL", 20);
+        /*- Number of spherical points in middle COSX grid. -*/
         options.add_int("COSX_SPHERICAL_POINTS_MIDDLE", 50);
         /*- Number of radial points in middle COSX grid. -*/
         options.add_int("COSX_RADIAL_POINTS_MIDDLE", 25);
@@ -1687,11 +1687,13 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_int("COSX_RADIAL_POINTS_FINAL", 35);
         /*- Screening criteria for integrals and intermediates in COSX -*/
         options.add_double("COSX_INTS_TOLERANCE", 1.0E-11);
-        /*- Controls SCF iteration behavior for the larger (i.e., final) COSX grid.
+        /*- Controls SCF iteration behavior for the largest (i.e., final) COSX grid.
         -1 fully converges the SCF on the final grid if possible, ending early if |scf__maxiter| total SCF iterations are reached (failure).
         0 disables the final COSX grid entirely.
         n runs up to n iterations on the final COSX grid, ending early if SCF convergence is reached (success) or if |scf__maxiter| total SCF iterations are reached (failure). -*/
         options.add_int("COSX_MAXITER_FINAL", 1);
+        /*- Point in SCF convergence (in terms of Dnorm value) at which COSX switches from the small to the medium grid. -*/
+        options.add_double("COSX_SCF_DNORM", 1.0E-3);
         /*- Screening criteria for shell-pair densities in COSX !expert -*/
         options.add_double("COSX_DENSITY_TOLERANCE", 1.0E-10);
         /*- Screening criteria for basis function values on COSX grids !expert -*/
