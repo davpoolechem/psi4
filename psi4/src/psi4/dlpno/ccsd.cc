@@ -1224,7 +1224,10 @@ std::vector<SharedMatrix> DLPNOCCSD::compute_Fme() {
 
     std::vector<SharedMatrix> Fme(n_lmo_pairs);
 
-#pragma omp parallel for
+    outfile->Printf("#=======================#\n");
+    outfile->Printf("#== Start compute_Fme ==#\n");
+    outfile->Printf("#=======================#\n\n");
+//#pragma omp parallel for
     for (int ij = 0; ij < n_lmo_pairs; ++ij) {
         int i, j;
         std::tie(i, j) = ij_to_i_j_[ij];
@@ -1246,16 +1249,26 @@ std::vector<SharedMatrix> DLPNOCCSD::compute_Fme() {
                 int mn = i_j_to_ij_[m][n], nn = i_j_to_ij_[n][n];
 
                 if (mn != -1 && n_pno_[mn] != 0) {
+                    outfile->Printf("------------------------------------------------ \n");
+
                     auto S_mn_nn = S_PNO(mn, nn);
+                    outfile->Printf("LMO pairs (%d), (%d) S_mn_nn -> %d, %d \n", ij, mn, S_mn_nn->nrow(), S_mn_nn->ncol());
+                    outfile->Printf("LMO pairs (%d), (%d) T_ia_[n] -> %d, %d \n\n", ij, mn, T_ia_[n]->nrow(), T_ia_[n]->ncol());
                     auto T_n_temp = linalg::doublet(S_mn_nn, T_ia_[n], false, false);
 
                     auto S_mn_ij = S_PNO(mn, ij);
+                    outfile->Printf("LMO pairs (%d), (%d) S_mn_ij -> %d, %d \n", ij, mn, S_mn_ij->nrow(), S_mn_ij->ncol());
+                    outfile->Printf("LMO pairs (%d), (%d) L_iajb_[mn] -> %d, %d \n", ij, mn, L_iajb_[mn]->nrow(), L_iajb_[mn]->ncol());
+                    outfile->Printf("LMO pairs (%d), (%d) T_n_temp -> %d, %d \n", ij, mn, T_n_temp->nrow(), T_n_temp->ncol());
                     auto F_me_temp = linalg::triplet(S_mn_ij, L_iajb_[mn], T_n_temp, true, false, false);
                     C_DAXPY(npno_ij, 1.0, &(*F_me_temp)(0,0), 1, &(*Fme[ij])(m_ij, 0), 1);
                 }
             }
         }
     }
+    outfile->Printf("#=======================#\n");
+    outfile->Printf("#==  End compute_Fme  ==#\n");
+    outfile->Printf("#=======================#\n\n");
 
     timer_off("Compute Fme");
 
@@ -1269,7 +1282,7 @@ std::vector<SharedMatrix> DLPNOCCSD::compute_Wmnij(const std::vector<SharedMatri
 
     std::vector<SharedMatrix> Wmnij(n_lmo_pairs);
 
-#pragma omp parallel for schedule(dynamic, 1)
+//#pragma omp parallel for schedule(dynamic, 1)
     for (int mn = 0; mn < n_lmo_pairs; ++mn) {
         int m, n;
         std::tie(m, n) = ij_to_i_j_[mn];
