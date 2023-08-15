@@ -595,16 +595,6 @@ void CFMMTree::setup_regions() {
 
 void CFMMTree::setup_shellpair_info() {
 
-    /*
-    size_t nsh = basisset_->nshell(); 
-
-    shellpair_list_.resize(nsh);
-
-    for (int P = 0; P != nsh; ++P) { 
-        shellpair_list_[P].resize(nsh);
-    }
-    */
-
     nshp_ = 0;
     for (int i = 0; i < sorted_leaf_boxes_.size(); i++) {
         std::shared_ptr<CFMMBox> curr = sorted_leaf_boxes_[i];
@@ -616,10 +606,8 @@ void CFMMTree::setup_shellpair_info() {
             int P = PQ.first;
             int Q = PQ.second;
 
-            //shellpair_list_[P][Q] = { sp, curr, {} };
             shellpair_list_.push_back({ sp, curr, {} });
 
-            //auto shellpair_to_nf_boxes = std::get<2>(shellpair_list_[P][Q]);
             auto shellpair_to_nf_boxes = std::get<2>(shellpair_list_[nshp_]);
             for (int nfi = 0; nfi < nf_boxes.size(); nfi++) {
                 std::shared_ptr<CFMMBox> neighbor = nf_boxes[nfi];
@@ -629,19 +617,6 @@ void CFMMTree::setup_shellpair_info() {
             nshp_ += 1;
         }
     }
-   
-    /* 
-    for (int P = 0; P != shellpair_list_.size(); ++P) { 
-        auto new_end = std::remove_if(
-          shellpair_list_[P].begin(), shellpair_list_[P].end(),
-          [](std::tuple<std::shared_ptr<ShellPair>, std::shared_ptr<CFMMBox>, 
-                        std::vector<std::shared_ptr<CFMMBox>>
-                       > tuple
-            ) { return std::get<0>(tuple) == nullptr; }
-        );
-        shellpair_list_[P].erase(new_end, shellpair_list_[P].end());
-    }
-    */
 }
 
 bool CFMMTree::shell_significant(int P, int Q, int R, int S, std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
@@ -1007,7 +982,6 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 #pragma omp parallel for schedule(dynamic)
     for (int ishp = 0; ishp < shellpair_list_.size(); ishp++) {
         std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[ishp]);
-        //std::shared_ptr<CFMMBox> box = std::get<1>(shp);
         
         std::pair<int, int> PQ = shellpair->get_shell_pair_index();
         int P = PQ.first;
