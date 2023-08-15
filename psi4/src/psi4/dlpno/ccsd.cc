@@ -1249,17 +1249,15 @@ std::vector<SharedMatrix> DLPNOCCSD::compute_Fme() {
                 int mn = i_j_to_ij_[m][n], nn = i_j_to_ij_[n][n];
 
                 if (mn != -1 && n_pno_[mn] != 0) {
-                    outfile->Printf("------------------------------------------------ \n");
-
                     auto S_mn_nn = S_PNO(mn, nn);
-                    outfile->Printf("LMO pairs (%d), (%d) S_mn_nn -> %d, %d \n", ij, mn, S_mn_nn->nrow(), S_mn_nn->ncol());
-                    outfile->Printf("LMO pairs (%d), (%d) T_ia_[n] -> %d, %d \n\n", ij, mn, T_ia_[n]->nrow(), T_ia_[n]->ncol());
+                    outfile->Printf("LMO pairs (%d), (%d) S_mn_nn (Fme) -> %d, %d \n", ij, mn, S_mn_nn->nrow(), S_mn_nn->ncol());
+                    outfile->Printf("LMO pairs (%d), (%d) T_ia_[n] (Fme) -> %d, %d \n\n", ij, mn, T_ia_[n]->nrow(), T_ia_[n]->ncol());
                     auto T_n_temp = linalg::doublet(S_mn_nn, T_ia_[n], false, false);
 
                     auto S_mn_ij = S_PNO(mn, ij);
-                    outfile->Printf("LMO pairs (%d), (%d) S_mn_ij -> %d, %d \n", ij, mn, S_mn_ij->nrow(), S_mn_ij->ncol());
-                    outfile->Printf("LMO pairs (%d), (%d) L_iajb_[mn] -> %d, %d \n", ij, mn, L_iajb_[mn]->nrow(), L_iajb_[mn]->ncol());
-                    outfile->Printf("LMO pairs (%d), (%d) T_n_temp -> %d, %d \n", ij, mn, T_n_temp->nrow(), T_n_temp->ncol());
+                    outfile->Printf("LMO pairs (%d), (%d) S_mn_ij (Fme) -> %d, %d \n", ij, mn, S_mn_ij->nrow(), S_mn_ij->ncol());
+                    outfile->Printf("LMO pairs (%d), (%d) L_iajb_[mn] (Fme) -> %d, %d \n", ij, mn, L_iajb_[mn]->nrow(), L_iajb_[mn]->ncol());
+                    outfile->Printf("LMO pairs (%d), (%d) T_n_temp (Fme) -> %d, %d \n\n", ij, mn, T_n_temp->nrow(), T_n_temp->ncol());
                     auto F_me_temp = linalg::triplet(S_mn_ij, L_iajb_[mn], T_n_temp, true, false, false);
                     C_DAXPY(npno_ij, 1.0, &(*F_me_temp)(0,0), 1, &(*Fme[ij])(m_ij, 0), 1);
                 }
@@ -1277,6 +1275,10 @@ std::vector<SharedMatrix> DLPNOCCSD::compute_Fme() {
 
 std::vector<SharedMatrix> DLPNOCCSD::compute_Wmnij(const std::vector<SharedMatrix>& tau) {
     timer_on("Compute Wmnij");
+    outfile->Printf("#=========================#\n");
+    outfile->Printf("#== Start compute_Wmnij ==#\n");
+    outfile->Printf("#=========================#\n\n");
+
     int n_lmo_pairs = ij_to_i_j_.size();
     int naocc = nalpha_ - nfrzc();
 
@@ -1302,11 +1304,18 @@ std::vector<SharedMatrix> DLPNOCCSD::compute_Wmnij(const std::vector<SharedMatri
             int ii = i_j_to_ij_[i][i];
 
             auto S_ii_mn = S_PNO(ii, mn);
+            outfile->Printf("LMO pairs (%d), (%d) S_ii_mn (Wmnij) -> %d, %d \n", mn, ii, S_ii_mn->nrow(), S_ii_mn->ncol());
+            outfile->Printf("LMO pairs (%d), (%d) T_ia_[i] (Wmnij) -> %d, %d \n\n", mn, ii, T_ia_[i]->nrow(), T_ia_[i]->ncol());
             auto T_temp = linalg::doublet(S_ii_mn, T_ia_[i], true, false);
             C_DCOPY(npno_mn, &(*T_temp)(0,0), 1, &(*T_i_mn)(i_mn, 0), 1);
         }
 
+        outfile->Printf("LMO pairs (%d), (%d) K_bar_[mn] (Wmnij) -> %d, %d \n", mn, -1, K_bar_[mn]->nrow(), K_bar_[mn]->ncol());
+        outfile->Printf("LMO pairs (%d), (%d) T_i_mn (Wmnij) -> %d, %d \n\n", mn, -1, T_i_mn->nrow(), T_i_mn->ncol());
         Wmnij[mn]->add(linalg::doublet(K_bar_[mn], T_i_mn, false, true));
+
+        outfile->Printf("LMO pairs (%d), (%d) T_i_mn (Wmnij) -> %d, %d \n", mn, -1, T_i_mn->nrow(), T_i_mn->ncol());
+        outfile->Printf("LMO pairs (%d), (%d) K_bar_[nm] (Wmnij) -> %d, %d \n\n", mn, -1, K_bar_[nm]->nrow(), K_bar_[nm]->ncol());
         Wmnij[mn]->add(linalg::doublet(T_i_mn, K_bar_[nm], false, true));
 
         for (int ij_mn = 0; ij_mn < nlmo_mn * nlmo_mn; ++ij_mn) {
@@ -1316,11 +1325,19 @@ std::vector<SharedMatrix> DLPNOCCSD::compute_Wmnij(const std::vector<SharedMatri
             
             if (ij != -1 && n_pno_[ij] != 0) {
                 auto S_mn_ij = S_PNO(mn, ij);
+             
+                outfile->Printf("LMO pairs (%d), (%d) S_mn_ij (Wmnij) -> %d, %d \n", mn, ij, S_mn_ij->nrow(), S_mn_ij->ncol());
+                outfile->Printf("LMO pairs (%d), (%d) K_iajb_[mn] (Wmnij) -> %d, %d \n", mn, ij, K_iajb_[mn]->nrow(), K_iajb_[mn]->ncol());
+                outfile->Printf("LMO pairs (%d), (%d) S_mn_ij (Wmnij) -> %d, %d \n\n", mn, ij, S_mn_ij->nrow(), S_mn_ij->ncol());
                 auto K_temp = linalg::triplet(S_mn_ij, K_iajb_[mn], S_mn_ij, true, false, false);
                 (*Wmnij[mn])(i_mn, j_mn) += K_temp->vector_dot(tau[ij]);
             }
         }
     }
+
+    outfile->Printf("#=========================#\n");
+    outfile->Printf("#==  End compute_Wmnij  ==#\n");
+    outfile->Printf("#=========================#\n\n");
 
     timer_off("Compute Wmnij");
 
