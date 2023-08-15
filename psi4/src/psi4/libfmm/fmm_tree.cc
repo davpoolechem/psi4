@@ -709,12 +709,12 @@ void CFMMTree::calculate_shellpair_multipoles() {
 
 #pragma omp parallel for schedule(dynamic)
     for (int ishp = 0; ishp < shellpair_list_.size(); ishp++) {
-        std::pair<int, int> PQ = std::get<0>(shellpair_list_[ishp])->get_shell_pair_index();
-        int P = PQ.first;
-        int Q = PQ.second;
-
         std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[ishp]);
         std::shared_ptr<CFMMBox> box = std::get<1>(shellpair_list_[ishp]);
+
+        std::pair<int, int> PQ = shellpair->get_shell_pair_index();
+        int P = PQ.first;
+        int Q = PQ.second;
 
         int thread = 0;
 #ifdef _OPENMP
@@ -1006,12 +1006,12 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 
 #pragma omp parallel for schedule(dynamic)
     for (int ishp = 0; ishp < shellpair_list_.size(); ishp++) {
-        std::pair<int, int> PQ = std::get<0>(shellpair_list_[ishp])->get_shell_pair_index();
-        int P = PQ.first;
-        int Q = PQ.second;
-
         std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[ishp]);
         //std::shared_ptr<CFMMBox> box = std::get<1>(shp);
+        
+        std::pair<int, int> PQ = shellpair->get_shell_pair_index();
+        int P = PQ.first;
+        int Q = PQ.second;
 
         const auto& Vff = std::get<1>(shellpair_list_[ishp])->far_field_vector();
             
