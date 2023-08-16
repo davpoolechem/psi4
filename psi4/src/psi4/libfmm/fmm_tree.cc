@@ -606,14 +606,17 @@ void CFMMTree::setup_shellpair_info() {
             int P = PQ.first;
             int Q = PQ.second;
 
-            shellpair_list_.push_back({ sp, curr, {} });
+            //shellpair_list_.push_back({ sp, curr, {} });
 
-            auto shellpair_to_nf_boxes = std::get<2>(shellpair_list_[nshp_]);
+            //auto shellpair_to_nf_boxes = std::get<2>(shellpair_list_[nshp_]);
+            std::vector<std::shared_ptr<CFMMBox>> shellpair_to_nf_boxes = {}; 
             for (int nfi = 0; nfi < nf_boxes.size(); nfi++) {
                 std::shared_ptr<CFMMBox> neighbor = nf_boxes[nfi];
                 if (neighbor->nshell_pair() == 0) continue;
                 shellpair_to_nf_boxes.push_back(neighbor);
             }
+            
+            shellpair_list_.push_back({ sp, curr, shellpair_to_nf_boxes });
             nshp_ += 1;
         }
     }
@@ -819,12 +822,15 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     // Benchmark Number of Computed Shells
     size_t computed_shells = 0L;
 
+    //outfile->Printf("Loop over shell pairs: %d \n", shellpair_list_.size());
 #pragma omp parallel for schedule(dynamic) reduction(+ : computed_shells)
     for (int ishp = 0; ishp < shellpair_list_.size(); ishp++) {
         std::pair<int, int> PQ = std::get<0>(shellpair_list_[ishp])->get_shell_pair_index();
         int P = PQ.first;
         int Q = PQ.second;
             
+        //outfile->Printf("  PQ shell pair %d -> (%d, %d)  \n", ishp, P, Q);
+        
         const GaussianShell& Pshell = basisset_->shell(P);
         const GaussianShell& Qshell = basisset_->shell(Q);
 
@@ -839,10 +845,12 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
         thread = omp_get_thread_num();
 #endif
         
+        //outfile->Printf("    Loop over PQ nf boxes: %d \n", std::get<2>(shellpair_list_[ishp]).size());
         for (const auto& nf_box : std::get<2>(shellpair_list_[ishp])) {
             auto& RSshells = nf_box->get_shell_pairs();
 
             bool touched = false;
+     
             for (const auto& RSsh : RSshells) {
                 auto RS = RSsh->get_shell_pair_index();
                 int R = RS.first;
@@ -853,6 +861,8 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
             
                 if (ints[thread]->compute_shell(P, Q, R, S) == 0) continue;
                 computed_shells++;
+
+                //assert(false);
 
                 const GaussianShell& Rshell = basisset_->shell(R);
                 const GaussianShell& Sshell = basisset_->shell(S);
@@ -1024,10 +1034,15 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                         const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
 
     timer_on("CFMMTree: J");
-
+    
+    std::vector<SharedMatrix> nf_J, ff_J;
+    
     // Zero the J matrix
     for (int ind = 0; ind < D.size(); ind++) {
         J[ind]->zero();
+        
+        nf_J.push_back(std::make_shared<Matrix>(J[ind]->clone()));
+        ff_J.push_back(std::make_shared<Matrix>(J[ind]->clone()));
     }
 
     // Update the densities
@@ -1040,9 +1055,45 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     compute_far_field();
 
     // Compute near field J and far field J
-    build_nf_J(ints, D, J);
-    build_ff_J(J);
+    build_nf_J(ints, D, nf_J);
+    /*
+    outfile->Printf("#========================# \n");
+    outfile->Printf("#== Start Near-Field J ==# \n");
+    outfile->Printf("#========================# \n\n");
+    for (int ind = 0; ind < D.size(); ind++) {
+         outfile->Printf("  Ind = %d \n", ind);
+         outfile->Printf("  -------- \n");
 
+         nf_J[ind]->print_out();
+         outfile->Printf("\n");
+    }
+    outfile->Printf("#========================# \n");
+    outfile->Printf("#==  End Near-Field J  ==# \n");
+    outfile->Printf("#========================# \n");
+    */
+
+    build_ff_J(ff_J);
+    /*
+    outfile->Printf("#=======================# \n");
+    outfile->Printf("#== Start Far-Field J ==# \n");
+    outfile->Printf("#=======================# \n\n");
+    for (int ind = 0; ind < D.size(); ind++) {
+         outfile->Printf("  Ind = %d \n", ind);
+         outfile->Printf("  -------- \n");
+ 
+         ff_J[ind]->print_out();
+         outfile->Printf("\n");
+    }
+    outfile->Printf("#=======================# \n");
+    outfile->Printf("#==  End Far-Field J  ==# \n");
+    outfile->Printf("#=======================# \n\n");
+    */
+
+    for (int ind = 0; ind < D.size(); ind++) {
+        J[ind]->add(nf_J[ind]);
+        J[ind]->add(ff_J[ind]);
+    }
+    
     // Hermitivitize J matrix afterwards
     for (int ind = 0; ind < D.size(); ind++) {
         J[ind]->hermitivitize();
