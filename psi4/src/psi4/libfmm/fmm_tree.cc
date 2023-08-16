@@ -286,9 +286,7 @@ void CFMMBox::compute_multipoles(std::shared_ptr<BasisSet>& basisset, const std:
 
         std::vector<std::shared_ptr<RealSolidHarmonics>>& sp_mpoles = sp->get_mpoles();
         
-        std::pair<int, int> PQ = sp->get_shell_pair_index();
-        int P = PQ.first;
-        int Q = PQ.second;
+        auto [P, Q] = sp->get_shell_pair_index();
 
         double prefactor = (P == Q) ? 1.0 : 2.0;
 
@@ -610,9 +608,7 @@ void CFMMTree::setup_shellpair_info() {
         auto& nf_boxes = curr->near_field_boxes();
 
         for (auto& sp : shellpairs) {
-            auto PQ = sp->get_shell_pair_index();
-            int P = PQ.first;
-            int Q = PQ.second;
+            auto [P, Q] = sp->get_shell_pair_index();
 
             std::vector<std::shared_ptr<CFMMBox>> shellpair_to_nf_boxes = {}; 
             for (int nfi = 0; nfi < nf_boxes.size(); nfi++) {
@@ -690,26 +686,24 @@ void CFMMTree::calculate_shellpair_multipoles() {
         mpints.push_back(std::shared_ptr<OneBodyAOInt>(int_factory->ao_multipoles(lmax_)));
     }
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for collapse(2) schedule(dynamic)
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
-      for (int Qtask = 0; Qtask < shellpair_list_[Ptask].size(); Qtask++) {
-        std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
-        if (shellpair == nullptr) continue;
-        
-        std::shared_ptr<CFMMBox> box = std::get<1>(shellpair_list_[Ptask][Qtask]);
-        
-        std::pair<int, int> PQ = shellpair->get_shell_pair_index();
-        int P = PQ.first;
-        int Q = PQ.second;
-
-        int thread = 0;
+        for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
+            std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+            if (shellpair == nullptr) continue;
+            
+            std::shared_ptr<CFMMBox> box = std::get<1>(shellpair_list_[Ptask][Qtask]);
+            
+            auto [P, Q] = shellpair->get_shell_pair_index();
+    
+            int thread = 0;
 #ifdef _OPENMP
-        thread = omp_get_thread_num();
+            thread = omp_get_thread_num();
 #endif
-
-        mpints[thread]->set_origin(box->center());
-        shellpair->calculate_mpoles(box->center(), sints[thread], mpints[thread], lmax_);
-      }  
+ 
+            mpints[thread]->set_origin(box->center());
+            shellpair->calculate_mpoles(box->center(), sints[thread], mpints[thread], lmax_);
+        }  
     }
 
     timer_off("CFMMTree: Shell-Pair Multipole Ints");
@@ -805,9 +799,7 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
         auto& RSshells = tree_[bi]->get_shell_pairs();
         int RSoff = 0;
         for (int RSind = 0; RSind < RSshells.size(); RSind++) {
-            std::pair<int, int> RS = RSshells[RSind]->get_shell_pair_index();
-            int R = RS.first;
-            int S = RS.second;
+            auto [R, S] = RSshells[RSind]->get_shell_pair_index();
             offsets[R * nshell + S] = RSoff;
             int Rfunc = basisset_->shell(R).nfunction();
             int Sfunc = basisset_->shell(S).nfunction();
@@ -831,161 +823,155 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     size_t computed_shells = 0L;
 
     //outfile->Printf("Loop over shell pairs: %d \n", shellpair_list_.size());
-#pragma omp parallel for schedule(dynamic) reduction(+ : computed_shells)
+#pragma omp parallel for collapse(2) schedule(dynamic) reduction(+ : computed_shells)
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
-      for (int Qtask = 0; Qtask < shellpair_list_[Ptask].size(); Qtask++) {
-        std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
-        if (shellpair == nullptr) continue;
+        for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
+            std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+            if (shellpair == nullptr) continue;
         
-        std::pair<int, int> PQ = shellpair->get_shell_pair_index();
-        int P = PQ.first;
-        int Q = PQ.second;
+            auto [P, Q] = shellpair->get_shell_pair_index();
             
-        //outfile->Printf("  PQ shell pair %d -> (%d, %d)  \n", ishp, P, Q);
+            //outfile->Printf("  PQ shell pair %d -> (%d, %d)  \n", ishp, P, Q);
         
-        const GaussianShell& Pshell = basisset_->shell(P);
-        const GaussianShell& Qshell = basisset_->shell(Q);
+            const GaussianShell& Pshell = basisset_->shell(P);
+            const GaussianShell& Qshell = basisset_->shell(Q);
 
-        int p_start = Pshell.start();
-        int num_p = Pshell.nfunction();
+            int p_start = Pshell.start();
+            int num_p = Pshell.nfunction();
 
-        int q_start = Qshell.start();
-        int num_q = Qshell.nfunction();
+            int q_start = Qshell.start();
+            int num_q = Qshell.nfunction();
 
-        int thread = 0;
+            int thread = 0;
 #ifdef _OPENMP
-        thread = omp_get_thread_num();
+            thread = omp_get_thread_num();
 #endif
         
-        //outfile->Printf("    Loop over PQ nf boxes: %d \n", std::get<2>(shellpair_list_[ishp]).size());
-        for (const auto& nf_box : std::get<2>(shellpair_list_[Ptask][Qtask])) {
-            auto& RSshells = nf_box->get_shell_pairs();
+            //outfile->Printf("    Loop over PQ nf boxes: %d \n", std::get<2>(shellpair_list_[ishp]).size());
+            for (const auto& nf_box : std::get<2>(shellpair_list_[Ptask][Qtask])) {
+                auto& RSshells = nf_box->get_shell_pairs();
 
-            bool touched = false;
+                bool touched = false;
      
-            for (const auto& RSsh : RSshells) {
-                auto RS = RSsh->get_shell_pair_index();
-                int R = RS.first;
-                int S = RS.second;
+                for (const auto& RSsh : RSshells) {
+                    auto [R, S] = RSsh->get_shell_pair_index();
                 
-                if (R * nshell + S > P * nshell + Q) continue;
-                if (!shell_significant(P, Q, R, S, ints, D)) continue;
+                    if (R * nshell + S > P * nshell + Q) continue;
+                    if (!shell_significant(P, Q, R, S, ints, D)) continue;
             
-                if (ints[thread]->compute_shell(P, Q, R, S) == 0) continue;
-                computed_shells++;
+                    if (ints[thread]->compute_shell(P, Q, R, S) == 0) continue;
+                    computed_shells++;
 
-                //assert(false);
+                    //assert(false);
 
-                const GaussianShell& Rshell = basisset_->shell(R);
-                const GaussianShell& Sshell = basisset_->shell(S);
+                    const GaussianShell& Rshell = basisset_->shell(R);
+                    const GaussianShell& Sshell = basisset_->shell(S);
 
-                int r_start = Rshell.start();
-                int num_r = Rshell.nfunction();
-
-                int s_start = Sshell.start();
-                int num_s = Sshell.nfunction();
-
-                double prefactor = 1.0;
-                if (P != Q) prefactor *= 2;
-                if (R != S) prefactor *= 2;
-                if (P == R && Q == S) prefactor *= 0.5;
-
-                int RSoff = offsets[R * nshell + S];
-
-                const double* pqrs = ints[thread]->buffer();
-
-                for (int N = 0; N <D.size(); N++) {
+                    int r_start = Rshell.start();
+                    int num_r = Rshell.nfunction();
+    
+                    int s_start = Sshell.start();
+                    int num_s = Sshell.nfunction();
+    
+                    double prefactor = 1.0;
+                    if (P != Q) prefactor *= 2;
+                    if (R != S) prefactor *= 2;
+                    if (P == R && Q == S) prefactor *= 0.5;
+    
+                    int RSoff = offsets[R * nshell + S];
+    
+                    const double* pqrs = ints[thread]->buffer();
+    
+                    for (int N = 0; N <D.size(); N++) {
+                        double** Jp = J[N]->pointer();
+                        double** Dp =D[N]->pointer();
+                        double* JTp = JT[thread][N].data();
+                        const double* pqrs2 = pqrs;
+                        
+                        if (!touched) {
+                            ::memset((void*)(&JTp[0L * max_alloc]), '\0', max_alloc * sizeof(double));
+                            ::memset((void*)(&JTp[1L * max_alloc]), '\0', max_alloc * sizeof(double));
+                        }
+    
+                        // Contraction into box shell pairs to improve parallel performance
+                        double* J1p = &JTp[0L * max_alloc];
+                        double* J2p = &JTp[1L * max_alloc];
+    
+                        for (int p = p_start; p < p_start + num_p; p++) {
+                            int dp = p - p_start;
+                            for (int q = q_start; q < q_start + num_q; q++) {
+                                int dq = q - q_start;
+                                for (int r = r_start; r < r_start + num_r; r++) {
+                                    int dr = r - r_start;
+                                    for (int s = s_start; s < s_start + num_s; s++) {
+                                        int ds = s - s_start;
+    
+                                        int pq = dp * num_q + dq;
+                                        int rs = RSoff + dr * num_s + ds;
+    
+                                        J1p[pq] += prefactor * (*pqrs2) * Dp[r][s];
+                                        J2p[rs] += prefactor * (*pqrs2) * Dp[p][q];
+                                        pqrs2++;
+                                    } // end s
+                                } // end r
+                            } // end q
+                        } // end p
+                    } // end N
+                    touched = true;
+                } // end RSshells
+                if (!touched) continue;
+    
+                // = > Stripeout < = //
+                for (int N = 0; N < D.size(); N++) {
                     double** Jp = J[N]->pointer();
-                    double** Dp =D[N]->pointer();
+                    double** Dp = D[N]->pointer();
                     double* JTp = JT[thread][N].data();
-                    const double* pqrs2 = pqrs;
-                    
-                    if (!touched) {
-                        ::memset((void*)(&JTp[0L * max_alloc]), '\0', max_alloc * sizeof(double));
-                        ::memset((void*)(&JTp[1L * max_alloc]), '\0', max_alloc * sizeof(double));
-                    }
-
-                    // Contraction into box shell pairs to improve parallel performance
+    
                     double* J1p = &JTp[0L * max_alloc];
                     double* J2p = &JTp[1L * max_alloc];
-
+    
                     for (int p = p_start; p < p_start + num_p; p++) {
                         int dp = p - p_start;
                         for (int q = q_start; q < q_start + num_q; q++) {
                             int dq = q - q_start;
-                            for (int r = r_start; r < r_start + num_r; r++) {
-                                int dr = r - r_start;
-                                for (int s = s_start; s < s_start + num_s; s++) {
-                                    int ds = s - s_start;
-
-                                    int pq = dp * num_q + dq;
-                                    int rs = RSoff + dr * num_s + ds;
-
-                                    J1p[pq] += prefactor * (*pqrs2) * Dp[r][s];
-                                    J2p[rs] += prefactor * (*pqrs2) * Dp[p][q];
-                                    pqrs2++;
-                                } // end s
-                            } // end r
-                        } // end q
-                    } // end p
-                } // end N
-                touched = true;
-            } // end RSshells
-            if (!touched) continue;
-
-            // = > Stripeout < = //
-            for (int N = 0; N < D.size(); N++) {
-                double** Jp = J[N]->pointer();
-                double** Dp = D[N]->pointer();
-                double* JTp = JT[thread][N].data();
-
-                double* J1p = &JTp[0L * max_alloc];
-                double* J2p = &JTp[1L * max_alloc];
-
-                for (int p = p_start; p < p_start + num_p; p++) {
-                    int dp = p - p_start;
-                    for (int q = q_start; q < q_start + num_q; q++) {
-                        int dq = q - q_start;
-                            
-                        int pq = dp * num_q + dq;
+                                
+                            int pq = dp * num_q + dq;
 #pragma omp atomic
-                        Jp[p][q] += J1p[pq];
+                            Jp[p][q] += J1p[pq];
+                        }
                     }
-                }
             
-                for (const auto& RSsh : RSshells) {
-                    std::pair<int, int> RS = RSsh->get_shell_pair_index();
-                    int R = RS.first;
-                    int S = RS.second;
-
-                    int RSoff = offsets[R * nshell + S];
-                
-                    const GaussianShell& Rshell = basisset_->shell(R);
-                    const GaussianShell& Sshell = basisset_->shell(S);
-                
-                    int r_start = Rshell.start();
-                    int num_r = Rshell.nfunction();
-
-                    int s_start = Sshell.start();
-                    int num_s = Sshell.nfunction();
-                
-                    for (int r = r_start; r < r_start + num_r; r++) {
-                        int dr = r - r_start;
-                        for (int s = s_start; s < s_start + num_s; s++) {
-                            int ds = s - s_start;
-                            int rs = RSoff + dr * num_s + ds;
+                    for (const auto& RSsh : RSshells) {
+                        auto [R, S] = RSsh->get_shell_pair_index();
+    
+                        int RSoff = offsets[R * nshell + S];
+                    
+                        const GaussianShell& Rshell = basisset_->shell(R);
+                        const GaussianShell& Sshell = basisset_->shell(S);
+                    
+                        int r_start = Rshell.start();
+                        int num_r = Rshell.nfunction();
+    
+                        int s_start = Sshell.start();
+                        int num_s = Sshell.nfunction();
+                    
+                        for (int r = r_start; r < r_start + num_r; r++) {
+                            int dr = r - r_start;
+                            for (int s = s_start; s < s_start + num_s; s++) {
+                                int ds = s - s_start;
+                                int rs = RSoff + dr * num_s + ds;
 #pragma omp atomic
-                            Jp[r][s] += J2p[rs];
+                                Jp[r][s] += J2p[rs];
+                            }
                         }
                     }
                 }
-            }
-            // => End Stripeout <= //
-        } // end nf_box
-     } // end Qtasks
-   } // end Ptasks
+                // => End Stripeout <= //
+            } // end nf_box
+        } // end Qtasks
+    } // end Ptasks
      
-   if (bench_) {
+    if (bench_) {
         auto mode = std::ostream::app;
         auto printer = PsiOutStream("bench.dat", mode);
         size_t ntri = nshell * (nshell + 1L) / 2L;
@@ -1002,45 +988,43 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 
     timer_on("CFMMTree: Far Field J");
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for collapse(2) schedule(dynamic)
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
-      for (int Qtask = 0; Qtask < shellpair_list_[Ptask].size(); Qtask++) {
-        std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
-        if (shellpair == nullptr) continue;
-
-        std::pair<int, int> PQ = shellpair->get_shell_pair_index();
-        int P = PQ.first;
-        int Q = PQ.second;
-
-        const auto& Vff = std::get<1>(shellpair_list_[Ptask][Qtask])->far_field_vector();
-            
-        const auto& shellpair_mpoles = shellpair->get_mpoles();
-        assert(!(shellpair_mpoles.empty()));
- 
-        double prefactor = (P == Q) ? 1.0 : 2.0;
+        for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
+            std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+            if (shellpair == nullptr) continue;
     
-        const GaussianShell& Pshell = basisset_->shell(P);
-        const GaussianShell& Qshell = basisset_->shell(Q);
-
-        int p_start = Pshell.start();
-        int num_p = Pshell.nfunction();
-
-        int q_start = Qshell.start();
-        int num_q = Qshell.nfunction();
-
-        for (int p = p_start; p < p_start + num_p; p++) {
-            int dp = p - p_start;
-            for (int q = q_start; q < q_start + num_q; q++) {
-                int dq = q - q_start;
-                for (int N = 0; N < J.size(); N++) {
-                    double** Jp = J[N]->pointer();
-                    // Far field multipole contributions
+            auto [P, Q] = shellpair->get_shell_pair_index();
+    
+            const auto& Vff = std::get<1>(shellpair_list_[Ptask][Qtask])->far_field_vector();
+                
+            const auto& shellpair_mpoles = shellpair->get_mpoles();
+            assert(!(shellpair_mpoles.empty()));
+     
+            double prefactor = (P == Q) ? 1.0 : 2.0;
+        
+            const GaussianShell& Pshell = basisset_->shell(P);
+            const GaussianShell& Qshell = basisset_->shell(Q);
+    
+            int p_start = Pshell.start();
+            int num_p = Pshell.nfunction();
+    
+            int q_start = Qshell.start();
+            int num_q = Qshell.nfunction();
+    
+            for (int p = p_start; p < p_start + num_p; p++) {
+                int dp = p - p_start;
+                for (int q = q_start; q < q_start + num_q; q++) {
+                    int dq = q - q_start;
+                    for (int N = 0; N < J.size(); N++) {
+                        double** Jp = J[N]->pointer();
+                        // Far field multipole contributions
 #pragma omp atomic
-                    Jp[p][q] += prefactor * Vff[N]->dot(shellpair_mpoles.at(dp * num_q + dq));
-                } // end N
-            } // end q
-        } // end p
-      } // end Qtasks
+                        Jp[p][q] += prefactor * Vff[N]->dot(shellpair_mpoles.at(dp * num_q + dq));
+                    } // end N
+                } // end q
+            } // end p
+        } // end Qtasks
     } // end Ptasks
 
     timer_off("CFMMTree: Far Field J");
