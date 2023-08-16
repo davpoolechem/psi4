@@ -605,7 +605,6 @@ void CFMMTree::setup_shellpair_info() {
         shellpair_list_[P].resize(nsh);
     }
 
-    nshp_ = 0;
     for (int i = 0; i < sorted_leaf_boxes_.size(); i++) {
         std::shared_ptr<CFMMBox> curr = sorted_leaf_boxes_[i];
         auto& shellpairs = curr->get_shell_pairs();
@@ -614,15 +613,7 @@ void CFMMTree::setup_shellpair_info() {
         for (auto& sp : shellpairs) {
             auto [P, Q] = sp->get_shell_pair_index();
 
-            std::vector<std::shared_ptr<CFMMBox>> shellpair_to_nf_boxes = {}; 
-            for (int nfi = 0; nfi < nf_boxes.size(); nfi++) {
-                std::shared_ptr<CFMMBox> neighbor = nf_boxes[nfi];
-                if (neighbor->nshell_pair() == 0) continue;
-                shellpair_to_nf_boxes.push_back(neighbor);
-            }
-            
-            shellpair_list_[P][Q] = { sp, curr, shellpair_to_nf_boxes };
-            nshp_ += 1;
+            shellpair_list_[P][Q] = { sp, curr };
         }
     }
 }
@@ -830,8 +821,12 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
         for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
             std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+            
             if (shellpair == nullptr) continue;
-        
+       
+            std::shared_ptr<CFMMBox> box = std::get<1>(shellpair_list_[Ptask][Qtask]);
+            std::vector<std::shared_ptr<CFMMBox>> nf_boxes = box->near_field_boxes(); 
+ 
             auto [P, Q] = shellpair->get_shell_pair_index();
             
             const GaussianShell& Pshell = basisset_->shell(P);
@@ -848,9 +843,9 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
             thread = omp_get_thread_num();
 #endif
         
-            for (const auto& nf_box : std::get<2>(shellpair_list_[Ptask][Qtask])) {
+            for (const auto& nf_box : nf_boxes) {
                 auto& RSshells = nf_box->get_shell_pairs();
-
+                
                 bool touched = false;
      
                 for (const auto& RSsh : RSshells) {

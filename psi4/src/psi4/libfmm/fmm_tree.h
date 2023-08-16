@@ -232,8 +232,7 @@ class PSI_API CFMMTree {
       size_t nshp_;
       // Index from the shell-pair index to shell pair info (shellpair, box, nf_boxes)
       std::vector<std::vector<
-        std::tuple<std::shared_ptr<ShellPair>, std::shared_ptr<CFMMBox>, 
-                   std::vector<std::shared_ptr<CFMMBox>>
+        std::tuple<std::shared_ptr<ShellPair>, std::shared_ptr<CFMMBox> 
                   >
       >> shellpair_list_;
       // local far-field box pairs at a given level of the tree
