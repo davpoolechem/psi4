@@ -537,7 +537,7 @@ void CFMMTree::make_root_node() {
     outfile->Printf("New box volume: %f, %f -> %f, %f\n\n", length_tmp, f, length, length*length*length);
     outfile->Printf("New box origin: %f \n\n", origin_new[0]); 
 
-    tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin, length, 0, lmax_, 2);
+    tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin_new, length, 0, lmax_, 2);
 }
 
 void CFMMTree::make_children() {
@@ -595,6 +595,14 @@ void CFMMTree::setup_regions() {
 
 void CFMMTree::setup_shellpair_info() {
 
+    size_t nsh = basisset_->nshell(); 
+
+    shellpair_list_.resize(nsh);
+
+    for (int P = 0; P != nsh; ++P) { 
+        shellpair_list_[P].resize(nsh);
+    }
+
     nshp_ = 0;
     for (int i = 0; i < sorted_leaf_boxes_.size(); i++) {
         std::shared_ptr<CFMMBox> curr = sorted_leaf_boxes_[i];
@@ -606,9 +614,6 @@ void CFMMTree::setup_shellpair_info() {
             int P = PQ.first;
             int Q = PQ.second;
 
-            //shellpair_list_.push_back({ sp, curr, {} });
-
-            //auto shellpair_to_nf_boxes = std::get<2>(shellpair_list_[nshp_]);
             std::vector<std::shared_ptr<CFMMBox>> shellpair_to_nf_boxes = {}; 
             for (int nfi = 0; nfi < nf_boxes.size(); nfi++) {
                 std::shared_ptr<CFMMBox> neighbor = nf_boxes[nfi];
@@ -616,7 +621,7 @@ void CFMMTree::setup_shellpair_info() {
                 shellpair_to_nf_boxes.push_back(neighbor);
             }
             
-            shellpair_list_.push_back({ sp, curr, shellpair_to_nf_boxes });
+            shellpair_list_[P][Q] = { sp, curr, shellpair_to_nf_boxes };
             nshp_ += 1;
         }
     }
@@ -686,10 +691,13 @@ void CFMMTree::calculate_shellpair_multipoles() {
     }
 
 #pragma omp parallel for schedule(dynamic)
-    for (int ishp = 0; ishp < shellpair_list_.size(); ishp++) {
-        std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[ishp]);
-        std::shared_ptr<CFMMBox> box = std::get<1>(shellpair_list_[ishp]);
-
+    for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
+      for (int Qtask = 0; Qtask < shellpair_list_[Ptask].size(); Qtask++) {
+        std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+        if (shellpair == nullptr) continue;
+        
+        std::shared_ptr<CFMMBox> box = std::get<1>(shellpair_list_[Ptask][Qtask]);
+        
         std::pair<int, int> PQ = shellpair->get_shell_pair_index();
         int P = PQ.first;
         int Q = PQ.second;
@@ -701,10 +709,10 @@ void CFMMTree::calculate_shellpair_multipoles() {
 
         mpints[thread]->set_origin(box->center());
         shellpair->calculate_mpoles(box->center(), sints[thread], mpints[thread], lmax_);
+      }  
     }
 
     timer_off("CFMMTree: Shell-Pair Multipole Ints");
-
 }
 
 void CFMMTree::calculate_multipoles(const std::vector<SharedMatrix>& D) {
@@ -824,8 +832,12 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 
     //outfile->Printf("Loop over shell pairs: %d \n", shellpair_list_.size());
 #pragma omp parallel for schedule(dynamic) reduction(+ : computed_shells)
-    for (int ishp = 0; ishp < shellpair_list_.size(); ishp++) {
-        std::pair<int, int> PQ = std::get<0>(shellpair_list_[ishp])->get_shell_pair_index();
+    for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
+      for (int Qtask = 0; Qtask < shellpair_list_[Ptask].size(); Qtask++) {
+        std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+        if (shellpair == nullptr) continue;
+        
+        std::pair<int, int> PQ = shellpair->get_shell_pair_index();
         int P = PQ.first;
         int Q = PQ.second;
             
@@ -846,7 +858,7 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 #endif
         
         //outfile->Printf("    Loop over PQ nf boxes: %d \n", std::get<2>(shellpair_list_[ishp]).size());
-        for (const auto& nf_box : std::get<2>(shellpair_list_[ishp])) {
+        for (const auto& nf_box : std::get<2>(shellpair_list_[Ptask][Qtask])) {
             auto& RSshells = nf_box->get_shell_pairs();
 
             bool touched = false;
@@ -970,7 +982,8 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
             }
             // => End Stripeout <= //
         } // end nf_box
-   } // end tasks
+     } // end Qtasks
+   } // end Ptasks
      
    if (bench_) {
         auto mode = std::ostream::app;
@@ -990,14 +1003,16 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
     timer_on("CFMMTree: Far Field J");
 
 #pragma omp parallel for schedule(dynamic)
-    for (int ishp = 0; ishp < shellpair_list_.size(); ishp++) {
-        std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[ishp]);
-        
+    for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
+      for (int Qtask = 0; Qtask < shellpair_list_[Ptask].size(); Qtask++) {
+        std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+        if (shellpair == nullptr) continue;
+
         std::pair<int, int> PQ = shellpair->get_shell_pair_index();
         int P = PQ.first;
         int Q = PQ.second;
 
-        const auto& Vff = std::get<1>(shellpair_list_[ishp])->far_field_vector();
+        const auto& Vff = std::get<1>(shellpair_list_[Ptask][Qtask])->far_field_vector();
             
         const auto& shellpair_mpoles = shellpair->get_mpoles();
         assert(!(shellpair_mpoles.empty()));
@@ -1025,7 +1040,8 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
                 } // end N
             } // end q
         } // end p
-    } // end tasks
+      } // end Qtasks
+    } // end Ptasks
 
     timer_off("CFMMTree: Far Field J");
 }
