@@ -378,7 +378,11 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
 
     // ==> time to define the number of lowest-level boxes in the CFMM tree! <== // 
     int grain = options_.get_int("CFMM_GRAIN");
-    int M_target = options_.get_int("CFMM_TARGET_NSHP");
+    
+    // compute M_target based on multipole order as defined by White 1996
+    int M_target_computed = 5*lmax_ - 5;  
+
+    int M_target = options_["CFMM_TARGET_NSHP"].has_changed() ? options_.get_int("CFMM_TARGET_NSHP") : M_target_computed * M_target_computed;
     
     // CFMM_GRAIN < -1 is invalid 
     if (grain < -1) { 
@@ -822,7 +826,6 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     // Benchmark Number of Computed Shells
     size_t computed_shells = 0L;
 
-    //outfile->Printf("Loop over shell pairs: %d \n", shellpair_list_.size());
 #pragma omp parallel for collapse(2) schedule(dynamic) reduction(+ : computed_shells)
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
         for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
@@ -831,8 +834,6 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
         
             auto [P, Q] = shellpair->get_shell_pair_index();
             
-            //outfile->Printf("  PQ shell pair %d -> (%d, %d)  \n", ishp, P, Q);
-        
             const GaussianShell& Pshell = basisset_->shell(P);
             const GaussianShell& Qshell = basisset_->shell(Q);
 
@@ -847,7 +848,6 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
             thread = omp_get_thread_num();
 #endif
         
-            //outfile->Printf("    Loop over PQ nf boxes: %d \n", std::get<2>(shellpair_list_[ishp]).size());
             for (const auto& nf_box : std::get<2>(shellpair_list_[Ptask][Qtask])) {
                 auto& RSshells = nf_box->get_shell_pairs();
 
@@ -861,8 +861,6 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
             
                     if (ints[thread]->compute_shell(P, Q, R, S) == 0) continue;
                     computed_shells++;
-
-                    //assert(false);
 
                     const GaussianShell& Rshell = basisset_->shell(R);
                     const GaussianShell& Sshell = basisset_->shell(S);
@@ -999,7 +997,6 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
             const auto& Vff = std::get<1>(shellpair_list_[Ptask][Qtask])->far_field_vector();
                 
             const auto& shellpair_mpoles = shellpair->get_mpoles();
-            assert(!(shellpair_mpoles.empty()));
      
             double prefactor = (P == Q) ? 1.0 : 2.0;
         
@@ -1020,7 +1017,7 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
                         double** Jp = J[N]->pointer();
                         // Far field multipole contributions
 #pragma omp atomic
-                        Jp[p][q] += prefactor * Vff[N]->dot(shellpair_mpoles.at(dp * num_q + dq));
+                        Jp[p][q] += prefactor * Vff[N]->dot(shellpair_mpoles[dp * num_q + dq]);
                     } // end N
                 } // end q
             } // end p
