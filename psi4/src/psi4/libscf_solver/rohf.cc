@@ -963,6 +963,9 @@ void ROHF::form_G() {
     Gb_->copy(Ga_);
     Ga_->subtract(Ka_);
     Gb_->subtract(Kb_);
+ 
+    Ga_->hermitivitize();
+    Gb_->hermitivitize();
 }
 
 bool ROHF::stability_analysis() {

@@ -233,6 +233,8 @@ void RHF::form_G() {
     } else {
         wK_->zero();
     }
+
+    G_->hermitivitize();
 }
 
 void RHF::form_F() {
