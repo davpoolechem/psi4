@@ -149,21 +149,38 @@ void CUHF::form_G() {
     C.clear();
     C.push_back(Ca_subset("SO", "OCC"));
     C.push_back(Cb_subset("SO", "OCC"));
-
+    bool lr_symmetric = jk_->C_left().size() && !(jk_->C_right().size());
+    
     // Run the JK object
     jk_->compute();
 
     // Pull the J and K matrices off
     const std::vector<SharedMatrix>& J = jk_->J();
     const std::vector<SharedMatrix>& K = jk_->K();
+ 
+    //if (!lr_symmetric) { 
+        for (auto& Jmat : J) {
+            Jmat->hermitivitize();
+        }
+    //}
+
+    //if (lr_symmetric) {
+    //    for (auto& Kmat : K) {
+    //        Kmat->hermitivitize();
+    //    }
+    //}
+
     J_->copy(J[0]);
     J_->add(J[1]);
     Ka_ = K[0];
     Kb_ = K[1];
 
-    J_->hermitivitize();
-    Ka_->hermitivitize();
-    Kb_->hermitivitize();
+    //J_->hermitivitize();
+    
+    if (lr_symmetric) {
+        Ka_->hermitivitize();
+        Kb_->hermitivitize();
+    }
 }
 
 void CUHF::compute_spin_contamination() {

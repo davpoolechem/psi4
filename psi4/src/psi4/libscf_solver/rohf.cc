@@ -945,13 +945,21 @@ void ROHF::form_G() {
     // Push back socc orbitals
     SharedMatrix Csocc = Ca_->get_block({dim_zero, nsopi_}, {nbetapi_, nalphapi_});
     C.push_back(Csocc);
-
+    bool lr_symmetric = jk_->C_left().size() && !(jk_->C_right().size());
+    
     // Run the JK object
     jk_->compute();
 
     // Pull the J and K matrices off
     const std::vector<SharedMatrix>& J = jk_->J();
     const std::vector<SharedMatrix>& K = jk_->K();
+    
+    if (!lr_symmetric) {
+        for (auto& Jmat : J) {
+            Jmat->hermitivitize();
+        }
+    }
+
     Ga_->copy(J[0]);
     Ga_->scale(2.0);
     Ga_->add(J[1]);
@@ -963,11 +971,13 @@ void ROHF::form_G() {
     Gb_->copy(Ga_);
     Ga_->subtract(Ka_);
     Gb_->subtract(Kb_);
- 
-    Ga_->hermitivitize();
-    Gb_->hermitivitize();
-}
 
+    if (lr_symmetric) { 
+        Ga_->hermitivitize();
+        Gb_->hermitivitize();
+    }
+}
+ 
 bool ROHF::stability_analysis() {
     if (functional_->needs_xc()) {
         throw PSIEXCEPTION("Stability analysis not yet supported for XC functionals.");
