@@ -235,7 +235,7 @@ def test_seminum_incfock(inp, scf, mols, request):
     #assert compare_values(inp["ref"], energy_dfjcosk, atol=1e-6)
 
     # compute energy+wfn with Incfock 
-    psi4.set_options({"incfock" : True})
+    psi4.set_options({"incfock" : True, "incfock_convergence": 0.0, "incfock_full_fock_every": 15})
     energy_seminum_inc, wfn_seminum_inc = psi4.energy(inp["method"], molecule=molecule, bsse_type=inp["bsse_type"], return_wfn=True)
 
     # how do energies compare?

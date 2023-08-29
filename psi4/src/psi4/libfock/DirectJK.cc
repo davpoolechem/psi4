@@ -938,15 +938,15 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
 
     }  // End master task list
 
-    for (auto& Jmat : J) {
-        Jmat->hermitivitize();
-    }
+//    for (auto& Jmat : J) {
+//        Jmat->hermitivitize();
+//    }
 
-    if (lr_symmetric_) {
-        for (auto& Kmat : K) {
-            Kmat->hermitivitize();
-        }
-    }
+//    if (lr_symmetric_) {
+//        for (auto& Kmat : K) {
+//            Kmat->hermitivitize();
+//        }
+//    }
 
     num_computed_shells_ = computed_shells;
     if (get_bench()) {
