@@ -190,6 +190,8 @@ void RHF::form_G() {
     C.clear();
     C.push_back(Ca_subset("SO", "OCC"));
 
+    bool lr_symmetric = jk_->C_left().size() && !(jk_->C_right().size());
+
     // Run the JK object
     jk_->compute();
 
@@ -204,6 +206,18 @@ void RHF::form_G() {
     if (functional_->is_x_lrc()) {
         wK_ = wK[0];
     }
+
+    if (!lr_symmetric) {
+        for (auto& Jmat : J) {
+            Jmat->hermitivitize();
+        }
+    }
+
+    //if (lr_symmetric) {
+    //    for (auto& Kmat : K) {
+    //        Kmat->hermitivitize();
+    //    }
+    //}
 
     G_->axpy(2.0, J_);
 
@@ -234,7 +248,7 @@ void RHF::form_G() {
         wK_->zero();
     }
 
-    G_->hermitivitize();
+    if (lr_symmetric) G_->hermitivitize();
 }
 
 void RHF::form_F() {
