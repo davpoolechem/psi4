@@ -78,6 +78,7 @@ void CompositeJK::common_init() {
     if (options_.get_int("INCFOCK_FULL_FOCK_EVERY") <= 0) {
         throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
     }
+    initial_iterations_ = 0;
 
     computed_shells_per_iter_["Quartets"] = {};
     
@@ -221,10 +222,8 @@ void CompositeJK::incfock_setup() {
     if (do_incfock_iter_) {
         auto njk = D_ao_.size();
 
-        // If there is no previous pseudo-density, this iteration is normal
-        if (initial_iteration_ || D_prev_.size() != njk) {
-            initial_iteration_ = true;
-
+        // If there is no previous pseudo-density, or we are doing initial SCF iterations, this iteration is normal
+        if ((initial_iterations_ < initial_iterations_limit_) || D_prev_.size() != njk) {
             D_ref_ = D_ao_;
             zero();
         } else { // Otherwise, the iteration is incremental
@@ -267,14 +266,14 @@ void CompositeJK::compute_JK() {
         auto incfock_conv = options_.get_double("INCFOCK_CONVERGENCE");
         auto Dnorm = Process::environment.globals["SCF D NORM"];
         // Do IFB on this iteration?
-        do_incfock_iter_ = (Dnorm >= incfock_conv) && !initial_iteration_ && (incfock_count_ % reset != reset - 1);
+        do_incfock_iter_ = (Dnorm >= incfock_conv) && (initial_iterations_ >= initial_iterations_limit_) && (incfock_count_ % reset != reset - 1);
 
         if (k_algo_->name() == "sn-LinK") {
             auto k_algo_derived = std::dynamic_pointer_cast<snLinK>(k_algo_); 
             k_algo_derived->set_incfock_iter(do_incfock_iter_);
         }
 
-        if (!initial_iteration_ && (Dnorm >= incfock_conv)) incfock_count_ += 1;
+        if ((initial_iterations_ >= initial_iterations_limit_) && (Dnorm >= incfock_conv)) incfock_count_ += 1;
 
         incfock_setup();
         
@@ -337,7 +336,7 @@ void CompositeJK::compute_JK() {
         timer_off("CompositeJK: INCFOCK Postprocessing");
     }
 
-    if (initial_iteration_) initial_iteration_ = false;
+    if (initial_iterations_ < initial_iterations_limit_) ++initial_iterations_; 
 }
 
 void CompositeJK::postiterations() {}

@@ -748,9 +748,11 @@ class PSI_API DirectJK : public JK {
     /// Pseudo-density matrix to be used this iteration
     std::vector<SharedMatrix> D_ref_;
 
-    // Is the JK currently on the first SCF iteration of this SCF cycle?
-    bool initial_iteration_ = true;
-
+    // Number of initial SCF iterations that have been performed
+    // Controls when incfock is turned on 
+    size_t initial_iterations_ = true;
+    static constexpr size_t initial_iterations_limit_ = 2;
+ 
     std::string name() override { return "DirectJK"; }
     size_t memory_estimate() override;
 
@@ -1237,8 +1239,10 @@ class PSI_API CompositeJK : public JK {
     /// Pseudo-density matrix to be used this iteration
     std::vector<SharedMatrix> D_ref_;
 
-    // Is the JK currently on the first SCF iteration of this SCF cycle?
-    bool initial_iteration_ = true;
+    // Number of initial SCF iterations that have been performed
+    // Controls when incfock is turned on 
+    size_t initial_iterations_ = true;
+    static constexpr size_t initial_iterations_limit_ = 2;
   
     size_t memory_estimate() override;
 
