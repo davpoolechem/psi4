@@ -160,6 +160,10 @@ void CUHF::form_G() {
     J_->add(J[1]);
     Ka_ = K[0];
     Kb_ = K[1];
+
+    J_->hermitivitize();
+    Ka_->hermitivitize();
+    Kb_->hermitivitize();
 }
 
 void CUHF::compute_spin_contamination() {

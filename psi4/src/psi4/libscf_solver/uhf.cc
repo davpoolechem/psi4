@@ -240,6 +240,9 @@ void UHF::form_G() {
         wKa_->zero();
         wKb_->zero();
     }
+
+    Ga_->hermitivitize();
+    Gb_->hermitivitize();
 }
 
 void UHF::form_F() {
