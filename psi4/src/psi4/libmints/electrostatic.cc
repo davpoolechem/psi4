@@ -42,6 +42,7 @@ using Zxyz_vector = std::vector<std::pair<double, std::array<double, 3>>>;
 ElectrostaticInt::ElectrostaticInt(std::vector<SphericalTransform>& st, std::shared_ptr<BasisSet> bs1,
                                    std::shared_ptr<BasisSet> bs2, int deriv)
     : PotentialInt(st, bs1, bs2, deriv) {
+    
     int max_am = std::max(basis1()->max_am(), basis2()->max_am());
     int max_nprim = std::max(basis1()->max_nprimitive(), basis2()->max_nprimitive());
 
@@ -54,6 +55,8 @@ ElectrostaticInt::ElectrostaticInt(std::vector<SphericalTransform>& st, std::sha
 
     buffer_ = nullptr;
     buffers_.resize(nchunk_);
+
+    pcs_.push_back( {-1.0, {0.0, 0.0, 0.0}} );
 }
 
 ElectrostaticInt::~ElectrostaticInt() {}
@@ -63,6 +66,7 @@ void ElectrostaticInt::compute(SharedMatrix& result, const Vector3& C) {
     OneBodyAOInt::compute(result);
 }
 
+/*
 void ElectrostaticInt::set_origin(const Vector3& _origin) {
     origin_ = _origin;
     Zxyz_vector pcs;
@@ -70,6 +74,17 @@ void ElectrostaticInt::set_origin(const Vector3& _origin) {
     // we adopt this behavior here with -1.0
     pcs.push_back({-1.0, {origin_[0], origin_[1], origin_[2]}});
     engine0_->set_params(pcs);
+}
+*/
+
+void ElectrostaticInt::set_origin(const Vector3& _origin) {
+    origin_ = _origin;
+    // l2 includes the electron charge, legacy psi4 code does not, so
+    // we adopt this behavior here with -1.0
+    pcs_[0].first = -1.0;
+    for (int icoord = 0; icoord != 3; ++icoord) pcs_[0].second[icoord] = origin_[icoord];
+    
+    engine0_->set_params(pcs_);
 }
 
 SharedVector ElectrostaticInt::nuclear_contribution(std::shared_ptr<Molecule> mol) {

@@ -45,6 +45,7 @@ class Vector3;
  * Use an IntegralFactory to create this object.
  */
 class ElectrostaticInt : public PotentialInt {
+     std::vector<std::pair<double, std::array<double, 3>>> pcs_;
 
    public:
     /// Constructor
