@@ -187,11 +187,11 @@ SharedMatrix submatrix_rows_and_cols(const Matrix &mat, const std::vector<int> &
     SharedMatrix mat_new = std::make_shared<Matrix>(mat.name(), row_inds.size(), col_inds.size());
     double** mat_newp = mat_new->pointer();
     double** matp = mat.pointer();
-    for(int c_new = 0; c_new < col_inds.size(); c_new++) {
-        int c_old = col_inds[c_new];
+    for(int r_new = 0; r_new < row_inds.size(); r_new++) {
+        int r_old = row_inds[r_new];
     
-        for(int r_new = 0; r_new < row_inds.size(); r_new++) {
-            int r_old = row_inds[r_new];
+        for(int c_new = 0; c_new < col_inds.size(); c_new++) {
+            int c_old = col_inds[c_new];
             mat_newp[r_new][c_new] = matp[r_old][c_old];
         }
     }
