@@ -43,6 +43,11 @@ except ImportError:
     pass
 
 try:
+    import gpu_dlpno_ccsd
+except ImportError:
+    pass
+
+try:
     import forte
 except ImportError:
     pass

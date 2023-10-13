@@ -153,6 +153,7 @@ _addons_ = {
     "gcp": psi4_which("gcp", return_bool=True),
     "v2rdm_casscf": which_import("v2rdm_casscf", return_bool=True),
     "gpu_dfcc": which_import("gpu_dfcc", return_bool=True),
+    "gpu_dlpno_ccsd": which_import("gpu_dlpno_ccsd", return_bool=True),
     "forte": which_import("forte", return_bool=True),
     "snsmp2": which_import("snsmp2", return_bool=True),
     "resp": which_import("resp", return_bool=True),

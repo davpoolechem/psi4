@@ -114,6 +114,7 @@ option(ENABLE_v2rdm_casscf "Enables V2RDM_CASSCF plugin (requires Fortran; can a
 option(ENABLE_psi4fockci "Enables Psi4FockCI plugin (can also be added at runtime)" OFF)
 option(ENABLE_cct3 "Enables cct3 plugin (requires Fortran; can also be added at runtime)" OFF)
 option(ENABLE_gpu_dfcc "Enables GPU_DFCC plugin for gpu-accelerated df-cc (requires CUDA; can also be added at runtime)" OFF)
+option(ENABLE_gpu_dlpno_ccsd "Enables GPU_DLPNO_CCSD plugin for gpu-accelerated DLPNO-CCSD (requires CUDA)" OFF)
 option(ENABLE_mdi "Enables MolSSI driver interface" OFF)
 option(ENABLE_BrianQC "Enables the BrianQC GPU module (requires CUDA; requires separate installation and licensing of the BrianQC module)" OFF)
 option(ENABLE_Libint1t "Enables Libint1 in special _t variety" OFF)
