@@ -15,7 +15,7 @@ if(${ENABLE_gpu_dlpno_ccsd})
 
         ExternalProject_Add(gpu_dlpno_ccsd_external
           DEPENDS psi4-core
-          GIT_REPOSITORY https://github.com/davpoolechem/gpu-dlpno-plugin-test 
+          GIT_REPOSITORY https://github.com/davpoolechem/gpu_dlpno_ccsd
           GIT_TAG main
           CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${STAGED_INSTALL_PREFIX}
                        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
