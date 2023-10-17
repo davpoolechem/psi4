@@ -4425,7 +4425,7 @@ def run_dlpnoccsd(name, **kwargs):
     # try GPU code
     if extras.addons("gpu_dlpno_ccsd"):
       import gpu_dlpno_ccsd
-      gpu_dlpno_ccsd.run_gpu_dlpno_ccsd("David")
+      gpu_dlpno_ccsd.say_hi()
     else:
       raise ValidationError("gpu_dlpno_ccsd plugin is not implemented correctly!")
 
