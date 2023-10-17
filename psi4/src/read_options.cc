@@ -2508,7 +2508,9 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_str("DLPNO_ALGORITHM", "CCSD", "MP2 CCSD CCSD(T)");
         /*- Use T0 approximation for DLPNO-CCSD(T)? !expert*/
         options.add_bool("T0_APPROXIMATION", false);
-
+        /*- Use GPU-accelerated DLPNO code? Requires gpu_dlpno_ccsd plugin -*/
+        options.add_bool("GPU_DLPNO", false);
+   
         /*- SUBSECTION Expert Options -*/
 
         /*- Occupation number threshold for removing PNOs !expert -*/

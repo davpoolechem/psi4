@@ -4423,11 +4423,18 @@ def run_dlpnoccsd(name, **kwargs):
         core.set_local_option("DLPNO", "T0_APPROXIMATION", False)
 
     # try GPU code
+    #if core.get_global_option("GPU_DLPNO"):
     if extras.addons("gpu_dlpno_ccsd"):
-      import gpu_dlpno_ccsd
-      gpu_dlpno_ccsd.say_hi()
+        import gpu_dlpno_ccsd
+        gpu_dlpno_ccsd.say_hi()
     else:
-      raise ValidationError("gpu_dlpno_ccsd plugin is not implemented correctly!")
+        raise ValidationError("gpu_dlpno_ccsd plugin is not implemented correctly!")
+    #else:
+    #    raise ValidationError("GPU_DLPNO is not enabled!")
+
+
+    #if "gpu_dlpno_ccsd" not in sys.modules: 
+    #    raise ValidationError("gpu_dlpno_ccsd module is not loaded!")
 
     dlpnoccsd_wfn = core.dlpno(ref_wfn)
     dlpnoccsd_wfn.compute_energy()
