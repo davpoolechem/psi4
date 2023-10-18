@@ -4,6 +4,7 @@ foreach(dir_name
   libcubeprop
   libdiis
   libdisp
+  libdlpno
   libdpd
   libfilesystem
   libfock
@@ -33,7 +34,6 @@ foreach(dir_name
   dfep2
   dfmp2
   dfocc
-  dlpno
   dmrg
   fisapt
   fnocc

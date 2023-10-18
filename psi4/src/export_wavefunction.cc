@@ -45,7 +45,7 @@
 
 #include "psi4/cc/ccwave.h"
 
-#include "psi4/dlpno/dlpno.h"
+#include "psi4/libdlpno/dlpno.h"
 
 #include "psi4/detci/ciwave.h"
 #include "psi4/detci/civect.h"
