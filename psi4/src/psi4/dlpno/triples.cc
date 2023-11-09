@@ -88,8 +88,12 @@ SharedMatrix matmul_3d(SharedMatrix A, SharedMatrix X, int dim_old, int dim_new)
     Performs the operation A'[i,j,k] = A[I,J,K] * X[i,I] * X[j,J] * X[k,K] for cube 3d tensors
     */
 
+    outfile->Printf("    X, A (Step #1) -> %d, %d;  %d, %d \n", X->nrow(), X->ncol(), A->nrow(), A->ncol());
     SharedMatrix A_new = linalg::doublet(X, A, false, false);
     A_new->reshape(dim_new * dim_old, dim_old);
+
+    outfile->Printf("    A_new, X (Step #2) -> %d, %d;  %d, %d \n", A_new->nrow(), A_new->ncol(), X->nrow(), X->ncol());
+
     A_new = linalg::doublet(A_new, X, false, true);
 
     SharedMatrix A_T = std::make_shared<Matrix>(dim_new * dim_new, dim_old);
@@ -97,6 +101,7 @@ SharedMatrix matmul_3d(SharedMatrix A, SharedMatrix X, int dim_old, int dim_new)
         int a = ind / (dim_new * dim_old), b = (ind / dim_old) % dim_new, c = ind % dim_old;
         (*A_T)(a *dim_new + b, c) = (*A_new)(a * dim_old + c, b);
     }
+    outfile->Printf("    A_T, X (Step #3) -> %d, %d;  %d, %d \n", A_T->nrow(), A_T->ncol(), X->nrow(), X->ncol());
     A_T = linalg::doublet(A_T, X, false, true);
 
     A_new = std::make_shared<Matrix>(dim_new, dim_new * dim_new);
@@ -105,6 +110,8 @@ SharedMatrix matmul_3d(SharedMatrix A, SharedMatrix X, int dim_old, int dim_new)
         int a = ind / (dim_new * dim_new), b = (ind / dim_new) % dim_new, c = ind % dim_new;
         (*A_new)(a, b *dim_new + c) = (*A_T)(a * dim_new + c, b);
     }
+   
+    outfile->Printf("    A_new (Final product) -> %d, %d \n", A_new->nrow(), A_new->ncol());
 
     return A_new;
 }
@@ -798,7 +805,10 @@ double DLPNOCCSD_T::compute_lccsd_t0(bool store_amplitudes) {
     e_ijk_.clear();
     e_ijk_.resize(n_lmo_triplets, 0.0);
 
-#pragma omp parallel for schedule(dynamic) reduction(+ : E_T0)
+    outfile->Printf("#=====================#\n");
+    outfile->Printf("#== Start LCCSD(T0) ==#\n");
+    outfile->Printf("#=====================#\n\n");
+
     for (int ijk = 0; ijk < n_lmo_triplets; ++ijk) {
         int i, j, k;
         std::tie(i, j, k) = ijk_to_i_j_k_[ijk];
@@ -874,6 +884,9 @@ double DLPNOCCSD_T::compute_lccsd_t0(bool store_amplitudes) {
                 q_vv_tmp = submatrix_rows_and_cols(*qab_[q], lmotriplet_pao_to_riatom_pao_[ijk][q_ijk],
                                                 lmotriplet_pao_to_riatom_pao_[ijk][q_ijk]);
             }
+            //outfile->Printf("LMO triplets (%d), (%d) X_tno_[ijk] (q_vv_tmp) -> %d, %d \n", ijk, q_ijk, X_tno_[ijk]->nrow(), X_tno_[ijk]->ncol());
+            //outfile->Printf("LMO triplets (%d), (%d) q_vv_tmp (q_vv_tmp) -> %d, %d \n", ijk, q_ijk, q_vv_tmp->nrow(), q_vv_tmp->ncol());
+
             q_vv_tmp = linalg::triplet(X_tno_[ijk], q_vv_tmp, X_tno_[ijk], true, false, false);
                 
             C_DCOPY(ntno_ijk * ntno_ijk, &(*q_vv_tmp)(0, 0), 1, &(*q_vv)(q_ijk, 0), 1);
@@ -1060,6 +1073,10 @@ double DLPNOCCSD_T::compute_lccsd_t0(bool store_amplitudes) {
 #pragma omp critical
             T_ijk->save(psio_, PSIF_DLPNO_TRIPLES, psi::Matrix::Full);
         }
+
+        outfile->Printf("#===================#\n");
+        outfile->Printf("#== End LCCSD(T0) ==#\n");
+        outfile->Printf("#===================#\n\n");
     }
 
     outfile->Printf("\n");
@@ -1202,7 +1219,10 @@ double DLPNOCCSD_T::lccsd_t_iterations() {
 
         std::time_t time_start = std::time(nullptr);
 
-#pragma omp parallel for schedule(dynamic)
+        outfile->Printf("#=================#\n");
+        outfile->Printf("#== Start LCCSD ==#\n");
+        outfile->Printf("#=================#\n\n");
+
         for (int ijk = 0; ijk < n_lmo_triplets; ++ijk) {
             int i, j, k;
             std::tie(i, j, k) = ijk_to_i_j_k_[ijk];
@@ -1266,6 +1286,9 @@ double DLPNOCCSD_T::lccsd_t_iterations() {
                             T_ijl = T_iajbkc_[ijl];
                         }
 
+                        outfile->Printf("LMO triplets (%d), (%d) T_ijl (T_temp1_a) -> %d, %d / %d, %d \n", ijl, ijk, T_ijl->nrow(), T_ijl->ncol(), n_tno_[ijl], n_tno_[ijk]);
+                        outfile->Printf("LMO triplets (%d), (%d) S_ijk_ijl (T_temp1_a) -> %d, %d / %d, %d \n", ijl, ijk, S_ijk_ijl->nrow(), S_ijk_ijl->ncol(), n_tno_[ijl], n_tno_[ijk]);
+
                         auto T_temp1 =
                             matmul_3d(triples_permuter(T_ijl, i, j, l), S_ijk_ijl, n_tno_[ijl], n_tno_[ijk]);
                         C_DAXPY(ntno_ijk * ntno_ijk * ntno_ijk, -(*F_lmo_)(l, k), &(*T_temp1)(0, 0), 1,
@@ -1292,6 +1315,10 @@ double DLPNOCCSD_T::lccsd_t_iterations() {
                             T_ilk = T_iajbkc_[ilk];
                         }
 
+                        outfile->Printf("LMO triplets (%d), (%d) T_ilk (T_temp1_b) -> %d, %d / %d, %d \n", ilk, ijk, T_ilk->nrow(), T_ilk->ncol(), n_tno_[ilk], n_tno_[ijk]);
+                        outfile->Printf("LMO triplets (%d), (%d) S_ijk_ilk (T_temp1_b) -> %d, %d / %d, %d \n", ilk, ijk, S_ijk_ilk->nrow(), S_ijk_ilk->ncol(), n_tno_[ilk], n_tno_[ijk]);
+
+
                         auto T_temp1 =
                             matmul_3d(triples_permuter(T_ilk, i, l, k), S_ijk_ilk, n_tno_[ilk], n_tno_[ijk]);
                         C_DAXPY(ntno_ijk * ntno_ijk * ntno_ijk, -(*F_lmo_)(l, j), &(*T_temp1)(0, 0), 1,
@@ -1317,6 +1344,9 @@ double DLPNOCCSD_T::lccsd_t_iterations() {
                         } else {
                             T_ljk = T_iajbkc_[ljk];
                         }
+
+                        outfile->Printf("LMO triplets (%d), (%d) T_ljk (T_temp1_c) -> %d, %di / %d, %d \n", ljk, ijk, T_ljk->nrow(), T_ljk->ncol(), n_tno_[ljk], n_tno_[ijk]);
+                        outfile->Printf("LMO triplets (%d), (%d) S_ijk_ljk (T_temp1_c) -> %d, %d / %d, %d \n", ljk, ijk, S_ijk_ljk->nrow(), S_ijk_ljk->ncol(), n_tno_[ljk], n_tno_[ijk]);
 
                         auto T_temp1 =
                             matmul_3d(triples_permuter(T_ljk, l, j, k), S_ijk_ljk, n_tno_[ljk], n_tno_[ijk]);
@@ -1365,6 +1395,10 @@ double DLPNOCCSD_T::lccsd_t_iterations() {
         if (iteration > max_iteration) {
             throw PSIEXCEPTION("Maximum DLPNO iterations exceeded.");
         }
+  
+        outfile->Printf("#=================#\n");
+        outfile->Printf("#==  End LCCSD  ==#\n");
+        outfile->Printf("#=================#\n\n");
     }
 
     timer_off("LCCSD(T) Iterations");

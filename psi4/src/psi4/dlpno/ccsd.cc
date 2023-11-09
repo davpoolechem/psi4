@@ -409,13 +409,13 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                 if (kj != -1 && i != k && fabs(F_lmo_->get(i, k)) > options_.get_double("F_CUT")) {
                     auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij], lmopair_to_paos_[kj]);
                     
-                    outfile->Printf("LMO pairs (%d), (%d) S_ij_kj (S_ij_kj) -> %d, %d \n", ij, kj, S_ij_kj->nrow(), S_ij_kj->ncol());
-		    outfile->Printf("LMO pairs (%d), (%d) X_paos[ij] (S_ij_kj) -> %d, %d \n", ij, kj, X_paos[ij]->nrow(), X_paos[ij]->ncol());
-                    outfile->Printf("LMO pairs (%d), (%d) X_paos[kj] (S_ij_kj) -> %d, %d \n\n", ij, kj, X_paos[kj]->nrow(), X_paos[kj]->ncol());
+                    //outfile->Printf("LMO pairs (%d), (%d) S_ij_kj (S_ij_kj) -> %d, %d \n", ij, kj, S_ij_kj->nrow(), S_ij_kj->ncol());
+		    //outfile->Printf("LMO pairs (%d), (%d) X_paos[ij] (S_ij_kj) -> %d, %d \n", ij, kj, X_paos[ij]->nrow(), X_paos[ij]->ncol());
+                    //outfile->Printf("LMO pairs (%d), (%d) X_paos[kj] (S_ij_kj) -> %d, %d \n\n", ij, kj, X_paos[kj]->nrow(), X_paos[kj]->ncol());
                     S_ij_kj = linalg::triplet(X_paos[ij], S_ij_kj, X_paos[kj], true, false, false);
                     
-                    outfile->Printf("LMO pairs (%d), (%d) S_ij_kj (R_ijab[ij]) -> %d, %d \n", ij, kj, S_ij_kj->nrow(), S_ij_kj->ncol());
-                    outfile->Printf("LMO pairs (%d), (%d) T_paos[kj] (R_ijab[ij]) -> %d, %d \n\n", ij, kj, T_paos[kj]->nrow(), T_paos[kj]->ncol());
+                    //outfile->Printf("LMO pairs (%d), (%d) S_ij_kj (R_ijab[ij]) -> %d, %d \n", ij, kj, S_ij_kj->nrow(), S_ij_kj->ncol());
+                    //outfile->Printf("LMO pairs (%d), (%d) T_paos[kj] (R_ijab[ij]) -> %d, %d \n\n", ij, kj, T_paos[kj]->nrow(), T_paos[kj]->ncol());
                     auto temp =
                         linalg::triplet(S_ij_kj, T_paos[kj], S_ij_kj, false, false, true);
                     temp->scale(-1.0 * F_lmo_->get(i, k));
@@ -423,13 +423,13 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                 }
                 if (ik != -1 && j != k && fabs(F_lmo_->get(k, j)) > options_.get_double("F_CUT")) {
                     auto S_ij_ik = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij], lmopair_to_paos_[ik]);
-                    outfile->Printf("LMO pairs (%d), (%d) S_ij_ik (S_ij_ik) -> %d, %d \n", ij, ik, S_ij_ik->nrow(), S_ij_ik->ncol());
-		    outfile->Printf("LMO pairs (%d), (%d) X_paos[ij] (S_ij_ik) -> %d, %d \n", ij, ik, X_paos[ij]->nrow(), X_paos[ij]->ncol());
-                    outfile->Printf("LMO pairs (%d), (%d) X_paos[ik] (S_ij_ik) -> %d, %d \n\n", ij, ik, X_paos[ik]->nrow(), X_paos[ik]->ncol());
+                    //outfile->Printf("LMO pairs (%d), (%d) S_ij_ik (S_ij_ik) -> %d, %d \n", ij, ik, S_ij_ik->nrow(), S_ij_ik->ncol());
+		    //outfile->Printf("LMO pairs (%d), (%d) X_paos[ij] (S_ij_ik) -> %d, %d \n", ij, ik, X_paos[ij]->nrow(), X_paos[ij]->ncol());
+                    //outfile->Printf("LMO pairs (%d), (%d) X_paos[ik] (S_ij_ik) -> %d, %d \n\n", ij, ik, X_paos[ik]->nrow(), X_paos[ik]->ncol());
                     S_ij_ik = linalg::triplet(X_paos[ij], S_ij_ik, X_paos[ik], true, false, false);
 
-                    outfile->Printf("LMO pairs (%d), (%d) S_ij_ik (R_ijab[ij]) -> %d, %d \n", ij, ik, S_ij_ik->nrow(), S_ij_ik->ncol());
-                    outfile->Printf("LMO pairs (%d), (%d) T_paos[ik] (R_ijab[ij]) -> %d, %d \n\n", ij, ik, T_paos[ik]->nrow(), T_paos[ik]->ncol());
+                    //outfile->Printf("LMO pairs (%d), (%d) S_ij_ik (R_ijab[ij]) -> %d, %d \n", ij, ik, S_ij_ik->nrow(), S_ij_ik->ncol());
+                    //outfile->Printf("LMO pairs (%d), (%d) T_paos[ik] (R_ijab[ij]) -> %d, %d \n\n", ij, ik, T_paos[ik]->nrow(), T_paos[ik]->ncol());
                     auto temp =
                         linalg::triplet(S_ij_ik, T_paos[ik], S_ij_ik, false, false, true);
                     temp->scale(-1.0 * F_lmo_->get(k, j));
