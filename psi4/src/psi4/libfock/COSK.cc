@@ -188,6 +188,7 @@ COSK::COSK(std::shared_ptr<BasisSet> primary, Options& options) : SplitJK(primar
     //   - a small DFTGrid for the pre-converged SCF iterations
     //   - a large DFTGrid for the final SCF iteration
     grids_["Initial"] = nullptr;
+    grids_["Middle"] = nullptr;
     grids_["Final"] = nullptr;
 
     for (auto& [ gridname, grid ] : grids_) {

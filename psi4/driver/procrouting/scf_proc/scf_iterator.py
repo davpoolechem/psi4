@@ -295,7 +295,7 @@ def scf_iterate(self, e_conv=None, d_conv=None):
         soscf_performed = False
         self.frac_performed_ = False
         #self.MOM_performed_ = False  # redundant from common_init()
-
+        
         self.save_density_and_energy()
 
         if efp_enabled:
@@ -464,10 +464,10 @@ def scf_iterate(self, e_conv=None, d_conv=None):
                     status.append("INCFOCK")
 
                 if cosx_enabled:
+                    status.append(self.jk().get_COSX_grid().upper())
                     if Dnorm < core.get_option('SCF', 'COSX_SCF_DNORM') and self.jk().get_COSX_grid() == "Initial":
                         self.jk().set_COSX_grid("Middle")
-                    status.append(self.jk().get_COSX_grid().upper())
-
+ 
                 # Reset occupations if necessary
                 if (self.iteration_ == 0) and self.reset_occ_:
                     self.reset_occupation()
