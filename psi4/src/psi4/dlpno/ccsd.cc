@@ -59,6 +59,35 @@ namespace dlpno {
 DLPNOCCSD::DLPNOCCSD(SharedWavefunction ref_wfn, Options& options) : DLPNOBase(ref_wfn, options) {}
 DLPNOCCSD::~DLPNOCCSD() {}
 
+/*
+void submit_queue(queue, const std::string key, SharedMatrix R_iajb, SharedMatrix R_ijab_rms, SharedMatrix T_paos, SharedMatrix X_paos) { 
+  for (const auto indices : kj_queues[key]) {
+      auto& [ij_idx, kj_idx] = indices; 
+      auto& [i_idx, j1_idx] = ij_to_i_j_[ij_idx];
+      auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
+      assert(j1_idx == j2_idx);
+
+      auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
+      S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
+      auto temp =
+          linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
+
+      temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
+      R_iajb[ij_idx]->add(temp);
+
+      R_iajb_rms[ij_idx] = R_iajb[ij_idx]->rms();
+
+      if (i_idx < j1_idx) {
+          int ji = ij_to_ji_[ij_idx];
+          R_iajb[ji] = R_iajb[ij_idx]->transpose();
+          R_iajb_rms[ji] = R_iajb_rms[ij_idx];
+      }
+  }
+
+  kj_queues.pop(key);
+}
+*/
+
 inline SharedMatrix DLPNOCCSD::S_PNO(const int ij, const int mn) {
     int i, j, m, n;
     std::tie(i, j) = ij_to_i_j_[ij];
@@ -373,6 +402,11 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 
     // Calculate residuals from current amplitudes
     while (!(e_converged && r_converged)) {
+        std::unordered_map<std::string, std::vector<std::pair<int, int> > > kj_queues;
+        //std::vector<std::pair<int, int> > thread_kj_batch;  
+
+        size_t max_queue_count = 0;
+
         // RMS of residual per LMO pair, for assessing convergence
         std::vector<double> R_iajb_rms(n_lmo_pairs, 0.0);
         std::time_t time_start = std::time(nullptr);
@@ -403,12 +437,47 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                 int ik = i_j_to_ij_[i][k];
 
                 if (kj != -1 && i != k && fabs(F_lmo_->get(i, k)) > options_.get_double("F_CUT")) {
-                    auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij], lmopair_to_paos_[kj]);
-                    S_ij_kj = linalg::triplet(X_paos[ij], S_ij_kj, X_paos[kj], true, false, false);
-                    auto temp =
-                        linalg::triplet(S_ij_kj, T_paos[kj], S_ij_kj, false, false, true);
-                    temp->scale(-1.0 * F_lmo_->get(i, k));
-                    R_iajb[ij]->add(temp);
+                    std::string key = std::to_string(X_paos[ij]->ncol());
+                    key += ", " + std::to_string(X_paos[kj]->nrow());
+                    key += ", " + std::to_string(X_paos[kj]->ncol());
+                
+#pragma omp critical
+                    { 
+                    // store matrix combo in queue
+                    if (kj_queues.find(key) != kj_queues.end()) {
+                        kj_queues[key].push_back({ij, kj});
+                    } else {
+                        kj_queues[key] = {{ij, kj}};
+                    }
+
+                    // calculate queues matrix multiplies if queue is large enough 
+                    if (kj_queues[key].size() > 64) {
+                        for (const auto indices : kj_queues[key]) {
+                            auto& [ij_idx, kj_idx] = indices; 
+                            auto& [i_idx, j1_idx] = ij_to_i_j_[ij_idx];
+                            auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
+                            assert(j1_idx == j2_idx);
+ 
+                            auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
+                            S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
+                            auto temp =
+                                linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
+                    
+                            temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
+                            R_iajb[ij_idx]->add(temp);
+
+                            R_iajb_rms[ij_idx] = R_iajb[ij_idx]->rms();
+            
+                            if (i_idx < j1_idx) {
+                                int ji = ij_to_ji_[ij_idx];
+                                R_iajb[ji] = R_iajb[ij_idx]->transpose();
+                                R_iajb_rms[ji] = R_iajb_rms[ij_idx];
+                            }
+                        }
+
+                        kj_queues.erase(key);
+                    }
+                } 
                 }
                 if (ik != -1 && j != k && fabs(F_lmo_->get(k, j)) > options_.get_double("F_CUT")) {
                     auto S_ij_ik = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij], lmopair_to_paos_[ik]);
@@ -417,15 +486,41 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                         linalg::triplet(S_ij_ik, T_paos[ik], S_ij_ik, false, false, true);
                     temp->scale(-1.0 * F_lmo_->get(k, j));
                     R_iajb[ij]->add(temp);
+
+                    R_iajb_rms[ij] = R_iajb[ij]->rms();
+            
+                    if (i < j) {
+                        int ji = ij_to_ji_[ij];
+                        R_iajb[ji] = R_iajb[ij]->transpose();
+                        R_iajb_rms[ji] = R_iajb_rms[ij];
+                    }
                 }
             }
+        }
+ 
+        // submit all unfinished queues 
+        for (const auto& [key, index_list] : kj_queues) {
+            for (const auto indices : index_list) {
+                auto& [ij_idx, kj_idx] = indices; 
+                auto& [i_idx, j1_idx] = ij_to_i_j_[ij_idx];
+                auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
+                assert(j1_idx == j2_idx);
 
-            R_iajb_rms[ij] = R_iajb[ij]->rms();
-            
-            if (i < j) {
-                int ji = ij_to_ji_[ij];
-                R_iajb[ji] = R_iajb[ij]->transpose();
-                R_iajb_rms[ji] = R_iajb_rms[ij];
+                auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
+                S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
+                auto temp =
+                    linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
+    
+                temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
+                R_iajb[ij_idx]->add(temp);
+
+                R_iajb_rms[ij_idx] = R_iajb[ij_idx]->rms();
+
+                if (i_idx < j1_idx) {
+                    int ji = ij_to_ji_[ij_idx];
+                    R_iajb[ji] = R_iajb[ij_idx]->transpose();
+                    R_iajb_rms[ji] = R_iajb_rms[ij_idx];
+                }
             }
         }
 
