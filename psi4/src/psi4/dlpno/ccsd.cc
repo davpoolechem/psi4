@@ -392,7 +392,7 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
     outfile->Printf("\n  ==> Iterative Local MP2 with Projected Atomic Orbitals (PAOs) <==\n\n");
     outfile->Printf("    E_CONVERGENCE = %.2e\n", options_.get_double("E_CONVERGENCE"));
     outfile->Printf("    R_CONVERGENCE = %.2e\n\n", options_.get_double("R_CONVERGENCE"));
-    outfile->Printf("                         Corr. Energy    Delta E     Max R     Time (s)\n");
+    outfile->Printf("                         Corr. Energy    Delta E     Max R     Time (s)   kj Queue Count   R contributions\n");
 
     std::vector<SharedMatrix> R_iajb(n_lmo_pairs);
 
@@ -403,17 +403,24 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
     // Calculate residuals from current amplitudes
     while (!(e_converged && r_converged)) {
         std::unordered_map<std::string, std::vector<std::pair<int, int> > > kj_queues;
-        //std::vector<std::pair<int, int> > thread_kj_batch;  
-
-        size_t max_queue_count = 0;
+        size_t max_kj_queue_count = 0;
+        size_t total_R_contributions = 0;
 
         // RMS of residual per LMO pair, for assessing convergence
         std::vector<double> R_iajb_rms(n_lmo_pairs, 0.0);
         std::time_t time_start = std::time(nullptr);
 
+#pragma omp parallel
+{
+        std::vector<std::pair<int, int> > thread_kj_batch; 
+        
+        constexpr size_t queue_size = 64;   
+        thread_kj_batch.reserve(queue_size);
+
         // Calculate residuals from current amplitudes
-#pragma omp parallel for schedule(dynamic, 1)
+#pragma omp for schedule(dynamic, 1)
         for (int ij = 0; ij < n_lmo_pairs; ++ij) {
+            
             int i, j;
             std::tie(i, j) = ij_to_i_j_[ij];
 
@@ -443,42 +450,49 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                 
 #pragma omp critical
                     { 
-                    // store matrix combo in queue
-                    if (kj_queues.find(key) != kj_queues.end()) {
-                        kj_queues[key].push_back({ij, kj});
-                    } else {
-                        kj_queues[key] = {{ij, kj}};
-                    }
-
-                    // calculate queues matrix multiplies if queue is large enough 
-                    if (kj_queues[key].size() > 64) {
-                        for (const auto indices : kj_queues[key]) {
-                            auto& [ij_idx, kj_idx] = indices; 
-                            auto& [i_idx, j1_idx] = ij_to_i_j_[ij_idx];
-                            auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
-                            assert(j1_idx == j2_idx);
- 
-                            auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
-                            S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
-                            auto temp =
-                                linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
-                    
-                            temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
-                            R_iajb[ij_idx]->add(temp);
-
-                            R_iajb_rms[ij_idx] = R_iajb[ij_idx]->rms();
-            
-                            if (i_idx < j1_idx) {
-                                int ji = ij_to_ji_[ij_idx];
-                                R_iajb[ji] = R_iajb[ij_idx]->transpose();
-                                R_iajb_rms[ji] = R_iajb_rms[ij_idx];
-                            }
+                        // store matrix indices in queue
+                        if (kj_queues.find(key) != kj_queues.end()) {
+                            kj_queues[key].push_back({ij, kj});
+                        } else {
+                            kj_queues[key] = {{ij, kj}};
                         }
-
-                        kj_queues.erase(key);
+                        max_kj_queue_count = std::max(max_kj_queue_count, kj_queues.size());
+                
+                        if (kj_queues[key].size() >= queue_size) {
+                            thread_kj_batch = kj_queues[key];
+                            //outfile->Printf("  Submit full queue %s with %d elements\n", key.c_str(), queue_size);
+                            kj_queues.erase(key);
+                        }
                     }
-                } 
                 }
+
+                // calculate queues matrix multiplies if queue is large enough 
+                if (!thread_kj_batch.empty()) {
+                    for (const auto indices : thread_kj_batch) {
+//#pragma omp critical
+//                        {
+//                            outfile->Printf("    Indices: %d, %d\n", indices.first, indices.second);
+//                        }
+
+                        auto& [ij_idx, kj_idx] = indices; 
+                        auto& [i_idx, j_idx] = ij_to_i_j_[ij_idx];
+                        auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
+                        assert(j_idx == j2_idx);
+                       
+                        auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
+                        S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
+                        auto temp =
+                            linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
+                
+                        temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
+ #pragma omp atomic
+                        total_R_contributions += 1;
+                        R_iajb[ij_idx]->add(temp);
+                    }
+            
+                    thread_kj_batch.clear();
+                }
+            
                 if (ik != -1 && j != k && fabs(F_lmo_->get(k, j)) > options_.get_double("F_CUT")) {
                     auto S_ij_ik = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij], lmopair_to_paos_[ik]);
                     S_ij_ik = linalg::triplet(X_paos[ij], S_ij_ik, X_paos[ik], true, false, false);
@@ -486,25 +500,32 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                         linalg::triplet(S_ij_ik, T_paos[ik], S_ij_ik, false, false, true);
                     temp->scale(-1.0 * F_lmo_->get(k, j));
                     R_iajb[ij]->add(temp);
-
-                    R_iajb_rms[ij] = R_iajb[ij]->rms();
-            
-                    if (i < j) {
-                        int ji = ij_to_ji_[ij];
-                        R_iajb[ji] = R_iajb[ij]->transpose();
-                        R_iajb_rms[ji] = R_iajb_rms[ij];
-                    }
+ #pragma omp atomic
+                    total_R_contributions += 1;
                 }
             }
         }
- 
+}
         // submit all unfinished queues 
+        std::vector<std::string> key_list;
         for (const auto& [key, index_list] : kj_queues) {
-            for (const auto indices : index_list) {
+            key_list.push_back(key); 
+        } 
+     
+        assert(key_list.size() == kj_queues.size());
+
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int ikey = 0; ikey < kj_queues.size(); ++ikey) {
+            auto key = key_list[ikey];
+//#pragma omp critical
+//            {
+//                outfile->Printf("  Submit not-full queue %s with %d elements\n", key.c_str(), kj_queues[key].size());
+//            }
+            for (const auto indices : kj_queues[key]) {
                 auto& [ij_idx, kj_idx] = indices; 
-                auto& [i_idx, j1_idx] = ij_to_i_j_[ij_idx];
+                auto& [i_idx, j_idx] = ij_to_i_j_[ij_idx];
                 auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
-                assert(j1_idx == j2_idx);
+                assert(j_idx == j2_idx);
 
                 auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
                 S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
@@ -513,14 +534,24 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
     
                 temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
                 R_iajb[ij_idx]->add(temp);
+#pragma omp atomic
+                total_R_contributions += 1;
+            }
+        }
 
-                R_iajb_rms[ij_idx] = R_iajb[ij_idx]->rms();
+        // account for residual symmetry
+        for (int ij = 0; ij < n_lmo_pairs; ++ij) {
+            int i, j;
+            std::tie(i, j) = ij_to_i_j_[ij];
 
-                if (i_idx < j1_idx) {
-                    int ji = ij_to_ji_[ij_idx];
-                    R_iajb[ji] = R_iajb[ij_idx]->transpose();
-                    R_iajb_rms[ji] = R_iajb_rms[ij_idx];
-                }
+            if (i > j) continue;
+            
+            R_iajb_rms[ij] = R_iajb[ij]->rms();
+                
+            if (i < j) {
+                int ji = ij_to_ji_[ij];
+                R_iajb[ji] = R_iajb[ij]->transpose();
+                R_iajb_rms[ji] = R_iajb_rms[ij];
             }
         }
 
@@ -563,7 +594,7 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 
         std::time_t time_stop = std::time(nullptr);
 
-        outfile->Printf("  @PAO-LMP2 iter %3d: %16.12f %10.3e %10.3e %8d\n", iteration, e_curr, e_curr - e_prev, r_curr, (int)time_stop - (int)time_start);
+        outfile->Printf("  @PAO-LMP2 iter %3d: %16.12f %10.3e %10.3e %8d %8d %8d\n", iteration, e_curr, e_curr - e_prev, r_curr, (int)time_stop - (int)time_start, max_kj_queue_count, total_R_contributions);
 
         iteration++;
 
