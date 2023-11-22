@@ -393,6 +393,9 @@ class DLPNOCCSD : public DLPNOBase {
     /// local CCSD equations (with the T1-transformation)
     void t1_lccsd_iterations();
 
+    // queue GEMMs for PAO-LMP2 bottleneck
+    void submit_queue(std::vector<std::pair<int, int> >& queue, std::vector<SharedMatrix>& R_iajb, const std::vector<SharedMatrix>& X_paos, const std::vector<SharedMatrix>& T_paos);
+    
     void print_header();
     void print_results();
     void print_integral_sparsity();

@@ -59,34 +59,121 @@ namespace dlpno {
 DLPNOCCSD::DLPNOCCSD(SharedWavefunction ref_wfn, Options& options) : DLPNOBase(ref_wfn, options) {}
 DLPNOCCSD::~DLPNOCCSD() {}
 
-/*
-void submit_queue(queue, const std::string key, SharedMatrix R_iajb, SharedMatrix R_ijab_rms, SharedMatrix T_paos, SharedMatrix X_paos) { 
-  for (const auto indices : kj_queues[key]) {
-      auto& [ij_idx, kj_idx] = indices; 
-      auto& [i_idx, j1_idx] = ij_to_i_j_[ij_idx];
-      auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
-      assert(j1_idx == j2_idx);
+void DLPNOCCSD::submit_queue(std::vector<std::pair<int, int> >& queue, std::vector<SharedMatrix>& R_iajb, const std::vector<SharedMatrix>& X_paos, const std::vector<SharedMatrix>& T_paos) {
+    int m1_old = -1;
+    int k1_old = -1;
+    int n1_old = -1;
+    int m2_old = -1;
+    int k2_old = -1;
+    int n2_old = -1;
 
-      auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
-      S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
-      auto temp =
-          linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
+    int m3_old = -1;
+    int k3_old = -1;
+    int n3_old = -1;
+    int m4_old = -1;
+    int k4_old = -1;
+    int n4_old = -1;
 
-      temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
-      R_iajb[ij_idx]->add(temp);
+    for (const auto indices : queue) {
+        auto& [ij_idx, kj_idx] = indices; 
+        auto& [i_idx, j_idx] = ij_to_i_j_[ij_idx];
+        auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
+        assert(j_idx == j2_idx);
 
-      R_iajb_rms[ij_idx] = R_iajb[ij_idx]->rms();
+        auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
+     
+        int m1 = X_paos[ij_idx]->ncol();
+        int k1a = X_paos[ij_idx]->nrow();
+        int k1b = S_ij_kj->nrow(); 
+        int n1 = S_ij_kj->ncol();
+        assert(k1a == k1b);
+        
+        if (m1_old == -1 || k1_old == -1 || n1_old == -1) {
+            m1_old == m1;
+            k1_old == k1a;
+            n1_old == n1;
+        } else {
+            if (m1_old != m1 || k1_old != k1a || n1_old != n1) {
+              throw PSIEXCEPTION("Matrix queue dims for first GEMM dont line up!");
+            //} else {
+            //    m1_old == m1;
+            //    k1_old == k1a;
+            //    n1_old == n1;
+            }
+        }
 
-      if (i_idx < j1_idx) {
-          int ji = ij_to_ji_[ij_idx];
-          R_iajb[ji] = R_iajb[ij_idx]->transpose();
-          R_iajb_rms[ji] = R_iajb_rms[ij_idx];
-      }
-  }
+        int m2 = S_ij_kj->nrow(); 
+        int k2a = S_ij_kj->ncol();
+        int k2b = X_paos[kj_idx]->nrow();
+        int n2 = X_paos[kj_idx]->ncol();
+        assert(k2a == k2b);
 
-  kj_queues.pop(key);
+        if (m2_old == -1 || k2_old == -1 || n2_old == -1) {
+            m2_old == m2;
+            k2_old == k2a;
+            n2_old == n2;
+        } else {
+            if (m2_old != m2 || k2_old != k2a || n2_old != n2) {
+              throw PSIEXCEPTION("Matrix queue dims for second GEMM dont line up!");
+            //} else {
+            //    m1_old == m1;
+            //    k1_old == k1a;
+            //    n1_old == n1;
+            }
+        }
+
+        //outfile->Printf("  S_ij_kj triplet dims: %d, %d, %d; %d, %d, %d\n", m1, k1a, n1, m2, k2a, n2);
+        S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
+
+        int m3 = S_ij_kj->nrow(); 
+        int k3a = S_ij_kj->ncol();
+        int k3b = T_paos[kj_idx]->nrow();
+        int n3 = T_paos[kj_idx]->ncol();
+        assert(k3a == k3b);
+        
+        if (m3_old == -1 || k3_old == -1 || n3_old == -1) {
+            m3_old == m3;
+            k3_old == k3a;
+            n3_old == n3;
+        } else {
+            if (m3_old != m3 || k3_old != k3a || n3_old != n3) {
+              throw PSIEXCEPTION("Matrix queue dims for third GEMM dont line up!");
+            //} else {
+            //    m1_old == m1;
+            //    k1_old == k1a;
+            //    n1_old == n1;
+            }
+        }
+
+        int m4 = T_paos[kj_idx]->nrow();
+        int k4a = T_paos[kj_idx]->ncol();
+        int k4b = S_ij_kj->ncol(); 
+        int n4 = S_ij_kj->nrow();
+        assert(k4a == k4b);
+
+        if (m4_old == -1 || k4_old == -1 || n4_old == -1) {
+            m4_old == m4;
+            k4_old == k4a;
+            n4_old == n4;
+        } else {
+            if (m4_old != m4 || k4_old != k4a || n4_old != n4) {
+              throw PSIEXCEPTION("Matrix queue dims for fourth GEMM dont line up!");
+            //} else {
+            //    m1_old == m1;
+            //    k1_old == k1a;
+            //    n1_old == n1;
+            }
+        }
+
+        auto temp =
+            linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
+
+        temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
+        R_iajb[ij_idx]->add(temp);
+    }
+
+    queue.clear();
 }
-*/
 
 inline SharedMatrix DLPNOCCSD::S_PNO(const int ij, const int mn) {
     int i, j, m, n;
@@ -508,82 +595,9 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 
                 // calculate queues matrix multiplies if queue is large enough 
                 if (!thread_kj_batch.empty()) {
-//#pragma omp critical
-                {
-                    int m1_old = -1;
-                    int k1_old = -1;
-                    int n1_old = -1;
-                    int m2_old = -1;
-                    int k2_old = -1;
-                    int n2_old = -1;
-
-                    for (const auto indices : thread_kj_batch) {
-//#pragma omp critical
-//                        {
-//                            outfile->Printf("    Indices: %d, %d\n", indices.first, indices.second);
-//                        }
-
-                        auto& [ij_idx, kj_idx] = indices; 
-                        auto& [i_idx, j_idx] = ij_to_i_j_[ij_idx];
-                        auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
-                        assert(j_idx == j2_idx);
-
-                        auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
-                     
-                        int m1 = X_paos[ij_idx]->ncol();
-                        int k1a = X_paos[ij_idx]->nrow();
-                        int k1b = S_ij_kj->nrow(); 
-                        int n1 = S_ij_kj->ncol();
-                        assert(k1a == k1b);
-                        
-                        if (m1_old == -1 || k1_old == -1 || n1_old == -1) {
-                            m1_old == m1;
-                            k1_old == k1a;
-                            n1_old == n1;
-                        } else {
-                            if (m1_old != m1 || k1_old != k1a || n1_old != n1) {
-                              throw PSIEXCEPTION("Matrix queue dims for first GEMM dont line up!");
-                            //} else {
-                            //    m1_old == m1;
-                            //    k1_old == k1a;
-                            //    n1_old == n1;
-                            }
-                        }
- 
-                        int m2 = S_ij_kj->nrow(); 
-                        int k2a = S_ij_kj->ncol();
-                        int k2b = X_paos[kj_idx]->nrow();
-                        int n2 = X_paos[kj_idx]->ncol();
-                        assert(k2a == k2b);
-
-                        if (m2_old == -1 || k2_old == -1 || n2_old == -1) {
-                            m2_old == m2;
-                            k2_old == k2a;
-                            n2_old == n2;
-                        } else {
-                            if (m2_old != m2 || k2_old != k2a || n2_old != n2) {
-                              throw PSIEXCEPTION("Matrix queue dims for second GEMM dont line up!");
-                            //} else {
-                            //    m1_old == m1;
-                            //    k1_old == k1a;
-                            //    n1_old == n1;
-                            }
-                        }
-                        
-                        //outfile->Printf("  S_ij_kj triplet dims: %d, %d, %d; %d, %d, %d\n", m1, k1a, n1, m2, k2a, n2);
-                        S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
-                        auto temp =
-                            linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
+                    submit_queue(thread_kj_batch, R_iajb, X_paos, T_paos);
+                }
                 
-                        temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
-//#pragma omp atomic
-//                        total_R_contributions += 1;
-                        R_iajb[ij_idx]->add(temp);
-                    }
-            
-                    thread_kj_batch.clear();
-                }
-                }
                 // calculate queues matrix multiplies if queue is large enough 
                 if (!thread_ik_batch.empty()) {
                     int m1_old = -1;
@@ -592,6 +606,13 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                     int m2_old = -1;
                     int k2_old = -1;
                     int n2_old = -1;
+
+                    int m3_old = -1;
+                    int k3_old = -1;
+                    int n3_old = -1;
+                    int m4_old = -1;
+                    int k4_old = -1;
+                    int n4_old = -1;
 
                     for (const auto indices : thread_ik_batch) {
 //#pragma omp critical
@@ -647,6 +668,47 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                         }
 
                         S_ij_ik = linalg::triplet(X_paos[ij_idx], S_ij_ik, X_paos[ik_idx], true, false, false);
+
+                        int m3 = S_ij_ik->nrow(); 
+                        int k3a = S_ij_ik->ncol();
+                        int k3b = T_paos[ik_idx]->nrow();
+                        int n3 = T_paos[ik_idx]->ncol();
+                        assert(k3a == k3b);
+                        
+                        if (m3_old == -1 || k3_old == -1 || n3_old == -1) {
+                            m3_old == m3;
+                            k3_old == k3a;
+                            n3_old == n3;
+                        } else {
+                            if (m3_old != m3 || k3_old != k3a || n3_old != n3) {
+                              throw PSIEXCEPTION("Matrix queue dims for third GEMM dont line up!");
+                            //} else {
+                            //    m1_old == m1;
+                            //    k1_old == k1a;
+                            //    n1_old == n1;
+                            }
+                        }
+ 
+                        int m4 = T_paos[ik_idx]->nrow();
+                        int k4a = T_paos[ik_idx]->ncol();
+                        int k4b = S_ij_ik->ncol(); 
+                        int n4 = S_ij_ik->nrow();
+                        assert(k4a == k4b);
+
+                        if (m4_old == -1 || k4_old == -1 || n4_old == -1) {
+                            m4_old == m4;
+                            k4_old == k4a;
+                            n4_old == n4;
+                        } else {
+                            if (m4_old != m4 || k4_old != k4a || n4_old != n4) {
+                              throw PSIEXCEPTION("Matrix queue dims for fourth GEMM dont line up!");
+                            //} else {
+                            //    m1_old == m1;
+                            //    k1_old == k1a;
+                            //    n1_old == n1;
+                            }
+                        }
+
                         auto temp =
                             linalg::triplet(S_ij_ik, T_paos[ik_idx], S_ij_ik, false, false, true);
                         temp->scale(-1.0 * F_lmo_->get(k_idx, j_idx));
