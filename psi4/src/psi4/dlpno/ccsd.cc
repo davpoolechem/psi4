@@ -403,6 +403,7 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
     // Calculate residuals from current amplitudes
     while (!(e_converged && r_converged)) {
         std::unordered_map<std::string, std::vector<std::pair<int, int> > > kj_queues;
+        std::vector<std::string> key_list;
         size_t max_kj_queue_count = 0;
         size_t total_R_contributions = 0;
 
@@ -411,7 +412,7 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
         std::time_t time_start = std::time(nullptr);
 
 #pragma omp parallel
-{
+        { // start parallel region
         std::vector<std::pair<int, int> > thread_kj_batch; 
         
         constexpr size_t queue_size = 64;   
@@ -485,8 +486,8 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                             linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
                 
                         temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
- #pragma omp atomic
-                        total_R_contributions += 1;
+//#pragma omp atomic
+//                        total_R_contributions += 1;
                         R_iajb[ij_idx]->add(temp);
                     }
             
@@ -500,21 +501,23 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                         linalg::triplet(S_ij_ik, T_paos[ik], S_ij_ik, false, false, true);
                     temp->scale(-1.0 * F_lmo_->get(k, j));
                     R_iajb[ij]->add(temp);
- #pragma omp atomic
-                    total_R_contributions += 1;
+//#pragma omp atomic
+//                    total_R_contributions += 1;
                 }
             }
         }
-}
+
+#pragma omp single
+        {
         // submit all unfinished queues 
-        std::vector<std::string> key_list;
         for (const auto& [key, index_list] : kj_queues) {
             key_list.push_back(key); 
         } 
      
         assert(key_list.size() == kj_queues.size());
+        }
 
-#pragma omp parallel for schedule(dynamic, 1)
+#pragma omp for schedule(dynamic, 1)
         for (int ikey = 0; ikey < kj_queues.size(); ++ikey) {
             auto key = key_list[ikey];
 //#pragma omp critical
@@ -534,12 +537,18 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
     
                 temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
                 R_iajb[ij_idx]->add(temp);
-#pragma omp atomic
-                total_R_contributions += 1;
+//#pragma omp atomic
+//                total_R_contributions += 1;
             }
         }
 
+#pragma omp single nowait
+        {
+        key_list.clear();
+        }
+
         // account for residual symmetry
+#pragma omp for schedule(dynamic, 1)
         for (int ij = 0; ij < n_lmo_pairs; ++ij) {
             int i, j;
             std::tie(i, j) = ij_to_i_j_[ij];
@@ -556,7 +565,7 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
         }
 
         // use residuals to get next amplitudes
-#pragma omp parallel for schedule(dynamic, 1)
+#pragma omp for schedule(dynamic, 1)
         for (int ij = 0; ij < n_lmo_pairs; ++ij) {
             int i, j;
             std::tie(i, j) = ij_to_i_j_[ij];
@@ -569,13 +578,14 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
             }
         }
 
-#pragma omp parallel for schedule(dynamic, 1)
+#pragma omp for schedule(dynamic, 1)
         for (int ij = 0; ij < n_lmo_pairs; ++ij) {
             Tt_paos[ij]->copy(T_paos[ij]);
             Tt_paos[ij]->scale(2.0);
             Tt_paos[ij]->subtract(T_paos[ij]->transpose());
         }
-
+        } // end parallel region
+        
         // evaluate convergence using current amplitudes and residuals
         e_prev = e_curr;
         e_curr = 0.0;
