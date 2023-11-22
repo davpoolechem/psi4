@@ -508,6 +508,15 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 
                 // calculate queues matrix multiplies if queue is large enough 
                 if (!thread_kj_batch.empty()) {
+//#pragma omp critical
+                {
+                    int m1_old = -1;
+                    int k1_old = -1;
+                    int n1_old = -1;
+                    int m2_old = -1;
+                    int k2_old = -1;
+                    int n2_old = -1;
+
                     for (const auto indices : thread_kj_batch) {
 //#pragma omp critical
 //                        {
@@ -518,8 +527,50 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                         auto& [i_idx, j_idx] = ij_to_i_j_[ij_idx];
                         auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
                         assert(j_idx == j2_idx);
-                       
+
                         auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
+                     
+                        int m1 = X_paos[ij_idx]->ncol();
+                        int k1a = X_paos[ij_idx]->nrow();
+                        int k1b = S_ij_kj->nrow(); 
+                        int n1 = S_ij_kj->ncol();
+                        assert(k1a == k1b);
+                        
+                        if (m1_old == -1 || k1_old == -1 || n1_old == -1) {
+                            m1_old == m1;
+                            k1_old == k1a;
+                            n1_old == n1;
+                        } else {
+                            if (m1_old != m1 || k1_old != k1a || n1_old != n1) {
+                              throw PSIEXCEPTION("Matrix queue dims for first GEMM dont line up!");
+                            //} else {
+                            //    m1_old == m1;
+                            //    k1_old == k1a;
+                            //    n1_old == n1;
+                            }
+                        }
+ 
+                        int m2 = S_ij_kj->nrow(); 
+                        int k2a = S_ij_kj->ncol();
+                        int k2b = X_paos[kj_idx]->nrow();
+                        int n2 = X_paos[kj_idx]->ncol();
+                        assert(k2a == k2b);
+
+                        if (m2_old == -1 || k2_old == -1 || n2_old == -1) {
+                            m2_old == m2;
+                            k2_old == k2a;
+                            n2_old == n2;
+                        } else {
+                            if (m2_old != m2 || k2_old != k2a || n2_old != n2) {
+                              throw PSIEXCEPTION("Matrix queue dims for second GEMM dont line up!");
+                            //} else {
+                            //    m1_old == m1;
+                            //    k1_old == k1a;
+                            //    n1_old == n1;
+                            }
+                        }
+                        
+                        //outfile->Printf("  S_ij_kj triplet dims: %d, %d, %d; %d, %d, %d\n", m1, k1a, n1, m2, k2a, n2);
                         S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
                         auto temp =
                             linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
@@ -532,9 +583,16 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
             
                     thread_kj_batch.clear();
                 }
-
+                }
                 // calculate queues matrix multiplies if queue is large enough 
                 if (!thread_ik_batch.empty()) {
+                    int m1_old = -1;
+                    int k1_old = -1;
+                    int n1_old = -1;
+                    int m2_old = -1;
+                    int k2_old = -1;
+                    int n2_old = -1;
+
                     for (const auto indices : thread_ik_batch) {
 //#pragma omp critical
 //                        {
@@ -547,6 +605,47 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                         assert(i_idx == i2_idx);
 
                         auto S_ij_ik = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[ik_idx]);
+ 
+                        int m1 = X_paos[ij_idx]->ncol();
+                        int k1a = X_paos[ij_idx]->nrow();
+                        int k1b = S_ij_ik->nrow(); 
+                        int n1 = S_ij_ik->ncol();
+                        assert(k1a == k1b);
+                        
+                        if (m1_old == -1 || k1_old == -1 || n1_old == -1) {
+                            m1_old == m1;
+                            k1_old == k1a;
+                            n1_old == n1;
+                        } else {
+                            if (m1_old != m1 || k1_old != k1a || n1_old != n1) {
+                              throw PSIEXCEPTION("Matrix queue dims for first GEMM dont line up!");
+                            //} else {
+                            //    m1_old == m1;
+                            //    k1_old == k1a;
+                            //    n1_old == n1;
+                            }
+                        }
+ 
+                        int m2 = S_ij_ik->nrow(); 
+                        int k2a = S_ij_ik->ncol();
+                        int k2b = X_paos[ik_idx]->nrow();
+                        int n2 = X_paos[ik_idx]->ncol();
+                        assert(k2a == k2b);
+
+                        if (m2_old == -1 || k2_old == -1 || n2_old == -1) {
+                            m2_old == m2;
+                            k2_old == k2a;
+                            n2_old == n2;
+                        } else {
+                            if (m2_old != m2 || k2_old != k2a || n2_old != n2) {
+                              throw PSIEXCEPTION("Matrix queue dims for second GEMM dont line up!");
+                            //} else {
+                            //    m1_old == m1;
+                            //    k1_old == k1a;
+                            //    n1_old == n1;
+                            }
+                        }
+
                         S_ij_ik = linalg::triplet(X_paos[ij_idx], S_ij_ik, X_paos[ik_idx], true, false, false);
                         auto temp =
                             linalg::triplet(S_ij_ik, T_paos[ik_idx], S_ij_ik, false, false, true);
