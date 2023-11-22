@@ -403,8 +403,13 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
     // Calculate residuals from current amplitudes
     while (!(e_converged && r_converged)) {
         std::unordered_map<std::string, std::vector<std::pair<int, int> > > kj_queues;
-        std::vector<std::string> key_list;
+        std::vector<std::string> kj_key_list;
+
+        std::unordered_map<std::string, std::vector<std::pair<int, int> > > ik_queues;
+        std::vector<std::string> ik_key_list;
+
         size_t max_kj_queue_count = 0;
+        size_t max_ik_queue_count = 0;
         size_t total_R_contributions = 0;
 
         // RMS of residual per LMO pair, for assessing convergence
@@ -414,9 +419,11 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 #pragma omp parallel
         { // start parallel region
         std::vector<std::pair<int, int> > thread_kj_batch; 
+        std::vector<std::pair<int, int> > thread_ik_batch; 
         
         constexpr size_t queue_size = 64;   
         thread_kj_batch.reserve(queue_size);
+        thread_ik_batch.reserve(queue_size);
 
         // Calculate residuals from current amplitudes
 #pragma omp for schedule(dynamic, 1)
@@ -467,6 +474,38 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                     }
                 }
 
+                if (ik != -1 && j != k && fabs(F_lmo_->get(k, j)) > options_.get_double("F_CUT")) {
+                    std::string key = std::to_string(X_paos[ij]->ncol());
+                    key += ", " + std::to_string(X_paos[ik]->nrow());
+                    key += ", " + std::to_string(X_paos[ik]->ncol());
+                
+#pragma omp critical
+                    { 
+                        // store matrix indices in queue
+                        if (ik_queues.find(key) != ik_queues.end()) {
+                            ik_queues[key].push_back({ij, ik});
+                        } else {
+                            ik_queues[key] = {{ij, ik}};
+                        }
+                        max_ik_queue_count = std::max(max_ik_queue_count, ik_queues.size());
+                
+                        if (ik_queues[key].size() >= queue_size) {
+                            thread_ik_batch = ik_queues[key];
+                            //outfile->Printf("  Submit full queue %s with %d elements\n", key.c_str(), queue_size);
+                            ik_queues.erase(key);
+                        }
+                    }
+
+                    //auto S_ij_ik = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij], lmopair_to_paos_[ik]);
+                    //S_ij_ik = linalg::triplet(X_paos[ij], S_ij_ik, X_paos[ik], true, false, false);
+                    //auto temp =
+                    //    linalg::triplet(S_ij_ik, T_paos[ik], S_ij_ik, false, false, true);
+                    //temp->scale(-1.0 * F_lmo_->get(k, j));
+                    //R_iajb[ij]->add(temp);
+//#pragma omp atomic
+//                    total_R_contributions += 1;
+                }
+
                 // calculate queues matrix multiplies if queue is large enough 
                 if (!thread_kj_batch.empty()) {
                     for (const auto indices : thread_kj_batch) {
@@ -493,16 +532,29 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
             
                     thread_kj_batch.clear();
                 }
+
+                // calculate queues matrix multiplies if queue is large enough 
+                if (!thread_ik_batch.empty()) {
+                    for (const auto indices : thread_ik_batch) {
+//#pragma omp critical
+//                        {
+//                            outfile->Printf("    Indices: %d, %d\n", indices.first, indices.second);
+//                        }
+
+                        auto& [ij_idx, ik_idx] = indices; 
+                        auto& [i_idx, j_idx] = ij_to_i_j_[ij_idx];
+                        auto& [i2_idx, k_idx] = ij_to_i_j_[ik_idx];
+                        assert(i_idx == i2_idx);
+
+                        auto S_ij_ik = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[ik_idx]);
+                        S_ij_ik = linalg::triplet(X_paos[ij_idx], S_ij_ik, X_paos[ik_idx], true, false, false);
+                        auto temp =
+                            linalg::triplet(S_ij_ik, T_paos[ik_idx], S_ij_ik, false, false, true);
+                        temp->scale(-1.0 * F_lmo_->get(k_idx, j_idx));
+                        R_iajb[ij_idx]->add(temp);
+                    }
             
-                if (ik != -1 && j != k && fabs(F_lmo_->get(k, j)) > options_.get_double("F_CUT")) {
-                    auto S_ij_ik = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij], lmopair_to_paos_[ik]);
-                    S_ij_ik = linalg::triplet(X_paos[ij], S_ij_ik, X_paos[ik], true, false, false);
-                    auto temp =
-                        linalg::triplet(S_ij_ik, T_paos[ik], S_ij_ik, false, false, true);
-                    temp->scale(-1.0 * F_lmo_->get(k, j));
-                    R_iajb[ij]->add(temp);
-//#pragma omp atomic
-//                    total_R_contributions += 1;
+                    thread_ik_batch.clear();
                 }
             }
         }
@@ -511,15 +563,15 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
         {
         // submit all unfinished queues 
         for (const auto& [key, index_list] : kj_queues) {
-            key_list.push_back(key); 
+            kj_key_list.push_back(key); 
         } 
      
-        assert(key_list.size() == kj_queues.size());
+        assert(kj_key_list.size() == kj_queues.size());
         }
 
 #pragma omp for schedule(dynamic, 1)
         for (int ikey = 0; ikey < kj_queues.size(); ++ikey) {
-            auto key = key_list[ikey];
+            auto key = kj_key_list[ikey];
 //#pragma omp critical
 //            {
 //                outfile->Printf("  Submit not-full queue %s with %d elements\n", key.c_str(), kj_queues[key].size());
@@ -544,7 +596,46 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 
 #pragma omp single nowait
         {
-        key_list.clear();
+        kj_key_list.clear();
+        }
+
+#pragma omp single
+        {
+        // submit all unfinished queues 
+        for (const auto& [key, index_list] : ik_queues) {
+            ik_key_list.push_back(key); 
+        } 
+     
+        assert(ik_key_list.size() == ik_queues.size());
+        }
+
+#pragma omp for schedule(dynamic, 1)
+        for (int ikey = 0; ikey < ik_queues.size(); ++ikey) {
+            auto key = ik_key_list[ikey];
+//#pragma omp critical
+//            {
+//                outfile->Printf("  Submit not-full queue %s with %d elements\n", key.c_str(), kj_queues[key].size());
+//            }
+            for (const auto indices : ik_queues[key]) {
+                auto& [ij_idx, ik_idx] = indices; 
+                auto& [i_idx, j_idx] = ij_to_i_j_[ij_idx];
+                auto& [i2_idx, k_idx] = ij_to_i_j_[ik_idx];
+                assert(i_idx == i2_idx);
+
+                auto S_ij_ik = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[ik_idx]);
+                S_ij_ik = linalg::triplet(X_paos[ij_idx], S_ij_ik, X_paos[ik_idx], true, false, false);
+                auto temp =
+                    linalg::triplet(S_ij_ik, T_paos[ik_idx], S_ij_ik, false, false, true);
+                temp->scale(-1.0 * F_lmo_->get(k_idx, j_idx));
+                R_iajb[ij_idx]->add(temp);
+//#pragma omp atomic
+//                total_R_contributions += 1;
+            }
+        }
+
+#pragma omp single nowait
+        {
+        ik_key_list.clear();
         }
 
         // account for residual symmetry
@@ -604,7 +695,7 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 
         std::time_t time_stop = std::time(nullptr);
 
-        outfile->Printf("  @PAO-LMP2 iter %3d: %16.12f %10.3e %10.3e %8d %8d %8d\n", iteration, e_curr, e_curr - e_prev, r_curr, (int)time_stop - (int)time_start, max_kj_queue_count, total_R_contributions);
+        outfile->Printf("  @PAO-LMP2 iter %3d: %16.12f %10.3e %10.3e %8d %8d %8d\n", iteration, e_curr, e_curr - e_prev, r_curr, (int)time_stop - (int)time_start, max_ik_queue_count, total_R_contributions);
 
         iteration++;
 
