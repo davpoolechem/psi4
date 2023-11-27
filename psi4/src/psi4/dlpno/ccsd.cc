@@ -502,14 +502,10 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 
     // Calculate residuals from current amplitudes
     while (!(e_converged && r_converged)) {
-        std::unordered_map<std::string, std::vector<std::tuple<int, int, bool> > > kj_queues;
-        std::vector<std::string> kj_key_list;
+        std::unordered_map<std::string, std::vector<std::tuple<int, int, bool> > > gemm_queues;
+        std::vector<std::string> gemm_key_list;
 
-        std::unordered_map<std::string, std::vector<std::tuple<int, int, bool> > > ik_queues;
-        std::vector<std::string> ik_key_list;
-
-        size_t max_kj_queue_count = 0;
-        size_t max_ik_queue_count = 0;
+        size_t max_queue_count = 0;
         size_t total_R_contributions = 0;
 
         // RMS of residual per LMO pair, for assessing convergence
@@ -518,12 +514,10 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 
 #pragma omp parallel
         { // start parallel region
-        std::vector<std::tuple<int, int, bool> > thread_kj_batch; 
-        std::vector<std::tuple<int, int, bool> > thread_ik_batch; 
+        std::vector<std::tuple<int, int, bool> > thread_gemm_batch; 
         
         constexpr size_t queue_size = 64;   
-        thread_kj_batch.reserve(queue_size);
-        thread_ik_batch.reserve(queue_size);
+        thread_gemm_batch.reserve(queue_size);
 
         // Calculate residuals from current amplitudes
 #pragma omp for schedule(dynamic, 1)
@@ -559,17 +553,17 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 #pragma omp critical
                     { 
                         // store matrix indices in queue
-                        if (kj_queues.find(key) != kj_queues.end()) {
-                            kj_queues[key].push_back({ij, kj, false});
+                        if (gemm_queues.find(key) != gemm_queues.end()) {
+                            gemm_queues[key].push_back({ij, kj, false});
                         } else {
-                            kj_queues[key] = {{ij, kj, false}};
+                            gemm_queues[key] = {{ij, kj, false}};
                         }
-                        max_kj_queue_count = std::max(max_kj_queue_count, kj_queues.size());
+                        max_queue_count = std::max(max_queue_count, gemm_queues.size());
                 
-                        if (kj_queues[key].size() >= queue_size) {
-                            thread_kj_batch = kj_queues[key];
+                        if (gemm_queues[key].size() >= queue_size) {
+                            thread_gemm_batch = gemm_queues[key];
                             //outfile->Printf("  Submit full queue %s with %d elements\n", key.c_str(), queue_size);
-                            kj_queues.erase(key);
+                            gemm_queues.erase(key);
                         }
                     }
                 }
@@ -582,73 +576,47 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 #pragma omp critical
                     { 
                         // store matrix indices in queue
-                        if (ik_queues.find(key) != ik_queues.end()) {
-                            ik_queues[key].push_back({ij, ik, true});
+                        if (gemm_queues.find(key) != gemm_queues.end()) {
+                            gemm_queues[key].push_back({ij, ik, true});
                         } else {
-                            ik_queues[key] = {{ij, ik, true}};
+                            gemm_queues[key] = {{ij, ik, true}};
                         }
-                        max_ik_queue_count = std::max(max_ik_queue_count, ik_queues.size());
+                        max_queue_count = std::max(max_queue_count, gemm_queues.size());
                 
-                        if (ik_queues[key].size() >= queue_size) {
-                            thread_ik_batch = ik_queues[key];
+                        if (gemm_queues[key].size() >= queue_size) {
+                            thread_gemm_batch = gemm_queues[key];
                             //outfile->Printf("  Submit full queue %s with %d elements\n", key.c_str(), queue_size);
-                            ik_queues.erase(key);
+                            gemm_queues.erase(key);
                         }
                     }
                 }
 
-                // calculate queues matrix multiplies if queue is large enough 
-                if (!thread_kj_batch.empty()) {
-                    submit_queue(thread_kj_batch, R_iajb, X_paos, T_paos);
-                }
-                
-                // calculate queues matrix multiplies if queue is large enough 
-                if (!thread_ik_batch.empty()) {
-                    submit_queue(thread_ik_batch, R_iajb, X_paos, T_paos);
+                // calculate gemm_queues matrix multiplies if queue is large enough 
+                if (!thread_gemm_batch.empty()) {
+                    submit_queue(thread_gemm_batch, R_iajb, X_paos, T_paos);
                 }
             }
         }
 
 #pragma omp single
         {
-        // submit all unfinished queues 
-        for (const auto& [key, index_list] : kj_queues) {
-            kj_key_list.push_back(key); 
+        // submit all unfinished gemm_queues 
+        for (const auto& [key, index_list] : gemm_queues) {
+            gemm_key_list.push_back(key); 
         } 
      
-        assert(kj_key_list.size() == kj_queues.size());
+        assert(gemm_key_list.size() == gemm_queues.size());
         }
 
 #pragma omp for schedule(dynamic, 1)
-        for (int ikey = 0; ikey < kj_queues.size(); ++ikey) {
-            auto key = kj_key_list[ikey];
-            submit_queue(kj_queues[key], R_iajb, X_paos, T_paos);
+        for (int ikey = 0; ikey < gemm_queues.size(); ++ikey) {
+            auto key = gemm_key_list[ikey];
+            submit_queue(gemm_queues[key], R_iajb, X_paos, T_paos);
         }
 
 #pragma omp single nowait
         {
-        kj_key_list.clear();
-        }
-
-#pragma omp single
-        {
-        // submit all unfinished queues 
-        for (const auto& [key, index_list] : ik_queues) {
-            ik_key_list.push_back(key); 
-        } 
-     
-        assert(ik_key_list.size() == ik_queues.size());
-        }
-
-#pragma omp for schedule(dynamic, 1)
-        for (int ikey = 0; ikey < ik_queues.size(); ++ikey) {
-            auto key = ik_key_list[ikey];
-            submit_queue(ik_queues[key], R_iajb, X_paos, T_paos);
-        }
-
-#pragma omp single nowait
-        {
-        ik_key_list.clear();
+        gemm_key_list.clear();
         }
 
         // account for residual symmetry
@@ -708,7 +676,7 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 
         std::time_t time_stop = std::time(nullptr);
 
-        outfile->Printf("  @PAO-LMP2 iter %3d: %16.12f %10.3e %10.3e %8d %8d %8d\n", iteration, e_curr, e_curr - e_prev, r_curr, (int)time_stop - (int)time_start, max_ik_queue_count, total_R_contributions);
+        outfile->Printf("  @PAO-LMP2 iter %3d: %16.12f %10.3e %10.3e %8d %8d %8d\n", iteration, e_curr, e_curr - e_prev, r_curr, (int)time_stop - (int)time_start, max_queue_count, total_R_contributions);
 
         iteration++;
 
