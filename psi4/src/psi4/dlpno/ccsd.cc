@@ -622,26 +622,7 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 #pragma omp for schedule(dynamic, 1)
         for (int ikey = 0; ikey < kj_queues.size(); ++ikey) {
             auto key = kj_key_list[ikey];
-//#pragma omp critical
-//            {
-//                outfile->Printf("  Submit not-full queue %s with %d elements\n", key.c_str(), kj_queues[key].size());
-//            }
-            for (const auto indices : kj_queues[key]) {
-                auto& [ij_idx, kj_idx, is_ik] = indices; 
-                auto& [i_idx, j_idx] = ij_to_i_j_[ij_idx];
-                auto& [k_idx, j2_idx] = ij_to_i_j_[kj_idx];
-                assert(j_idx == j2_idx);
-
-                auto S_ij_kj = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[kj_idx]);
-                S_ij_kj = linalg::triplet(X_paos[ij_idx], S_ij_kj, X_paos[kj_idx], true, false, false);
-                auto temp =
-                    linalg::triplet(S_ij_kj, T_paos[kj_idx], S_ij_kj, false, false, true);
-    
-                temp->scale(-1.0 * F_lmo_->get(i_idx, k_idx));
-                R_iajb[ij_idx]->add(temp);
-//#pragma omp atomic
-//                total_R_contributions += 1;
-            }
+            submit_queue(kj_queues[key], R_iajb, X_paos, T_paos);
         }
 
 #pragma omp single nowait
@@ -662,25 +643,7 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
 #pragma omp for schedule(dynamic, 1)
         for (int ikey = 0; ikey < ik_queues.size(); ++ikey) {
             auto key = ik_key_list[ikey];
-//#pragma omp critical
-//            {
-//                outfile->Printf("  Submit not-full queue %s with %d elements\n", key.c_str(), kj_queues[key].size());
-//            }
-            for (const auto indices : ik_queues[key]) {
-                auto& [ij_idx, ik_idx, is_ik] = indices; 
-                auto& [i_idx, j_idx] = ij_to_i_j_[ij_idx];
-                auto& [i2_idx, k_idx] = ij_to_i_j_[ik_idx];
-                assert(i_idx == i2_idx);
-
-                auto S_ij_ik = submatrix_rows_and_cols(*S_pao_, lmopair_to_paos_[ij_idx], lmopair_to_paos_[ik_idx]);
-                S_ij_ik = linalg::triplet(X_paos[ij_idx], S_ij_ik, X_paos[ik_idx], true, false, false);
-                auto temp =
-                    linalg::triplet(S_ij_ik, T_paos[ik_idx], S_ij_ik, false, false, true);
-                temp->scale(-1.0 * F_lmo_->get(k_idx, j_idx));
-                R_iajb[ij_idx]->add(temp);
-//#pragma omp atomic
-//                total_R_contributions += 1;
-            }
+            submit_queue(ik_queues[key], R_iajb, X_paos, T_paos);
         }
 
 #pragma omp single nowait
