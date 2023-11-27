@@ -394,7 +394,7 @@ class DLPNOCCSD : public DLPNOBase {
     void t1_lccsd_iterations();
 
     // queue GEMMs for PAO-LMP2 bottleneck
-    void submit_queue(std::vector<std::pair<int, int> >& queue, std::vector<SharedMatrix>& R_iajb, const std::vector<SharedMatrix>& X_paos, const std::vector<SharedMatrix>& T_paos);
+    void submit_queue(std::vector<std::tuple<int, int, bool> >& queue, std::vector<SharedMatrix>& R_iajb, const std::vector<SharedMatrix>& X_paos, const std::vector<SharedMatrix>& T_paos);
     
     void print_header();
     void print_results();
