@@ -97,9 +97,9 @@ void DLPNOCCSD::submit_queue(std::vector<std::tuple<int, int, bool> >& queue, st
         assert(k1a == k1b);
         
         if (m1_old == -1 || k1_old == -1 || n1_old == -1) {
-            m1_old == m1;
-            k1_old == k1a;
-            n1_old == n1;
+            m1_old = m1;
+            k1_old = k1a;
+            n1_old = n1;
         } else {
             if (m1_old != m1 || k1_old != k1a || n1_old != n1) {
               throw PSIEXCEPTION("Matrix queue dims for first GEMM dont line up!");
@@ -117,9 +117,9 @@ void DLPNOCCSD::submit_queue(std::vector<std::tuple<int, int, bool> >& queue, st
         assert(k2a == k2b);
 
         if (m2_old == -1 || k2_old == -1 || n2_old == -1) {
-            m2_old == m2;
-            k2_old == k2a;
-            n2_old == n2;
+            m2_old = m2;
+            k2_old = k2a;
+            n2_old = n2;
         } else {
             if (m2_old != m2 || k2_old != k2a || n2_old != n2) {
               throw PSIEXCEPTION("Matrix queue dims for second GEMM dont line up!");
@@ -130,7 +130,7 @@ void DLPNOCCSD::submit_queue(std::vector<std::tuple<int, int, bool> >& queue, st
             }
         }
 
-        //outfile->Printf("  S_ij_kj triplet dims: %d, %d, %d; %d, %d, %d\n", m1, k1a, n1, m2, k2a, n2);
+        //outfile->Printf("    S_ij_kj triplet dims: %d, %d, %d; %d, %d, %d\n", m1, k1a, n1, m2, k2a, n2);
         S_ij_ab = linalg::triplet(X_paos[ij_idx], S_ij_ab, X_paos[ab_idx], true, false, false);
 
         int m3 = S_ij_ab->nrow(); 
@@ -140,9 +140,9 @@ void DLPNOCCSD::submit_queue(std::vector<std::tuple<int, int, bool> >& queue, st
         assert(k3a == k3b);
         
         if (m3_old == -1 || k3_old == -1 || n3_old == -1) {
-            m3_old == m3;
-            k3_old == k3a;
-            n3_old == n3;
+            m3_old = m3;
+            k3_old = k3a;
+            n3_old = n3;
         } else {
             if (m3_old != m3 || k3_old != k3a || n3_old != n3) {
               throw PSIEXCEPTION("Matrix queue dims for third GEMM dont line up!");
@@ -160,9 +160,9 @@ void DLPNOCCSD::submit_queue(std::vector<std::tuple<int, int, bool> >& queue, st
         assert(k4a == k4b);
 
         if (m4_old == -1 || k4_old == -1 || n4_old == -1) {
-            m4_old == m4;
-            k4_old == k4a;
-            n4_old == n4;
+            m4_old = m4;
+            k4_old = k4a;
+            n4_old = n4;
         } else {
             if (m4_old != m4 || k4_old != k4a || n4_old != n4) {
               throw PSIEXCEPTION("Matrix queue dims for fourth GEMM dont line up!");
@@ -173,6 +173,7 @@ void DLPNOCCSD::submit_queue(std::vector<std::tuple<int, int, bool> >& queue, st
             }
         }
 
+        //outfile->Printf("    temp triplet dims: %d, %d, %d; %d, %d, %d\n", m3, k3a, n3, m4, k4a, n4);
         auto temp =
             linalg::triplet(S_ij_ab, T_paos[ab_idx], S_ij_ab, false, false, true);
 
@@ -503,6 +504,7 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
     // Calculate residuals from current amplitudes
     while (!(e_converged && r_converged)) {
         std::unordered_map<std::string, std::vector<std::tuple<int, int, bool> > > gemm_queues;
+        std::unordered_map<std::string, double> gemm_queues_mem;
         std::vector<std::string> gemm_key_list;
 
         size_t max_queue_count = 0;
@@ -516,8 +518,9 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
         { // start parallel region
         std::vector<std::tuple<int, int, bool> > thread_gemm_batch; 
         
-        constexpr size_t queue_size = 64;   
-        thread_gemm_batch.reserve(queue_size);
+        // memory limit of queue, in GB
+        constexpr double queue_memory_limit = 2.0;   
+        //thread_gemm_batch.reserve(queue_size);
 
         // Calculate residuals from current amplitudes
 #pragma omp for schedule(dynamic, 1)
@@ -555,15 +558,26 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                         // store matrix indices in queue
                         if (gemm_queues.find(key) != gemm_queues.end()) {
                             gemm_queues[key].push_back({ij, kj, false});
+
+                            auto mem = X_paos[ij]->nrow() * X_paos[ij]->ncol(); // X_paos[ij] dims
+                            mem += lmopair_to_paos_[ij].size() * lmopair_to_paos_[kj].size(); // S_ij_kj dims
+                            mem += X_paos[kj]->nrow() * X_paos[kj]->ncol(); // X_paos[kj] dims
+                            mem += T_paos[kj]->nrow() * T_paos[kj]->ncol(); // T_paos[kj] dims
+ 
+			    //gemm_queues_mem[key] += static_cast<double>(mem) * pow(2.0, -27);
+                            //gemm_queues_mem[key] += (static_cast<double>(mem) * pow(1.0, -9) / 8.0); // convert element count to GB
+                            gemm_queues_mem[key] += (static_cast<double>(mem) * 0.000000001 / 8.0); // convert element count to GB
                         } else {
                             gemm_queues[key] = {{ij, kj, false}};
+                            gemm_queues_mem[key] = 0.0;
                         }
                         max_queue_count = std::max(max_queue_count, gemm_queues.size());
-                
-                        if (gemm_queues[key].size() >= queue_size) {
+               
+                        if (gemm_queues_mem[key] >= queue_memory_limit) {
                             thread_gemm_batch = gemm_queues[key];
-                            //outfile->Printf("  Submit full queue %s with %d elements\n", key.c_str(), queue_size);
+                            outfile->Printf("  Submit full queue %s with %d elements (%f GB)\n", key.c_str(), gemm_queues[key].size(), gemm_queues_mem[key]);
                             gemm_queues.erase(key);
+                            gemm_queues_mem.erase(key);
                         }
                     }
                 }
@@ -578,15 +592,26 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                         // store matrix indices in queue
                         if (gemm_queues.find(key) != gemm_queues.end()) {
                             gemm_queues[key].push_back({ij, ik, true});
+
+                            auto mem = X_paos[ij]->nrow() * X_paos[ij]->ncol(); // X_paos[ij] dims
+                            mem += lmopair_to_paos_[ij].size() * lmopair_to_paos_[ik].size(); // S_ij_ik dims
+                            mem += X_paos[ik]->nrow() * X_paos[ik]->ncol(); // X_paos[ik] dims
+                            mem += T_paos[ik]->nrow() * T_paos[ik]->ncol(); // T_paos[ik] dims
+ 
+                            //gemm_queues_mem[key] += static_cast<double>(mem) * pow(2.0, -27);
+                            //gemm_queues_mem[key] += (static_cast<double>(mem) * pow(1.0, -9) / 8.0); // convert element count to GB
+                            gemm_queues_mem[key] += (static_cast<double>(mem) * 0.000000001 / 8.0); // convert element count to GB
                         } else {
                             gemm_queues[key] = {{ij, ik, true}};
+                            gemm_queues_mem[key] = 0.0;
                         }
                         max_queue_count = std::max(max_queue_count, gemm_queues.size());
                 
-                        if (gemm_queues[key].size() >= queue_size) {
+                        if (gemm_queues_mem[key] >= queue_memory_limit) {
                             thread_gemm_batch = gemm_queues[key];
-                            //outfile->Printf("  Submit full queue %s with %d elements\n", key.c_str(), queue_size);
+                            //outfile->Printf("  Submit full queue %s with %d elements (%f GB)\n", key.c_str(), gemm_queues[key].size(), gemm_queues_mem[key]);
                             gemm_queues.erase(key);
+                            gemm_queues_mem.erase(key);
                         }
                     }
                 }
@@ -594,23 +619,45 @@ template<bool crude> std::vector<double> DLPNOCCSD::compute_pair_energies() {
                 // calculate gemm_queues matrix multiplies if queue is large enough 
                 if (!thread_gemm_batch.empty()) {
                     submit_queue(thread_gemm_batch, R_iajb, X_paos, T_paos);
+                    thread_gemm_batch.clear();
                 }
             }
         }
 
 #pragma omp single
         {
-        // submit all unfinished gemm_queues 
-        for (const auto& [key, index_list] : gemm_queues) {
+
+     
+        
+
+        // sort remaining gemm_queues by memory reqs
+        std::vector<std::pair<std::string, double> > gemm_queues_mem_vec;
+        for (const auto& [key, memory_req] : gemm_queues_mem) {
+            gemm_queues_mem_vec.push_back({key, memory_req});
+        };
+
+        std::sort(gemm_queues_mem_vec.begin(), gemm_queues_mem_vec.end(),
+            [](const std::pair<std::string, double>& a, 
+               const std::pair<std::string, double>& b) {
+                   return a.second > b.second; 
+            } 
+        );       
+
+        for (const auto& [key, memory_req] : gemm_queues_mem_vec) {
             gemm_key_list.push_back(key); 
         } 
      
         assert(gemm_key_list.size() == gemm_queues.size());
         }
 
+        // submit all unfinished gemm_queues 
 #pragma omp for schedule(dynamic, 1)
         for (int ikey = 0; ikey < gemm_queues.size(); ++ikey) {
             auto key = gemm_key_list[ikey];
+#pragma omp critical
+            {
+            outfile->Printf("  Submit partial queue %s with %d elements (%f GB)\n", key.c_str(), gemm_queues[key].size(), gemm_queues_mem[key]);
+            }
             submit_queue(gemm_queues[key], R_iajb, X_paos, T_paos);
         }
 
