@@ -138,51 +138,51 @@ void DirectJK::incfock_setup() {
     //if (do_incfock_iter_) {
     size_t njk = D_ao_.size();
     
-    // The prev_D_ao_ condition is used to handle stability analysis case
-    if ((initial_iterations_ < initial_iterations_limit_) || prev_D_ao_.size() != njk) {
+    // The reference_D_ao_ condition is used to handle stability analysis case
+    if ((initial_iterations_ < initial_iterations_limit_) || reference_D_ao_.size() != njk) {
         //initial_iteration_ = true;
 
-        prev_D_ao_.clear();
+        reference_D_ao_.clear();
         delta_D_ao_.clear();
 
         if (do_wK_) {
-            prev_wK_ao_.clear();
+            reference_wK_ao_.clear();
             delta_wK_ao_.clear();
         }
 
         if (do_J_) {
-            prev_J_ao_.clear();
+            reference_J_ao_.clear();
             delta_J_ao_.clear();
         }
 
         if (do_K_) {
-            prev_K_ao_.clear();
+            reference_K_ao_.clear();
             delta_K_ao_.clear();
         }
     
         for (size_t N = 0; N < D_ao_.size(); N++) {
-            prev_D_ao_.push_back(std::make_shared<Matrix>("D Prev", D_ao_[N]->nrow(), D_ao_[N]->ncol()));
+            reference_D_ao_.push_back(std::make_shared<Matrix>("D Prev", D_ao_[N]->nrow(), D_ao_[N]->ncol()));
             delta_D_ao_.push_back(std::make_shared<Matrix>("Delta D", D_ao_[N]->nrow(), D_ao_[N]->ncol()));
 
             if (do_wK_) {
-                prev_wK_ao_.push_back(std::make_shared<Matrix>("wK Prev", wK_ao_[N]->nrow(), wK_ao_[N]->ncol()));
+                reference_wK_ao_.push_back(std::make_shared<Matrix>("wK Prev", wK_ao_[N]->nrow(), wK_ao_[N]->ncol()));
                 delta_wK_ao_.push_back(std::make_shared<Matrix>("Delta wK", wK_ao_[N]->nrow(), wK_ao_[N]->ncol()));
             }
                 
             if (do_J_) {
-                prev_J_ao_.push_back(std::make_shared<Matrix>("J Prev", J_ao_[N]->nrow(), J_ao_[N]->ncol()));
+                reference_J_ao_.push_back(std::make_shared<Matrix>("J Prev", J_ao_[N]->nrow(), J_ao_[N]->ncol()));
                 delta_J_ao_.push_back(std::make_shared<Matrix>("Delta J", J_ao_[N]->nrow(), J_ao_[N]->ncol()));
             }
         
             if (do_K_) {
-                prev_K_ao_.push_back(std::make_shared<Matrix>("K Prev", K_ao_[N]->nrow(), K_ao_[N]->ncol()));
+                reference_K_ao_.push_back(std::make_shared<Matrix>("K Prev", K_ao_[N]->nrow(), K_ao_[N]->ncol()));
                 delta_K_ao_.push_back(std::make_shared<Matrix>("Delta K", K_ao_[N]->nrow(), K_ao_[N]->ncol()));
             }
         }
     } else {
         for (size_t N = 0; N < D_ao_.size(); N++) {
             delta_D_ao_[N]->copy(D_ao_[N]);
-            delta_D_ao_[N]->subtract(prev_D_ao_[N]);
+            delta_D_ao_[N]->subtract(reference_D_ao_[N]);
         }
     }
     //}
@@ -194,13 +194,13 @@ void DirectJK::incfock_setup() {
         size_t njk = D_ao_.size();
 
         // If there is no previous pseudo-density, or we are doing initial SCF iterations, this iteration is normal
-        if ((initial_iterations_ < initial_iterations_limit_) || D_prev_.size() != njk) {
+        if ((initial_iterations_ < initial_iterations_limit_) || D_reference_.size() != njk) {
             D_ref_ = D_ao_;
             zero();
         } else { // Otherwise, the iteration is incremental
             for (size_t jki = 0; jki < njk; jki++) {
                 D_ref_[jki] = D_ao_[jki]->clone();
-                D_ref_[jki]->subtract(D_prev_[jki]);
+                D_ref_[jki]->subtract(D_reference_[jki]);
             }
         }
     } else {
@@ -215,38 +215,38 @@ void DirectJK::incfock_postiter() {
         for (size_t N = 0; N < D_ao_.size(); N++) {
 
             if (do_wK_) {
-                prev_wK_ao_[N]->add(delta_wK_ao_[N]);
-                wK_ao_[N]->copy(prev_wK_ao_[N]);
+                wK_ao_[N]->copy(reference_wK_ao_[N]);
+                wK_ao_[N]->add(delta_wK_ao_[N]);
             }
 
             if (do_J_) {
-                prev_J_ao_[N]->add(delta_J_ao_[N]);
-                J_ao_[N]->copy(prev_J_ao_[N]);
+                J_ao_[N]->copy(reference_J_ao_[N]);
+                J_ao_[N]->add(delta_J_ao_[N]);
             }
 
             if (do_K_) {
-                prev_K_ao_[N]->add(delta_K_ao_[N]);
-                K_ao_[N]->copy(prev_K_ao_[N]);
+                K_ao_[N]->copy(reference_K_ao_[N]);
+                K_ao_[N]->add(delta_K_ao_[N]);
             }
 
-            prev_D_ao_[N]->copy(D_ao_[N]);
+            //reference_D_ao_[N]->copy(D_ao_[N]);
         }
-    } else {
-        for (size_t N = 0; N < D_ao_.size(); N++) {
-            if (do_wK_) prev_wK_ao_[N]->copy(wK_ao_[N]);
-            if (do_J_) prev_J_ao_[N]->copy(J_ao_[N]);
-            if (do_K_) prev_K_ao_[N]->copy(K_ao_[N]);
-            prev_D_ao_[N]->copy(D_ao_[N]);
-        }
+    //} else {
+    //    for (size_t N = 0; N < D_ao_.size(); N++) {
+    //        if (do_wK_) reference_wK_ao_[N]->copy(wK_ao_[N]);
+    //        if (do_J_) reference_J_ao_[N]->copy(J_ao_[N]);
+    //        if (do_K_) reference_K_ao_[N]->copy(K_ao_[N]);
+    //        reference_D_ao_[N]->copy(D_ao_[N]);
+    //    }
     }
 }
 
 /*
 void DirectJK::incfock_postiter() {
     // Save a copy of the density for the next iteration
-    D_prev_.clear();
+    D_reference_.clear();
     for(auto const &Di : D_ao_) {
-        D_prev_.push_back(Di->clone());
+        D_reference_.push_back(Di->clone());
     }
 }
 */
