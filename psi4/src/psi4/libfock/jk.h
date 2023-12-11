@@ -743,10 +743,10 @@ class PSI_API DirectJK : public JK {
     bool do_incfock_iter_;
 
     /// D, J, K, wK Matrices from previous iteration, used in Incremental Fock Builds
-    std::vector<SharedMatrix> prev_D_ao_;
-    std::vector<SharedMatrix> prev_J_ao_;
-    std::vector<SharedMatrix> prev_K_ao_;
-    std::vector<SharedMatrix> prev_wK_ao_;
+    std::vector<SharedMatrix> reference_D_ao_;
+    std::vector<SharedMatrix> reference_J_ao_;
+    std::vector<SharedMatrix> reference_K_ao_;
+    std::vector<SharedMatrix> reference_wK_ao_;
 
     /// Delta D, J, K, wK Matrices for Incremental Fock Build
     std::vector<SharedMatrix> delta_D_ao_;
