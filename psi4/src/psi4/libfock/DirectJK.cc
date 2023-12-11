@@ -92,6 +92,9 @@ void DirectJK::common_init() {
     if (options_.get_int("INCFOCK_FULL_FOCK_EVERY") <= 0) {
         throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
     }
+    if (options_.get_int("INCFOCK_REF_D_EVERY") <= 0) {
+        throw PSIEXCEPTION("Invalid input for option INCFOCK_REF_D_EVERY (<= 0)");
+    }
     initial_iterations_ = 0;
     
     density_screening_ = options_.get_str("SCREENING") == "DENSITY";
@@ -422,13 +425,13 @@ void DirectJK::compute_JK() {
     if (incfock_) {
         timer_on("DirectJK: INCFOCK Preprocessing");
         int incfock_reset = options_.get_int("INCFOCK_FULL_FOCK_EVERY");
-        int incfock_reference_reset = ceil(options_.get_int("INCFOCK_FULL_FOCK_EVERY") / 2);
+        int incfock_reference_reset = options_.get_int("INCFOCK_REF_D_EVERY"); 
         //outfile->Printf("  INCFOCK_REFERENCE_RESET: %d\n", incfock_reference_reset);
         double incfock_conv = options_.get_double("INCFOCK_CONVERGENCE");
         double Dnorm = Process::environment.globals["SCF D NORM"];
         // Do IFB on this iteration?
         do_incfock_iter_ = (Dnorm >= incfock_conv) && (initial_iterations_ >= initial_iterations_limit_) && (incfock_count_ % incfock_reset != incfock_reset - 1);
-        do_reference_reset_ = !do_incfock_iter_ || (incfock_count_ % incfock_reference_reset == incfock_reference_reset - 1); // reset reference D twice per hard incfock reset
+        do_reference_reset_ = !do_incfock_iter_ || (incfock_count_ % incfock_reference_reset == incfock_reference_reset - 1); 
         //outfile->Printf("  %d == %d ? %s \n", incfock_count_ % incfock_reference_reset, incfock_reference_reset - 1, (do_reference_reset_ ? "Yes" : "No"));
         //do_reference_reset_ = !do_incfock_iter_; 
        
