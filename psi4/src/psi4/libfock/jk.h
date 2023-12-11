@@ -741,6 +741,7 @@ class PSI_API DirectJK : public JK {
     /// The number of times INCFOCK has been performed (includes resets)
     int incfock_count_;
     bool do_incfock_iter_;
+    bool do_reference_reset_;
 
     /// D, J, K, wK Matrices from previous iteration, used in Incremental Fock Builds
     std::vector<SharedMatrix> reference_D_ao_;

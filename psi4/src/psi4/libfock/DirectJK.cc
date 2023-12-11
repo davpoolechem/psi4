@@ -88,6 +88,7 @@ void DirectJK::common_init() {
     incfock_ = options_.get_bool("INCFOCK");
     incfock_count_ = 0;
     do_incfock_iter_ = false;
+    do_reference_reset_ = false;
     if (options_.get_int("INCFOCK_FULL_FOCK_EVERY") <= 0) {
         throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
     }
@@ -231,13 +232,14 @@ void DirectJK::incfock_postiter() {
 
             //reference_D_ao_[N]->copy(D_ao_[N]);
         }
-    //} else {
-    //    for (size_t N = 0; N < D_ao_.size(); N++) {
-    //        if (do_wK_) reference_wK_ao_[N]->copy(wK_ao_[N]);
-    //        if (do_J_) reference_J_ao_[N]->copy(J_ao_[N]);
-    //        if (do_K_) reference_K_ao_[N]->copy(K_ao_[N]);
-    //        reference_D_ao_[N]->copy(D_ao_[N]);
-    //    }
+    } else if (do_reference_reset_) {
+        //outfile->Printf("DO REFERENCE RESET\n");
+        for (size_t N = 0; N < D_ao_.size(); N++) {
+            if (do_wK_) reference_wK_ao_[N]->copy(wK_ao_[N]);
+            if (do_J_) reference_J_ao_[N]->copy(J_ao_[N]);
+            if (do_K_) reference_K_ao_[N]->copy(K_ao_[N]);
+            reference_D_ao_[N]->copy(D_ao_[N]);
+        }
     }
 }
 
@@ -418,12 +420,13 @@ void DirectJK::compute_JK() {
 
     if (incfock_) {
         timer_on("DirectJK: INCFOCK Preprocessing");
-        int reset = options_.get_int("INCFOCK_FULL_FOCK_EVERY");
+        int incfock_reset = options_.get_int("INCFOCK_FULL_FOCK_EVERY");
         double incfock_conv = options_.get_double("INCFOCK_CONVERGENCE");
         double Dnorm = Process::environment.globals["SCF D NORM"];
         // Do IFB on this iteration?
-        do_incfock_iter_ = (Dnorm >= incfock_conv) && (initial_iterations_ >= initial_iterations_limit_) && (incfock_count_ % reset != reset - 1);
-        
+        do_incfock_iter_ = (Dnorm >= incfock_conv) && (initial_iterations_ >= initial_iterations_limit_) && (incfock_count_ % incfock_reset != incfock_reset - 1);
+        do_reference_reset_ = !do_incfock_iter_; 
+       
         if ((initial_iterations_ >= initial_iterations_limit_) && (Dnorm >= incfock_conv)) incfock_count_ += 1;
         
         incfock_setup();
