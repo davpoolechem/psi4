@@ -735,7 +735,7 @@ class PSI_API DirectJK : public JK {
     bool density_screening_;
 
     // => Incremental Fock build variables <= //
-    
+
     /// Perform Incremental Fock Build for J and K Matrices? (default false)
     bool incfock_;
     /// The number of times INCFOCK has been performed (includes resets)
