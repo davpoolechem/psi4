@@ -742,11 +742,23 @@ class PSI_API DirectJK : public JK {
     int incfock_count_;
     bool do_incfock_iter_;
 
-    /// Previous iteration pseudo-density matrix
-    std::vector<SharedMatrix> D_prev_;
+    /// D, J, K, wK Matrices from previous iteration, used in Incremental Fock Builds
+    std::vector<SharedMatrix> prev_D_ao_;
+    std::vector<SharedMatrix> prev_J_ao_;
+    std::vector<SharedMatrix> prev_K_ao_;
+    std::vector<SharedMatrix> prev_wK_ao_;
+
+    /// Delta D, J, K, wK Matrices for Incremental Fock Build
+    std::vector<SharedMatrix> delta_D_ao_;
+    std::vector<SharedMatrix> delta_J_ao_;
+    std::vector<SharedMatrix> delta_K_ao_;
+    std::vector<SharedMatrix> delta_wK_ao_;
 
     /// Pseudo-density matrix to be used this iteration
     std::vector<SharedMatrix> D_ref_;
+    std::vector<SharedMatrix> J_ref_;
+    std::vector<SharedMatrix> K_ref_;
+    std::vector<SharedMatrix> wK_ref_;
 
     // Number of initial SCF iterations that have been performed
     // Controls when incfock is turned on 
