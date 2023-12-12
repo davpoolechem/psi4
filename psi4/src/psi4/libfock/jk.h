@@ -1244,12 +1244,25 @@ class PSI_API CompositeJK : public JK {
     /// The number of times INCFOCK has been performed (includes resets)
     int incfock_count_;
     bool do_incfock_iter_;
+    bool do_reference_reset_;
 
-    /// Previous iteration pseudo-density matrix
-    std::vector<SharedMatrix> D_prev_;
+    /// D, J, K, wK Matrices from previous iteration, used in Incremental Fock Builds
+    std::vector<SharedMatrix> reference_D_ao_;
+    std::vector<SharedMatrix> reference_J_ao_;
+    std::vector<SharedMatrix> reference_K_ao_;
+    std::vector<SharedMatrix> reference_wK_ao_;
+
+    /// Delta D, J, K, wK Matrices for Incremental Fock Build
+    std::vector<SharedMatrix> delta_D_ao_;
+    std::vector<SharedMatrix> delta_J_ao_;
+    std::vector<SharedMatrix> delta_K_ao_;
+    std::vector<SharedMatrix> delta_wK_ao_;
 
     /// Pseudo-density matrix to be used this iteration
     std::vector<SharedMatrix> D_ref_;
+    std::vector<SharedMatrix> J_ref_;
+    std::vector<SharedMatrix> K_ref_;
+    std::vector<SharedMatrix> wK_ref_;
 
     // Number of initial SCF iterations that have been performed
     // Controls when incfock is turned on 
@@ -1301,7 +1314,7 @@ class PSI_API CompositeJK : public JK {
     /**
      * Clear D_prev_
      */
-    void clear_D_prev() { D_prev_.clear();}
+    void clear_D_prev() { reference_D_ao_.clear();}
 
     // => Knobs <= //
     std::string name() override { return "CompositeJK"; }
@@ -1317,7 +1330,7 @@ class PSI_API CompositeJK : public JK {
     * Knobs for getting and setting current COSX grid for this SCF iteration, if COSX is used
     * throws by default, if COSX is not used
     */
-    void set_COSX_grid(std::string current_grid) { return k_algo_->set_COSX_grid(current_grid); }
+    void set_COSX_grid(std::string current_grid); 
     std::string get_COSX_grid() { return k_algo_->get_COSX_grid(); }
 
     /**

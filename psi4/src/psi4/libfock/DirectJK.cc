@@ -139,13 +139,10 @@ void DirectJK::preiterations() {
 }
 
 void DirectJK::incfock_setup() {
-    //if (do_incfock_iter_) {
     size_t njk = D_ao_.size();
     
     // The reference_D_ao_ condition is used to handle stability analysis case
     if ((initial_iterations_ < initial_iterations_limit_) || reference_D_ao_.size() != njk) {
-        //initial_iteration_ = true;
-
         reference_D_ao_.clear();
         delta_D_ao_.clear();
 
@@ -189,30 +186,7 @@ void DirectJK::incfock_setup() {
             delta_D_ao_[N]->subtract(reference_D_ao_[N]);
         }
     }
-    //}
 }
-
-/*
-void DirectJK::incfock_setup() {
-    if (do_incfock_iter_) {
-        size_t njk = D_ao_.size();
-
-        // If there is no previous pseudo-density, or we are doing initial SCF iterations, this iteration is normal
-        if ((initial_iterations_ < initial_iterations_limit_) || D_reference_.size() != njk) {
-            D_ref_ = D_ao_;
-            zero();
-        } else { // Otherwise, the iteration is incremental
-            for (size_t jki = 0; jki < njk; jki++) {
-                D_ref_[jki] = D_ao_[jki]->clone();
-                D_ref_[jki]->subtract(D_reference_[jki]);
-            }
-        }
-    } else {
-        D_ref_ = D_ao_;
-        zero();
-    }
-}
-*/
 
 void DirectJK::incfock_postiter() {
     if (do_incfock_iter_) {
@@ -424,11 +398,11 @@ void DirectJK::compute_JK() {
 
     if (incfock_) {
         timer_on("DirectJK: INCFOCK Preprocessing");
-        int incfock_reset = options_.get_int("INCFOCK_FULL_FOCK_EVERY");
-        int incfock_reference_reset = options_.get_int("INCFOCK_REF_D_EVERY"); 
+        auto incfock_reset = options_.get_int("INCFOCK_FULL_FOCK_EVERY");
+        auto incfock_reference_reset = options_.get_int("INCFOCK_REF_D_EVERY"); 
         //outfile->Printf("  INCFOCK_REFERENCE_RESET: %d\n", incfock_reference_reset);
-        double incfock_conv = options_.get_double("INCFOCK_CONVERGENCE");
-        double Dnorm = Process::environment.globals["SCF D NORM"];
+        auto incfock_conv = options_.get_double("INCFOCK_CONVERGENCE");
+        auto Dnorm = Process::environment.globals["SCF D NORM"];
         // Do IFB on this iteration?
         do_incfock_iter_ = (Dnorm >= incfock_conv) && (initial_iterations_ >= initial_iterations_limit_) && (incfock_count_ % incfock_reset != incfock_reset - 1);
         do_reference_reset_ = !do_incfock_iter_ || (incfock_count_ % incfock_reference_reset == incfock_reference_reset - 1); 
@@ -448,6 +422,10 @@ void DirectJK::compute_JK() {
     std::vector<SharedMatrix>& J_ref = (do_incfock_iter_ ? delta_J_ao_ : J_ao_);
     std::vector<SharedMatrix>& K_ref = (do_incfock_iter_ ? delta_K_ao_ : K_ao_);
     std::vector<SharedMatrix>& wK_ref = (do_incfock_iter_ ? delta_wK_ao_ : wK_ao_);
+
+    //for (int i = 0; i != D_ref.size(); ++i) {
+        //outfile->Printf("  D %d rms: %f, |D max|: %f \n", i, D_ref[i]->rms(), D_ref[i]->absmax()); 
+    //}
 
     // Passed in as a dummy when J (and/or K) is not built
     std::vector<SharedMatrix> temp;
@@ -507,15 +485,13 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
     // It would be better covered in incfock_setup()
     // But removing this causes a couple of tests to fail for some reason
     
-    //if (!do_incfock_iter_) {
-        for (auto& Jmat : J) {
-            Jmat->zero();
-        }
+    for (auto& Jmat : J) {
+        Jmat->zero();
+    }
     
-        for (auto& Kmat : K) {
-            Kmat->zero();
-        }
-    //}
+    for (auto& Kmat : K) {
+        Kmat->zero();
+    }
 
     // => Sizing <= //
 
