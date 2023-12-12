@@ -75,6 +75,7 @@ void CompositeJK::common_init() {
     incfock_ = options_.get_bool("INCFOCK");
     incfock_count_ = 0;
     do_incfock_iter_ = false;
+    do_reference_reset_ = false; 
     if (options_.get_int("INCFOCK_FULL_FOCK_EVERY") <= 0) {
         throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
     }
@@ -182,6 +183,12 @@ void CompositeJK::set_do_K(bool do_K) {
     do_K_ = do_K;
 }
 
+
+void CompositeJK::set_COSX_grid(std::string current_grid) { 
+    initial_iterations_ = 0; // reset incfock upon switching grids
+    k_algo_->set_COSX_grid(current_grid); 
+}
+
 size_t CompositeJK::num_computed_shells() {
     return num_computed_shells_;
 }
@@ -219,30 +226,85 @@ void CompositeJK::print_header() const {
 void CompositeJK::preiterations() {}
 
 void CompositeJK::incfock_setup() {
-    if (do_incfock_iter_) {
-        auto njk = D_ao_.size();
+    size_t njk = D_ao_.size();
+    
+    // The reference_D_ao_ condition is used to handle stability analysis case
+    if ((initial_iterations_ < initial_iterations_limit_) || reference_D_ao_.size() != njk) {
+        reference_D_ao_.clear();
+        delta_D_ao_.clear();
 
-        // If there is no previous pseudo-density, or we are doing initial SCF iterations, this iteration is normal
-        if ((initial_iterations_ < initial_iterations_limit_) || D_prev_.size() != njk) {
-            D_ref_ = D_ao_;
-            zero();
-        } else { // Otherwise, the iteration is incremental
-            for (size_t jki = 0; jki < njk; jki++) {
-                D_ref_[jki] = D_ao_[jki]->clone();
-                D_ref_[jki]->subtract(D_prev_[jki]);
+        if (do_wK_) {
+            reference_wK_ao_.clear();
+            delta_wK_ao_.clear();
+        }
+
+        if (do_J_) {
+            reference_J_ao_.clear();
+            delta_J_ao_.clear();
+        }
+
+        if (do_K_) {
+            reference_K_ao_.clear();
+            delta_K_ao_.clear();
+        }
+    
+        for (size_t N = 0; N < D_ao_.size(); N++) {
+            reference_D_ao_.push_back(std::make_shared<Matrix>("D Prev", D_ao_[N]->nrow(), D_ao_[N]->ncol()));
+            delta_D_ao_.push_back(std::make_shared<Matrix>("Delta D", D_ao_[N]->nrow(), D_ao_[N]->ncol()));
+
+            if (do_wK_) {
+                reference_wK_ao_.push_back(std::make_shared<Matrix>("wK Prev", wK_ao_[N]->nrow(), wK_ao_[N]->ncol()));
+                delta_wK_ao_.push_back(std::make_shared<Matrix>("Delta wK", wK_ao_[N]->nrow(), wK_ao_[N]->ncol()));
+            }
+                
+            if (do_J_) {
+                reference_J_ao_.push_back(std::make_shared<Matrix>("J Prev", J_ao_[N]->nrow(), J_ao_[N]->ncol()));
+                delta_J_ao_.push_back(std::make_shared<Matrix>("Delta J", J_ao_[N]->nrow(), J_ao_[N]->ncol()));
+            }
+        
+            if (do_K_) {
+                reference_K_ao_.push_back(std::make_shared<Matrix>("K Prev", K_ao_[N]->nrow(), K_ao_[N]->ncol()));
+                delta_K_ao_.push_back(std::make_shared<Matrix>("Delta K", K_ao_[N]->nrow(), K_ao_[N]->ncol()));
             }
         }
     } else {
-        D_ref_ = D_ao_;
-        zero();
+        for (size_t N = 0; N < D_ao_.size(); N++) {
+            delta_D_ao_[N]->copy(D_ao_[N]);
+            delta_D_ao_[N]->subtract(reference_D_ao_[N]);
+	}
     }
 }
 
 void CompositeJK::incfock_postiter() {
-    // Save a copy of the density for the next iteration
-    D_prev_.clear();
-    for(auto const &Di : D_ao_) {
-        D_prev_.push_back(Di->clone());
+    if (do_incfock_iter_) {
+        for (size_t N = 0; N < D_ao_.size(); N++) {
+
+            if (do_wK_) {
+                wK_ao_[N]->copy(reference_wK_ao_[N]);
+                wK_ao_[N]->add(delta_wK_ao_[N]);
+            }
+
+            if (do_J_) {
+                J_ao_[N]->copy(reference_J_ao_[N]);
+                J_ao_[N]->add(delta_J_ao_[N]);
+            }
+
+            if (do_K_) {
+                K_ao_[N]->copy(reference_K_ao_[N]);
+                K_ao_[N]->add(delta_K_ao_[N]);
+            }
+
+            //reference_D_ao_[N]->copy(D_ao_[N]);
+        }
+    }
+    if (do_reference_reset_) {
+        //outfile->Printf("DO REFERENCE RESET\n");
+        for (size_t N = 0; N < D_ao_.size(); N++) {
+            if (do_wK_) reference_wK_ao_[N]->copy(wK_ao_[N]);
+            if (do_J_) reference_J_ao_[N]->copy(J_ao_[N]);
+            if (do_K_) reference_K_ao_[N]->copy(K_ao_[N]);
+            reference_D_ao_[N]->copy(D_ao_[N]);
+        }
     }
 }
 
@@ -263,10 +325,12 @@ void CompositeJK::compute_JK() {
         timer_on("CompositeJK: INCFOCK Preprocessing");
 
         auto reset = options_.get_int("INCFOCK_FULL_FOCK_EVERY");
+        auto incfock_reference_reset = options_.get_int("INCFOCK_REF_D_EVERY"); 
         auto incfock_conv = options_.get_double("INCFOCK_CONVERGENCE");
         auto Dnorm = Process::environment.globals["SCF D NORM"];
         // Do IFB on this iteration?
         do_incfock_iter_ = (Dnorm >= incfock_conv) && (initial_iterations_ >= initial_iterations_limit_) && (incfock_count_ % reset != reset - 1);
+        do_reference_reset_ = !do_incfock_iter_ || (incfock_count_ % incfock_reference_reset == incfock_reference_reset - 1); 
 
         if (k_algo_->name() == "sn-LinK") {
             auto k_algo_derived = std::dynamic_pointer_cast<snLinK>(k_algo_); 
@@ -278,15 +342,17 @@ void CompositeJK::compute_JK() {
         incfock_setup();
         
         timer_off("CompositeJK: INCFOCK Preprocessing");
-    } else {
-        D_ref_ = D_ao_;
-        zero();
     }
+
+    std::vector<SharedMatrix>& D_ref = (do_incfock_iter_ ? delta_D_ao_ : D_ao_);
+    std::vector<SharedMatrix>& J_ref = (do_incfock_iter_ ? delta_J_ao_ : J_ao_);
+    std::vector<SharedMatrix>& K_ref = (do_incfock_iter_ ? delta_K_ao_ : K_ao_);
+    std::vector<SharedMatrix>& wK_ref = (do_incfock_iter_ ? delta_wK_ao_ : wK_ao_);
 
     // update ERI engine density matrices for density screening
     if (density_screening_) {
         for (auto eri_computer : eri_computers_["4-Center"]) {
-            eri_computer->update_density(D_ref_);
+            eri_computer->update_density(D_ref);
         }
     }
 
@@ -296,7 +362,7 @@ void CompositeJK::compute_JK() {
     if (do_J_) {
         timer_on("CompositeJK: " + j_algo_->name());
 
-        j_algo_->build_G_component(D_ref_, J_ao_, eri_computers_["3-Center"]);
+        j_algo_->build_G_component(D_ref, J_ref, eri_computers_["3-Center"]);
 
         if (get_bench()) {
             computed_shells_per_iter_["Triplets"].push_back(j_algo_->num_computed_shells());
@@ -314,7 +380,7 @@ void CompositeJK::compute_JK() {
             timer_on("COSX " + gridname + " Grid");
         }
 
-        k_algo_->build_G_component(D_ref_, K_ao_, eri_computers_["4-Center"]);
+        k_algo_->build_G_component(D_ref, K_ref, eri_computers_["4-Center"]);
 
         if (get_bench()) {
             computed_shells_per_iter_["Quartets"].push_back(k_algo_->num_computed_shells());
