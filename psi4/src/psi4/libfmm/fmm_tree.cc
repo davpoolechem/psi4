@@ -521,9 +521,13 @@ void CFMMTree::make_root_node() {
     outfile->Printf("Original box origin: %f \n\n", origin[0]);
     
     int num_lowest_level_boxes = 8 * std::pow(2,  (1 + dimensionality_) * (nlevels_ - 2)); 
-    // int num_lowest_level_boxes_per_branch = std::pow(2,  (dimensionality_) * (nlevels_ - 1)); 
+    int num_lowest_level_boxes_per_branch = static_cast<double>(num_lowest_level_boxes) / std::pow(2, (nlevels_ - 2)); 
+    
+    double N_target_per_branch = static_cast<double>(N_target_) / std::pow(2, (nlevels_ - 2)); 
 
     double f = static_cast<double>(N_target_) / static_cast<double>(num_lowest_level_boxes); 
+    //f = (1.0 + f) / 2.0;
+    //f = 0.25 + 0.75 * f; 
     outfile->Printf("f scaling factor: %f\n", f);
     if (f > 1.0) throw PSIEXCEPTION("Bad f scaling factor value!");
 
@@ -540,6 +544,7 @@ void CFMMTree::make_root_node() {
     outfile->Printf("New box origin: %f \n\n", origin_new[0]); 
 
     tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin_new, length, 0, lmax_, 2);
+    //tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin, length, 0, lmax_, 2);
 }
 
 void CFMMTree::make_children() {
@@ -681,7 +686,7 @@ void CFMMTree::calculate_shellpair_multipoles() {
         mpints.push_back(std::shared_ptr<OneBodyAOInt>(int_factory->ao_multipoles(lmax_)));
     }
 
-#pragma omp parallel for collapse(2) schedule(dynamic)
+#pragma omp parallel for collapse(2) schedule(guided)
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
         for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
             std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
@@ -817,7 +822,7 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     // Benchmark Number of Computed Shells
     size_t computed_shells = 0L;
 
-#pragma omp parallel for collapse(2) schedule(dynamic) reduction(+ : computed_shells)
+#pragma omp parallel for collapse(2) schedule(guided) reduction(+ : computed_shells)
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
         for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
             std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
@@ -981,7 +986,7 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 
     timer_on("CFMMTree: Far Field J");
 
-#pragma omp parallel for collapse(2) schedule(dynamic)
+#pragma omp parallel for collapse(2) schedule(guided)
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
         for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
             std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);

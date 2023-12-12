@@ -268,7 +268,8 @@ def scf_iterate(self, e_conv=None, d_conv=None):
     # SCF iterations!
     SCFE_old = 0.0
     Dnorm = 0.0
-    while True:
+    #while True:
+    while False: 
         self.iteration_ += 1
 
         diis_performed = False

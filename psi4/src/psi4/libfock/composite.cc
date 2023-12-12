@@ -85,6 +85,8 @@ void CompositeJK::print_header() const {
 
 void CompositeJK::compute_JK() {
 
+    outfile->Printf("BEGIN COMPUTE JK \n");
+
     if (!lr_symmetric_) {
         throw PSIEXCEPTION("Non-symmetric K matrix builds are currently not supported in Composite JK.");
     }
@@ -117,6 +119,8 @@ void CompositeJK::compute_JK() {
     }
 
     if (initial_iteration_) initial_iteration_ = false;
+    
+    outfile->Printf("END COMPUTE JK \n");
 }
 
 DirectDFJ::DirectDFJ(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options)
@@ -796,8 +800,13 @@ void LinK::build_G_component(const std::vector<SharedMatrix>& D, std::vector<Sha
 }
 
 CFMM::CFMM(std::shared_ptr<BasisSet> primary, Options& options) : SplitJKBase(primary, options) {
+    outfile->Printf("BEGIN MAKE CFMM TREE \n");
     cfmmtree_ = std::make_shared<CFMMTree>(primary_, options_);
+    outfile->Printf("END MAKE CFMM TREE \n");
+
+    outfile->Printf("BEGIN BUILD INTS \n");
     build_ints();
+    outfile->Printf("END BUILD INTS \n");
 }
 
 void CFMM::build_ints() {
@@ -812,7 +821,9 @@ void CFMM::build_G_component(const std::vector<SharedMatrix>& D, std::vector<Sha
 
     timer_on("CFMM: J");
 
+    outfile->Printf("BEGIN BUILD J \n");
     cfmmtree_->build_J(ints_, D, J);
+    outfile->Printf("END BUILD J");
 
     timer_off("CFMM: J");
 }
