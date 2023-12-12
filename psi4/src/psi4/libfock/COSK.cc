@@ -323,6 +323,10 @@ void COSK::print_header() const {
 void COSK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vector<std::shared_ptr<Matrix>>& K,
     std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) {
 
+    for (auto& Kmat : K) {
+        Kmat->zero();
+    }
+
     // => Sizing <= //
     int njk = D.size();
     int nbf = primary_->nbf();
