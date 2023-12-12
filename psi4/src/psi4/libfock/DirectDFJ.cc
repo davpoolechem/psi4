@@ -92,6 +92,10 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
 
     timer_on("Setup");
 
+    for (auto& Jmat : J) {
+        Jmat->zero();
+    }
+ 
     // => Sizing <= //
     int njk = D.size();
     int nbf = primary_->nbf();
