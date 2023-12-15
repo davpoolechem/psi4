@@ -1,4 +1,5 @@
 #include "psi4/libfock/jk.h"
+#include "psi4/libfock/SplitJK.h"
 
 #include "psi4/libmints/integral.h"
 #include "psi4/libmints/vector.h"
@@ -21,17 +22,15 @@ using namespace psi;
 
 namespace psi {
 
-CFMM::CFMM(std::shared_ptr<BasisSet> primary, Options& options) : SplitJKBase(primary, options) {
+CFMM::CFMM(std::shared_ptr<BasisSet> primary, Options& options) : SplitJK(primary, options) {
     outfile->Printf("BEGIN MAKE CFMM TREE \n");
     cfmmtree_ = std::make_shared<CFMMTree>(primary_, options_);
     outfile->Printf("END MAKE CFMM TREE \n");
-
-    outfile->Printf("BEGIN BUILD INTS \n");
-    build_ints();
-    outfile->Printf("END BUILD INTS \n");
 }
 
-void build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
+CFMM::~CFMM() {}
+
+void CFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
      std::vector<std::shared_ptr<Matrix> >& G_comp,
      std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) { 
     //timer_on("CFMM: J");
@@ -43,7 +42,7 @@ void build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
     //timer_off("CFMM: J");
 }
 
-void CFMM::print_header() {
+void CFMM::print_header() const {
     if (print_) {
         outfile->Printf("  ==> Continuous Fast Multipole Method (CFMM) <==\n\n");
         outfile->Printf("    Primary Basis: %11s\n", primary_->name().c_str());
@@ -54,7 +53,7 @@ void CFMM::print_header() {
 }
 
 // TODO
-size_t num_computed_shells() {
+size_t CFMM::num_computed_shells() {
     return 0;
 }
 
