@@ -1,4 +1,5 @@
 list(APPEND sources
+  fmm_box.cc
   fmm_shell_pair.cc
   fmm_tree.cc
   multipoles_helper.cc
