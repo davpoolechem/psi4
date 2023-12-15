@@ -34,7 +34,7 @@
 #include "psi4/libmints/vector.h"
 #include "psi4/libmints/vector3.h"
 #include "psi4/libmints/matrix.h"
-//#include "psi4/libqt/qt.h"
+#include "psi4/libqt/qt.h"
 
 #include <functional>
 #include <memory>
@@ -80,7 +80,7 @@ static int m_addr(int m) {
     }
 }
 
-extern double factorial(int n);
+//extern double factorial(int n);
 
 class PSI_API MultipoleRotationFactory {
 
