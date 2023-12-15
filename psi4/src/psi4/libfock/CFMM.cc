@@ -31,14 +31,6 @@ CFMM::CFMM(std::shared_ptr<BasisSet> primary, Options& options) : SplitJKBase(pr
     outfile->Printf("END BUILD INTS \n");
 }
 
-void CFMM::build_ints() {
-    auto factory = std::make_shared<IntegralFactory>(primary_, primary_, primary_, primary_);
-    ints_.push_back(std::shared_ptr<TwoBodyAOInt>(factory->eri()));
-    for (int thread = 1; thread < nthread_; thread++) {
-        ints_.push_back(std::shared_ptr<TwoBodyAOInt>(ints_[0]->clone()));
-    }
-}
-
 void build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
      std::vector<std::shared_ptr<Matrix> >& G_comp,
      std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) { 

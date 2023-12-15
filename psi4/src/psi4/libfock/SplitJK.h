@@ -203,8 +203,6 @@ class CFMM : public SplitJK {
   protected:
    /// The CFMMTree object used to compute the CFMM integrals
    std::shared_ptr<CFMMTree> cfmmtree_;
-   /// Builds the integrals (CFMMTree) for the DirectDFJ class
-   void build_ints() override;
 
   public:
    /**
@@ -232,7 +230,7 @@ class CFMM : public SplitJK {
     * @brief Prints information regarding CFMM run
     * 
     */
-   void print_header() override;
+   void print_header() const override;
 
     /**
     * Return number of ERI shell quartets computed during the SplitJK build process.

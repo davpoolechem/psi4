@@ -137,7 +137,7 @@ void CompositeJK::common_init() {
         }
     
     // CFMM
-    else if (j_type == "CFMM") {
+    } else if (j_type == "CFMM") {
         // initialize SplitJK algo
         j_algo_ = std::make_shared<DirectDFJ>(primary_, auxiliary_, options_);
  
