@@ -135,6 +135,12 @@ void CompositeJK::common_init() {
         for(int rank = 1; rank < nthreads_; rank++) {
             eri_computers_["3-Center"][rank] = std::shared_ptr<TwoBodyAOInt>(eri_computers_["3-Center"].front()->clone());
         }
+    
+    // CFMM
+    else if (j_type == "CFMM") {
+        // initialize SplitJK algo
+        j_algo_ = std::make_shared<DirectDFJ>(primary_, auxiliary_, options_);
+ 
     } else {
         throw PSIEXCEPTION("Invalid Composite J algorithm selected!");
     }
