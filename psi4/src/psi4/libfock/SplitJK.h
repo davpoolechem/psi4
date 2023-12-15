@@ -199,8 +199,8 @@ class PSI_API DirectDFJ : public SplitJK {
 };
 
 //build the J matrix using the Continuous Fast Multipole Method (CFMM)
-class CFMM : public SplitJK {
-  protected:
+class PSI_API CFMM : public SplitJK {
+   
    /// The CFMMTree object used to compute the CFMM integrals
    std::shared_ptr<CFMMTree> cfmmtree_;
 
@@ -211,7 +211,9 @@ class CFMM : public SplitJK {
     * @param primary The primary basis set used in DirectDFJ
     * @param options The options object
     */
-   CFMM(std::shared_ptr<BasisSet> primary, Options& options);
+    CFMM(std::shared_ptr<BasisSet> primary, Options& options);
+    /// Destructor
+    ~CFMM() override;
 
    /**
     * @author Andy Jiang, Andy Simmonett, David Poole, Georgia Tech, April 2022
