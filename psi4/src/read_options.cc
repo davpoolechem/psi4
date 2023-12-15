@@ -1689,6 +1689,17 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         /*- Bump function max radius -*/
         options.add_double("DF_BUMP_R1", 0.0);
 
+        /*- SUBSECTION CFMM Algorithm -*/
+        
+        /*- The maximum multipole order to use in the CFMM algorithm -*/
+        options.add_int("CFMM_ORDER", 10);
+        /*- The maximum tree depth to use in the CFMM algorithm (Must be at least 3) -*/
+        options.add_int("CFMM_GRAIN", -1);
+        /*- Number of shell pairs to aim for per occupied lowest-level box in adaptive CFMM. -*/
+        options.add_int("CFMM_TARGET_NSHP", 10000);
+        /*- CFMM Extent Tolerance (for well-separated) -*/
+        options.add_double("CFMM_EXTENT_TOLERANCE", 1.0e-10);
+ 
         /*- SUBSECTION COSX Algorithm -*/
 
         /*- Number of spherical points in initial COSX grid. -*/
