@@ -82,7 +82,10 @@ std::shared_ptr<JK> JK::build_JK(std::shared_ptr<BasisSet> primary, std::shared_
     // exit calculation if density screening is selected for incompatible JK algo
     bool do_density_screen = options.get_str("SCREENING") == "DENSITY";
 
-    std::array<std::string, 3> can_do_density_screen = { "DIRECT", "DFDIRJ+LINK", "DFDIRJ" };
+    std::array<std::string, 5> can_do_density_screen = { "DIRECT", 
+        "DFDIRJ+LINK", "DFDIRJ", 
+        "CFMM+LINK", "CFMM" 
+    };
     bool is_compatible_density_screen = std::any_of(
         can_do_density_screen.cbegin(),
         can_do_density_screen.cend(),
