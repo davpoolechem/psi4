@@ -38,6 +38,7 @@
 #include "psi4/libmints/onebody.h"
 #include "psi4/libmints/twobody.h"
 #include "psi4/libfmm/multipoles_helper.h"
+#include "psi4/libfmm/fmm_shell_pair.h"
 
 #include <functional>
 #include <memory>
@@ -52,41 +53,7 @@
 namespace psi {
 
 class Options;
-
-class PSI_API ShellPair {
-    protected:
-      // The basisset associated with the shell-pair
-      std::shared_ptr<BasisSet> basisset_;
-      // The index of the shell-pair
-      std::pair<int, int> pair_index_;
-      // Exponent of most diffuse basis function in shell pair
-      double exp_;
-      // Center of shell pair (As defined in bagel FMM as the average)
-      Vector3 center_;
-      // Radial extent of shell pair
-      double extent_;
-      // The multipole moments (per basis pair (pq) the shell pair (PQ)), centered at the lowest level box the shell belongs to
-      std::vector<std::shared_ptr<RealSolidHarmonics>> mpoles_;
-      // Multipole coefficients of shellpair
-      std::shared_ptr<HarmonicCoefficients> mpole_coefs_;
-
-    public:
-      ShellPair(std::shared_ptr<BasisSet>& basisset, std::pair<int, int> pair_index, 
-                std::shared_ptr<HarmonicCoefficients>& mpole_coefs, double cfmm_extent_tol);
-
-      // Calculate the multipole moments of the Shell-Pair about a center
-      void calculate_mpoles(Vector3 box_center, std::shared_ptr<OneBodyAOInt>& s_ints,
-                            std::shared_ptr<OneBodyAOInt>& mpole_ints, int lmax);
-
-      // Returns the shell pair index
-      std::pair<int, int> get_shell_pair_index() { return pair_index_; }
-      // Returns the center of the shell pair
-      Vector3 get_center() { return center_; }
-      // Returns the radial extent of the shell pair
-      double get_extent() { return extent_; }
-      // Returns the multipole moments of the shell pairs about a center
-      std::vector<std::shared_ptr<RealSolidHarmonics>>& get_mpoles() { return mpoles_; }
-};
+class CFMMShellPair;
 
 class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
 
@@ -97,7 +64,7 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       std::vector<std::shared_ptr<CFMMBox>> children_;
 
       // The shell pairs belonging to this box
-      std::vector<std::shared_ptr<ShellPair>> shell_pairs_;
+      std::vector<std::shared_ptr<CFMMShellPair>> shell_pairs_;
 
       // The box's origin (lower-left-front corner)
       Vector3 origin_;
@@ -133,7 +100,7 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       
     public:
       // Generic Constructor
-      CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<ShellPair>> shell_pairs, 
+      CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<CFMMShellPair>> shell_pairs, 
               Vector3 origin, double length, int level, int lmax, int ws);
 
       // Make children for this multipole box
@@ -169,7 +136,7 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       // Get the children of the box
       std::vector<std::shared_ptr<CFMMBox>>& get_children() { return children_; }
       // Get the shell pairs of the box
-      std::vector<std::shared_ptr<ShellPair>>& get_shell_pairs() { return shell_pairs_; }
+      std::vector<std::shared_ptr<CFMMShellPair>>& get_shell_pairs() { return shell_pairs_; }
       // Gets the number of shell pairs in the box
       int nshell_pair() { return shell_pairs_.size(); }
       // Get the origin of this box
@@ -198,7 +165,7 @@ class PSI_API CFMMTree {
       // The basis set that the molecule uses
       std::shared_ptr<BasisSet> basisset_;
       // List of all the significant shell-pairs in the molecule
-      std::vector<std::shared_ptr<ShellPair>> shell_pairs_;
+      std::vector<std::shared_ptr<CFMMShellPair>> shell_pairs_;
 
       // Number of Levels in the CFMM Tree
       int nlevels_;
@@ -239,7 +206,7 @@ class PSI_API CFMMTree {
       size_t nshp_;
       // Index from the shell-pair index to shell pair info (shellpair, box, nf_boxes)
       std::vector<std::vector<
-        std::tuple<std::shared_ptr<ShellPair>, std::shared_ptr<CFMMBox> 
+        std::tuple<std::shared_ptr<CFMMShellPair>, std::shared_ptr<CFMMBox> 
                   >
       >> shellpair_list_;
       // local far-field box pairs at a given level of the tree

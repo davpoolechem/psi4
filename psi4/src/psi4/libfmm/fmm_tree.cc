@@ -1,6 +1,7 @@
 #include "psi4/pragma.h"
 
 #include "psi4/libfmm/multipoles_helper.h"
+#include "psi4/libfmm/fmm_shell_pair.h"
 #include "psi4/libfmm/fmm_tree.h"
 #include "psi4/libmints/molecule.h"
 #include "psi4/libmints/basisset.h"
@@ -45,110 +46,7 @@ double sign(double x) {
     }
 }
 
-ShellPair::ShellPair(std::shared_ptr<BasisSet>& basisset, std::pair<int, int> pair_index, 
-                     std::shared_ptr<HarmonicCoefficients>& mpole_coefs, double cfmm_extent_tol) {
-    basisset_ = basisset;
-    pair_index_ = pair_index;
-
-    const GaussianShell& Pshell = basisset_->shell(pair_index.first);
-    const GaussianShell& Qshell = basisset_->shell(pair_index.second);
-
-    Vector3 pcenter = Pshell.center();
-    Vector3 qcenter = Qshell.center();
-
-    center_ = Vector3(0.0, 0.0, 0.0);
-    exp_ = INFINITY;
-
-    int nprim_p = Pshell.nprimitive();
-    int nprim_q = Qshell.nprimitive();
-    for (int pp = 0; pp < nprim_p; pp++) {
-        double pcoef = Pshell.coef(pp);
-        double pexp = Pshell.exp(pp);
-        for (int qp = 0; qp < nprim_q; qp++) {
-            double qcoef = Qshell.coef(qp);
-            double qexp = Qshell.exp(qp);
-
-            const double pq_exp = std::abs(pexp + qexp);
-            Vector3 pq_center = (pexp * pcenter + qexp * qcenter) / pq_exp;
-
-            center_ += pq_center;
-            exp_ = std::min(exp_, pq_exp);
-        }
-    }
-    center_ /= (nprim_p * nprim_q);
-    extent_ = std::sqrt(-2.0 * std::log(cfmm_extent_tol) / exp_);
-
-    mpole_coefs_ = mpole_coefs;
-}
-
-void ShellPair::calculate_mpoles(Vector3 box_center, std::shared_ptr<OneBodyAOInt>& s_ints, 
-                                 std::shared_ptr<OneBodyAOInt>& mpole_ints, int lmax) {
-    
-    // number of total multipoles to compute, -1 since the overlap is not computed
-    int nmpoles = (lmax + 1) * (lmax + 2) * (lmax + 3) / 6 - 1;
-
-    int P = pair_index_.first;
-    int Q = pair_index_.second;
-
-    // Calculate the overlap integrals (Order 0 multipole integrals)
-    s_ints->compute_shell(P, Q);
-    const double* sbuffer = s_ints->buffers()[0];
-
-    // Calculate the multipole integrals
-    mpole_ints->compute_shell(P, Q);
-    const double* mbuffer = mpole_ints->buffers()[0];
-
-    const GaussianShell& Pshell = basisset_->shell(P);
-    const GaussianShell& Qshell = basisset_->shell(Q);
-
-    int p_start = Pshell.start();
-    int num_p = Pshell.nfunction();
-
-    int q_start = Qshell.start();
-    int num_q = Qshell.nfunction();
-
-    for (int p = p_start; p < p_start + num_p; p++) {
-        int dp = p - p_start;
-        for (int q = q_start; q < q_start + num_q; q++) {
-            int dq = q - q_start;
-
-            std::shared_ptr<RealSolidHarmonics> pq_mpoles = std::make_shared<RealSolidHarmonics>(lmax, box_center, Regular);
-
-            pq_mpoles->add(0, 0, sbuffer[dp * num_q + dq]);
-
-            int running_index = 0;
-            for (int l = 1; l <= lmax; l++) {
-                int l_ncart = ncart(l);
-                for (int m = -l; m <= l; m++) {
-                    int mu = m_addr(m);
-                    std::unordered_map<int, double>& mpole_terms = mpole_coefs_->get_terms(l, mu);
-
-                    int powdex = 0;
-                    for (int ii = 0; ii <= l; ii++) {
-                        int a = l - ii;
-                        for (int jj = 0; jj <= ii; jj++) {
-                            int b = ii - jj;
-                            int c = jj;
-                            int ind = a * l_ncart * l_ncart + b * l_ncart + c;
-
-                            if (mpole_terms.count(ind)) {
-                                double coef = mpole_terms[ind];
-                                int abcindex = powdex + running_index;
-                                pq_mpoles->add(l, mu, pow(-1.0, (double) l+1) * coef * mbuffer[abcindex * num_p * num_q + dp * num_q + dq]);
-                            }
-                            powdex += 1;
-                        } // end jj
-                    } // end ii
-                } // end m loop
-                running_index += l_ncart;
-            } // end l
-            mpoles_.push_back(pq_mpoles);
-        } // end q
-    } // end p
-
-}
-
-CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<ShellPair>> shell_pairs, 
+CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<CFMMShellPair>> shell_pairs, 
               Vector3 origin, double length, int level, int lmax, int ws) {
                   
     parent_ = parent;
@@ -171,7 +69,7 @@ CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<Sh
 void CFMMBox::make_children() {
 
     int nchild = (level_ > 0) ? 16 : 8;
-    std::vector<std::vector<std::shared_ptr<ShellPair>>> child_shell_pair_buffer(nchild);
+    std::vector<std::vector<std::shared_ptr<CFMMShellPair>>> child_shell_pair_buffer(nchild);
 
     // Max WS at the child's level
     int child_level_max_ws = std::max(2, (int) std::pow(2, level_+1));
@@ -179,7 +77,7 @@ void CFMMBox::make_children() {
 
     // Fill order (ws,z,y,x) (0)000 (0)001 (0)010 (0)011 (0)100 (0)101 (0)110 (0)111
     // (1)000 (1)001 (1)010 (1)011 (1)100 (1)101 (1)110 (1)111
-    for (std::shared_ptr<ShellPair> shell_pair : shell_pairs_) {
+    for (std::shared_ptr<CFMMShellPair> shell_pair : shell_pairs_) {
         Vector3 sp_center = shell_pair->get_center();
         double x = sp_center[0];
         double y = sp_center[1];
@@ -375,7 +273,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
 #pragma omp parallel for
     for (size_t pair_index = 0; pair_index < nshell_pairs; pair_index++) {
         const auto& pair = ints_shell_pairs[pair_index];
-        shell_pairs_[pair_index] = std::make_shared<ShellPair>(basisset_, pair, mpole_coefs_, cfmm_extent_tol);
+        shell_pairs_[pair_index] = std::make_shared<CFMMShellPair>(basisset_, pair, mpole_coefs_, cfmm_extent_tol);
     }
 
     // ==> time to define the number of lowest-level boxes in the CFMM tree! <== // 
@@ -799,7 +697,7 @@ void CFMMTree::calculate_shellpair_multipoles() {
 #pragma omp parallel for collapse(2) schedule(guided)
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
         for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
-            std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+            std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
             if (shellpair == nullptr) continue;
             
             std::shared_ptr<CFMMBox> box = std::get<1>(shellpair_list_[Ptask][Qtask]);
@@ -935,7 +833,7 @@ void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 #pragma omp parallel for collapse(2) schedule(guided) reduction(+ : computed_shells)
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
         for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
-            std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+            std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
             
             if (shellpair == nullptr) continue;
        
@@ -1099,7 +997,7 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 #pragma omp parallel for collapse(2) schedule(guided)
     for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
         for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
-            std::shared_ptr<ShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+            std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
             if (shellpair == nullptr) continue;
     
             auto [P, Q] = shellpair->get_shell_pair_index();
