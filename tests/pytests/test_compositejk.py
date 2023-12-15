@@ -152,7 +152,7 @@ def test_dfjcosk_incfock(inp, mols, request):
     assert compare(True, abs(niter_inc - niter_noinc) <= 3, f'{test_id} IncFock efficient')
 
 @pytest.mark.parametrize("functional", [ "bp86", "b3lyp" ])
-@pytest.mark.parametrize("scf_type", [ "DFDIRJ", "LINK", "COSX", "DFDIRJ+COSX", "DFDIRJ+LINK" ])
+@pytest.mark.parametrize("scf_type", [ "DFDIRJ", "CFMM", "LINK", "COSX", "DFDIRJ+COSX", "DFDIRJ+LINK" ])
 def test_dfdirj(functional, scf_type, mols):
     """Test the functionality of the SCF_TYPE keyword for CompositeJK methods under varying situations:
       - Using hybrid DFT functionals without specifying a K algorithm should cause a RuntimeError to be thrown.
@@ -160,6 +160,7 @@ def test_dfdirj(functional, scf_type, mols):
 
     composite_algo_to_matrix = {
         "DFDIRJ": "J",
+        "CFMM": "J",
         "LINK" : "K",
         "COSX": "K"
     }
@@ -197,7 +198,7 @@ def test_dfdirj(functional, scf_type, mols):
             # we keep this line just for printout purposes; should always pass if done correctly 
             assert compare(type(E), float, f'{scf_type}+{functional} executes')
 
-@pytest.mark.parametrize("j_algo", [ "DFDIRJ" ]) #to be extended in the future
+@pytest.mark.parametrize("j_algo", [ "DFDIRJ", "CFMM" ]) #to be extended in the future
 @pytest.mark.parametrize("df_basis_scf", [ "CC-PVDZ-JKFIT", "DEF2-UNIVERSAL-JFIT" ]) #to be extended in the future
 def test_j_algo_bp86(j_algo, df_basis_scf, mols):
     """Test SCF_TYPE={J} and all SCF_TYPE={J}+{K} combinations for a BP86 calculation.

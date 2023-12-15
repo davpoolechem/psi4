@@ -68,9 +68,14 @@ class PSI_API CFMMTree {
 
       // Number of Levels in the CFMM Tree
       int nlevels_;
+      // maximum allowable numbr of levels in the CFMM Tree
+      static constexpr size_t max_nlevels_ = 6;
       // Maximum Multipole Angular Momentum
       int lmax_;
 
+      // Number of target distributions per occupied leaf box for adaptive CFMM
+      // see White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
+      int M_target_;
       // Number of leaf boxes for adaptive CFMM
       // see White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
       int N_target_; 
@@ -110,11 +115,18 @@ class PSI_API CFMMTree {
       >> shellpair_list_;
       // local far-field box pairs at a given level of the tree
       std::vector<std::vector<std::pair<std::shared_ptr<CFMMBox>, std::shared_ptr<CFMMBox>>>> lff_task_pairs_per_level_;
+      // Number of ERI shell quartets computed, i.e., not screened out
+      size_t num_computed_shells_;
 
       // Use density-based integral screening?
       bool density_screening_;
       // ERI Screening Tolerance
       double ints_tolerance_;
+
+      // number of boxes per CFMM tree level
+      std::array<size_t, max_nlevels_> level_to_box_count_;
+      // number of shell pairs per CFMM tree level
+      std::array<size_t, max_nlevels_> level_to_shell_count_;
 
       // => Functions called ONLY once <= //
 
@@ -150,6 +162,9 @@ class PSI_API CFMMTree {
       // => ERI Screening <= //
       bool shell_significant(int P, int Q, int R, int S, std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                              const std::vector<SharedMatrix>& D);
+
+      // => Other functions <= //
+      void generate_per_level_info();
     
     public:
       // Constructor (automatically sets up the tree)
@@ -162,6 +177,8 @@ class PSI_API CFMMTree {
       int nlevels() { return nlevels_; }
       // Returns the max multipole AM
       int lmax() { return lmax_; }
+      // Return number of shell quartets actually computed
+      size_t num_computed_shells() { return num_computed_shells_; };
       // Print the CFMM Tree out
       void print_out();
 
