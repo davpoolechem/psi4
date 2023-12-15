@@ -252,6 +252,7 @@ def test_seminum_incfock(inp, scf, mols, request):
     "scf_type", 
     [ 
         pytest.param("DFDIRJ"), 
+        pytest.param("CFMM"), 
         pytest.param("LINK"),
         pytest.param("COSX"),
         pytest.param("SNLINK", marks=using('gauxc')),
@@ -267,6 +268,7 @@ def test_dfdirj(functional, scf_type, mols):
 
     composite_algo_to_matrix = {
         "DFDIRJ": "J",
+        "CFMM": "J",
         "LINK" : "K",
         "COSX": "K",
         "SNLINK": "K",
@@ -305,7 +307,7 @@ def test_dfdirj(functional, scf_type, mols):
             # we keep this line just for printout purposes; should always pass if done correctly 
             assert compare(type(E), float, f'{scf_type}+{functional} executes')
 
-@pytest.mark.parametrize("j_algo", [ "DFDIRJ" ]) #to be extended in the future
+@pytest.mark.parametrize("j_algo", [ "DFDIRJ", "CFMM" ]) #to be extended in the future
 @pytest.mark.parametrize(
     "k_algo", 
     [ 
