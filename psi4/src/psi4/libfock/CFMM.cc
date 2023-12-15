@@ -30,6 +30,20 @@ CFMM::CFMM(std::shared_ptr<BasisSet> primary, Options& options) : SplitJK(primar
 
 CFMM::~CFMM() {}
 
+size_t CFMM::num_computed_shells() {
+    return cfmmtree_->num_computed_shells();
+}
+
+void CFMM::print_header() const {
+    if (print_) {
+        outfile->Printf("\n");
+        outfile->Printf("  ==> Continuous Fast Multipole Method (CFMM) <==\n\n");
+        outfile->Printf("    Primary Basis: %11s\n", primary_->name().c_str());
+        outfile->Printf("    Max Multipole Order: %11d\n", cfmmtree_->lmax());
+        outfile->Printf("    Max Tree Depth: %11d\n", cfmmtree_->nlevels());
+    }
+}
+
 void CFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
      std::vector<std::shared_ptr<Matrix> >& G_comp,
      std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) { 
@@ -40,21 +54,6 @@ void CFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
     outfile->Printf("END BUILD J");
 
     //timer_off("CFMM: J");
-}
-
-void CFMM::print_header() const {
-    if (print_) {
-        outfile->Printf("  ==> Continuous Fast Multipole Method (CFMM) <==\n\n");
-        outfile->Printf("    Primary Basis: %11s\n", primary_->name().c_str());
-        outfile->Printf("    Max Multipole Order: %11d\n", cfmmtree_->lmax());
-        outfile->Printf("    Max Tree Depth: %11d\n", cfmmtree_->nlevels());
-        outfile->Printf("\n");
-    }
-}
-
-// TODO
-size_t CFMM::num_computed_shells() {
-    return 0;
 }
 
 } // end namespace psi
