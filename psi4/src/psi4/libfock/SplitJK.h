@@ -49,6 +49,7 @@ class TwoBodyAOInt;
 class Options;
 class PsiOutStream;
 class DFTGrid;
+class CFMMTree;
 
 /**
  * Class SplitJK
@@ -185,6 +186,53 @@ class PSI_API DirectDFJ : public SplitJK {
     * print name of method
     */
     std::string name() override { return "DF-DirJ"; }
+};
+
+//build the J matrix using the Continuous Fast Multipole Method (CFMM)
+class CFMM : public SplitJK {
+  protected:
+   /// The CFMMTree object used to compute the CFMM integrals
+   std::shared_ptr<CFMMTree> cfmmtree_;
+   /// Builds the integrals (CFMMTree) for the DirectDFJ class
+   void build_ints() override;
+
+  public:
+   /**
+    * @brief Construct a new CFMM object
+    * 
+    * @param primary The primary basis set used in DirectDFJ
+    * @param options The options object
+    */
+   CFMM(std::shared_ptr<BasisSet> primary, Options& options);
+
+   /**
+    * @author Andy Jiang, Andy Simmonett, David Poole, Georgia Tech, April 2022
+    *
+    * @brief Builds the J matrix according to the CFMM Algorithm
+    * 
+    * @param D The list of AO density matrixes to contract to form the J matrix (1 for RHF, 2 for UHF/ROHF)
+    * @param J The list of AO J matrices to build (Same size as D)
+    */
+    void build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
+                 std::vector<std::shared_ptr<Matrix> >& G_comp,
+         std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) override;
+
+
+   /**
+    * @brief Prints information regarding CFMM run
+    * 
+    */
+   void print_header() override;
+
+    /**
+    * Return number of ERI shell quartets computed during the SplitJK build process.
+    */
+    size_t num_computed_shells() override;
+
+    /**
+    * print name of method
+    */
+    std::string name() override { return "CFMM"; }
 };
 
 // ==> Start SplitJK Exchange (K) Algorithms here <== //
