@@ -80,7 +80,11 @@ void CFMMTree::generate_per_level_info() {
 CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options) 
                     : basisset_(basis), options_(options) {
 
-    //== baseline param setup ==//
+    // ==> ---------------- <== //
+    // ==> setup parameters <== //
+    // ==> ---------------- <== //
+    
+    // baseline params
     molecule_ = basisset_->molecule();
    
     nthread_ = 1;
@@ -94,16 +98,24 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     density_screening_ = (options_.get_str("SCREENING") == "DENSITY");
     ints_tolerance_ = options_.get_double("INTS_TOLERANCE");
 
-    //== cfmm-specific param setup ==//
+    // CFMM-specific params 
     lmax_ = options_.get_int("CFMM_ORDER");
 
     mpole_coefs_ = std::make_shared<HarmonicCoefficients>(lmax_, Regular);
     double cfmm_extent_tol = options.get_double("CFMM_EXTENT_TOLERANCE");
 
+    // compute M_target_ based on multipole order as defined by White 1996
+    // M_target_ is the average number of distributions (shell pairs) per
+    // occupied lowest-level box for adaptive CFMM
+    int M_target_computed = 5*lmax_ - 5;  
+
+    M_target_ = options_["CFMM_TARGET_NSHP"].has_changed() ? options_.get_int("CFMM_TARGET_NSHP") : M_target_computed * M_target_computed;
+ 
     // ints engine 
     auto factory = std::make_shared<IntegralFactory>(basisset_);
     auto shellpair_int = std::shared_ptr<TwoBodyAOInt>(factory->eri());
 
+    // shell pair info
     auto& ints_shell_pairs = shellpair_int->shell_pairs();
     size_t nshell_pairs = ints_shell_pairs.size();
     shell_pairs_.resize(nshell_pairs);
@@ -116,12 +128,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
 
     // ==> time to define the number of lowest-level boxes in the CFMM tree! <== // 
     int grain = options_.get_int("CFMM_GRAIN");
-    
-    // compute M_target based on multipole order as defined by White 1996
-    int M_target_computed = 5*lmax_ - 5;  
-
-    M_target_ = options_["CFMM_TARGET_NSHP"].has_changed() ? options_.get_int("CFMM_TARGET_NSHP") : M_target_computed * M_target_computed;
-    
+  
     // CFMM_GRAIN < -1 is invalid 
     if (grain < -1) { 
         std::string error_message = "CFMM grain set to below -1! If you meant to use adaptive CFMM, please set CFMM_GRAIN to exactly -1 or 0.";
@@ -132,14 +139,16 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     } else if (grain == -1 || grain == 0) { 
         // Eq. 1 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
         N_target_ = ceil(static_cast<double>(nshell_pairs) / (static_cast<double>(M_target_) * g_)); 
-        outfile->Printf("N_target: %d, %d, %f -> %d \n", nshell_pairs, M_target_, g_, N_target_);
+        //outfile->Printf("N_target: %d, %d, %f -> %d \n", nshell_pairs, M_target_, g_, N_target_);
    
     // CFMM_GRAIN > n (s.t. n > 0) uses n lowest-level boxes in the CFMM tree
     } else { 
         N_target_ = grain;
-        outfile->Printf("N_target: %d \n", N_target_);
+        //outfile->Printf("N_target: %d \n", N_target_);
     }
 
+    // ==> Determine number of levels in CFMM tree <== //
+    
     // Modified form of Eq. 2 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
     // further modifications arise from differences between regular and Continuous FMM
     //nlevels_ = 1 + ceil( log(N_target_) / ( (1 + static_cast<double>(dimensionality_)) * log(2) ));
@@ -158,8 +167,11 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
         num_lowest_level_boxes *= 2 * std::pow(2, dimensionality_);
         //num_lowest_level_boxes *= std::pow(2, dimensionality_);
     }
-    outfile->Printf("nlevels: %d \n", nlevels_);
- 
+    //outfile->Printf("nlevels: %d \n", nlevels_);
+
+    // sanity check on number of levels in CFMM tree
+    // shouldnt be too small (CFMM has no effect)
+    // nor too large (too much memory usage) 
     if (nlevels_ <= 2) {
         std::string error_message = "Too few tree levels ("; 
         error_message += std::to_string(nlevels_);
@@ -179,54 +191,58 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
 
     timer_on("CFMMTree: Setup");
 
+    // ==> ------------------------------ <== //
+    // ==> Actually create CFMM tree now! <== //
+    // ==> ------------------------------ <== //
+    // generate required boxes and sort shell pairs into proper boxes 
     for (int iter = 0; iter != 10; ++iter) {
         bool converged = false;
-        outfile->Printf("CFMMTree: Setup Iter %d\n", iter);
+        //outfile->Printf("CFMMTree: Setup Iter %d\n", iter);
         if (tree_[0] == nullptr) {
-            outfile->Printf("  Make Root Node... ");
+            //outfile->Printf("  Make Root Node... ");
             make_root_node();
-            outfile->Printf("  Done! \n");
+            //outfile->Printf("  Done! \n");
         } else {
-            outfile->Printf("  Regenerate Root Node... ");
-            //int num_boxes = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
-            //tree_.resize(num_boxes);
-
+            //outfile->Printf("  Regenerate Root Node... ");
             shellpair_list_.clear();
             sorted_leaf_boxes_.clear();
             converged = regenerate_root_node();
-            //make_root_node();
-            outfile->Printf("  Done! \n");
+            //outfile->Printf("  Done! \n");
         }
 
-        outfile->Printf("  Make Children... ");
+        //outfile->Printf("  Make Children... ");
         make_children();
-        outfile->Printf("  Done! \n");
+        //outfile->Printf("  Done! \n");
 
-        outfile->Printf("  Sort Leaf Boxes... ");
+        //outfile->Printf("  Sort Leaf Boxes... ");
         sort_leaf_boxes();
-        outfile->Printf("  Done! \n");
+        //outfile->Printf("  Done! \n");
     
-        outfile->Printf("  Setup Regions... ");
+        //outfile->Printf("  Setup Regions... ");
         setup_regions();
-        outfile->Printf("  Done! \n");
+        //outfile->Printf("  Done! \n");
     
-        outfile->Printf("  Setup Local Far Field Task Pairs... ");
+        //outfile->Printf("  Setup Local Far Field Task Pairs... ");
         setup_local_far_field_task_pairs();
-        outfile->Printf("  Done! \n");
+        //outfile->Printf("  Done! \n");
     
-        outfile->Printf("  Setup Shellpair Info... ");
+        //outfile->Printf("  Setup Shellpair Info... ");
         setup_shellpair_info();
-        outfile->Printf("  Done! \n");
+        //outfile->Printf("  Done! \n");
         
         if (converged) break;
     }
 
     if (print_ >= 2) print_out();
-    
-    outfile->Printf("  Calculate Shellpair Multipoles... ");
+   
+    // early kill!
+    if (true) {
+        throw PSIEXCEPTION("Early kill for CFMM debugging!");
+    }
+    //outfile->Printf("  Calculate Shellpair Multipoles... ");
     calculate_shellpair_multipoles();
-    outfile->Printf("  Done! \n");
-    outfile->Printf("Completed CFMMTree: Setup! \n");
+    //outfile->Printf("  Done! \n");
+    //outfile->Printf("Completed CFMMTree: Setup! \n");
 
     timer_off("CFMMTree: Setup");
 
@@ -252,41 +268,43 @@ void CFMMTree::sort_leaf_boxes() {
 }
 
 void CFMMTree::make_root_node() {
+    // get basic molecular bounds
     auto [max_dim, min_dim] = parse_molecular_dims(molecule_);
 
     Vector3 origin = Vector3(min_dim, min_dim, min_dim);
     double length = (max_dim - min_dim);
 
+    if (print_ >= 4) { 
+        outfile->Printf("Original box volume (bohr): %f \n", std::pow(length, 3));
+        outfile->Printf("Original box volume (ang): %f \n", std::pow(length * bohr2ang, 3));
+        outfile->Printf("Original box origin: (%f, %f, %f) \n\n", origin[0] * bohr2ang, origin[1] * bohr2ang, origin[2] * bohr2ang);
+    }
+    
     // Scale root CFMM box for adaptive CFMM
     // Logic follows Eq. 3 of White 1996, adapted for CFMM 
-    outfile->Printf("Original box volume (bohr): %f \n", std::pow(length, 3));
-    outfile->Printf("Original box volume (ang): %f \n", std::pow(length * bohr2ang, 3));
-    outfile->Printf("Original box origin: (%f, %f, %f) \n\n", origin[0] * bohr2ang, origin[1] * bohr2ang, origin[2] * bohr2ang);
-    
     int num_lowest_level_boxes = 8 * std::pow(2,  (1 + dimensionality_) * (nlevels_ - 2)); 
     //int num_lowest_level_boxes = std::pow(2,  dimensionality_ * (nlevels_ - 1)); 
-   // int num_lowest_level_boxes_per_branch = static_cast<double>(num_lowest_level_boxes) / std::pow(2, (nlevels_ - 2)); 
-    //double N_target_per_branch = static_cast<double>(N_target_) / std::pow(2, (nlevels_ - 2)); 
 
     double f = static_cast<double>(N_target_) / static_cast<double>(num_lowest_level_boxes); 
-    outfile->Printf("f scaling factor: %f\n", f);
     if (f > 1.0) throw PSIEXCEPTION("Bad f scaling factor value!");
 
     //f = std::pow(f, 1.0 / dimensionality_); // account for CFMM tree structure
  
     double length_tmp = length;
-    //length = length_tmp / std::pow(f, 1.0 / (1.0 + dimensionality_));
     length = length_tmp / std::pow(f, 1.0 / dimensionality_);
  
     min_dim -= (length - length_tmp) / 2.0;
     Vector3 origin_new = Vector3(min_dim, min_dim, min_dim);
 
-    outfile->Printf("New box volume (bohr): %f, %f -> %f, %f\n\n", length_tmp, f, length, length*length*length);
-    outfile->Printf("New box volume (ang): %f, %f -> %f, %f\n\n", length_tmp * bohr2ang, f, length * bohr2ang, std::pow(length * bohr2ang, 3));
-    outfile->Printf("New box origin: (%f, %f, %f) \n\n", origin_new[0] * bohr2ang, origin_new[1] * bohr2ang, origin_new[2] * bohr2ang); 
-   
+    if (print_ >= 4) {
+        outfile->Printf("f scaling factor: %f\n", f);
+        outfile->Printf("New box volume (bohr): %f, %f -> %f, %f\n\n", length_tmp, f, length, length*length*length);
+        outfile->Printf("New box volume (ang): %f, %f -> %f, %f\n\n", length_tmp * bohr2ang, f, length * bohr2ang, std::pow(length * bohr2ang, 3));
+        outfile->Printf("New box origin: (%f, %f, %f) \n\n", origin_new[0] * bohr2ang, origin_new[1] * bohr2ang, origin_new[2] * bohr2ang); 
+    }
+
+    // create top-level box
     tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin_new, length, 0, lmax_, 2);
-    //tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin, length, 0, lmax_, 2);
 }
 
 bool CFMMTree::regenerate_root_node() {
@@ -891,11 +909,11 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 
 void CFMMTree::print_out() {
     // recursive print-out per box
-    // outfile->Printf("CFMM BOX INFO:\n");
-    // tree_[0]->print_out();  
+    outfile->Printf("CFMM BOX INFO:\n");
+    tree_[0]->print_out();  
 
     // overall tree summary 
-    level_info();
+    generate_per_level_info();
 
     outfile->Printf("CFMM TREE LEVEL INFO:\n");
     int ilevel = 0;
