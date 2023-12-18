@@ -49,9 +49,9 @@ void CFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
      std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) { 
     //timer_on("CFMM: J");
 
-    outfile->Printf("BEGIN BUILD J \n");
+    //outfile->Printf("BEGIN BUILD J \n");
     cfmmtree_->build_J(eri_computers, D, G_comp);
-    outfile->Printf("END BUILD J");
+    //outfile->Printf("END BUILD J");
 
     //timer_off("CFMM: J");
 }
