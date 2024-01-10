@@ -292,6 +292,9 @@ def scf_iterate(self, e_conv=None, d_conv=None):
     while True:
         self.iteration_ += 1
 
+        if self.iteration_ >= core.get_option('SCF', 'MAXITER'):
+          break
+
         diis_performed = False
         soscf_performed = False
         self.frac_performed_ = False

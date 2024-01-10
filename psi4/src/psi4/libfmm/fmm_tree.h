@@ -78,7 +78,10 @@ class PSI_API CFMMTree {
       int M_target_;
       // Number of leaf boxes for adaptive CFMM
       // see White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
-      int N_target_; 
+      int N_target_;
+      // Final factor by which to scale the root CFMM box
+      double f_;
+      double f_alt_;
       // Scaling factor connecting number of target distributions to number of target boxes
       // Always 1.0 for systems of randomly-placed distributions (i.e. molecules)
       static constexpr double g_ = 1.0; 
@@ -86,9 +89,14 @@ class PSI_API CFMMTree {
       // Dimensionality of system modeled by CFMM Tree
       // Always 3 for molecular systems
       static constexpr int dimensionality_ = 3;
-      
-      // The tree structure (implemented as list for random access)
+      // total of number of boxes in a tree of a given input level N
+      //static constexpr std::array<size_t, 6> level_to_total_box_count_ = { 1, 9, 73, 585, 4681, 37449 };
+      static constexpr std::array<size_t, 6> level_to_total_box_count_ = { 1, 9, 137, 2185, 34953, 559241 };
+ 
+      // The tree structure (implemented as vector for random access)
       std::vector<std::shared_ptr<CFMMBox>> tree_;
+      // number of total boxes in tree
+      size_t num_boxes_;
       // List of all the leaf boxes (sorted by number of shell pairs for parallel efficiency)
       std::vector<std::shared_ptr<CFMMBox>> sorted_leaf_boxes_;
       // Harmonic Coefficients used to calculate multipoles
