@@ -250,7 +250,7 @@ void CFMMBox::print_out() {
     int ws = this->get_ws();
     auto center = this->center() * bohr2ang; 
     auto length = this->length() * bohr2ang;
-    if (nshells > 0) {
+    if (nshells >= 0) {
         for (int ilevel = 0; ilevel != level; ++ilevel) {
             outfile->Printf("  ");
         }
