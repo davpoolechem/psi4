@@ -3519,7 +3519,7 @@ void FISAPT::ind() {
     // Effective constructor
     cphf->delta_ = options_.get_double("D_CONVERGENCE");
     cphf->maxiter_ = options_.get_int("MAXITER");
-    cphf->jk_df_ = jk_df_;
+    cphf->jk_ = jk_df_;
 
     cphf->w_A_ = wB;  // Reversal of convention
     cphf->Cocc_A_ = Cocc0A;
