@@ -63,6 +63,7 @@ class FISAPT {
     /// Global JK object
     std::shared_ptr<JK> jk_;
     std::shared_ptr<JK> jk_df_;
+    std::shared_ptr<JK> jk_ref_;
 
     /// Map of scalars
     std::map<std::string, double> scalars_;
