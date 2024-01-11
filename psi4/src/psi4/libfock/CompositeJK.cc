@@ -271,6 +271,8 @@ void CompositeJK::compute_JK() {
         // Do IFB on this iteration?
         do_incfock_iter_ = (Dnorm >= incfock_conv) && !initial_iteration_ && (incfock_count_ % reset != reset - 1);
 
+        if (j_algo_->name() == "CFMM") j_algo_->set_CFMM_incfock_iter(do_incfock_iter_);
+
         if (!initial_iteration_ && (Dnorm >= incfock_conv)) incfock_count_ += 1;
 
         incfock_setup();
