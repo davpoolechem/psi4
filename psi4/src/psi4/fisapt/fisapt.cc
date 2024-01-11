@@ -837,6 +837,8 @@ void FISAPT::coulomb() {
     jk_df_ = JK::build_JK(primary_, reference_->get_basisset("DF_BASIS_SCF"), options_, false, doubles_, std::make_optional("DF"));
     jk_df_->set_memory(doubles_);
 
+    jk_ref_ = jk_df_;
+
     // => Build J and K for embedding <= //
 
     std::vector<SharedMatrix>& Cl = jk_->C_left();
@@ -863,9 +865,10 @@ void FISAPT::coulomb() {
     jk_df_->set_do_J(true);
     jk_df_->set_do_K(true);
     jk_df_->initialize();
-    jk_df_->print_header();
+    //jk_df_->print_header();
 
-    jk_df_->compute();
+    jk_ref_->print_header();
+    jk_ref_->compute();
 
     int nn = primary_->nbf();
     matrices_["JC"] = std::make_shared<Matrix>("JC", nn, nn);
@@ -879,6 +882,8 @@ void FISAPT::coulomb() {
 void FISAPT::scf() {
     outfile->Printf("  ==> Relaxed SCF Equations <==\n\n");
 
+    jk_ref_ = jk_;
+    
     // => Restricted Basis Sets with C Projected <= //
 
     std::vector<std::shared_ptr<Matrix> > Xs;
@@ -904,7 +909,7 @@ void FISAPT::scf() {
     VA_SCF->copy(matrices_["VA"]);
     if (reference_->has_potential_variable("C")) VA_SCF->add(matrices_["VE"]);
     std::shared_ptr<FISAPTSCF> scfA =
-        std::make_shared<FISAPTSCF>(jk_, matrices_["E NUC"]->get(0, 0), matrices_["S"], matrices_["XC"], matrices_["T"],
+        std::make_shared<FISAPTSCF>(jk_ref_, matrices_["E NUC"]->get(0, 0), matrices_["S"], matrices_["XC"], matrices_["T"],
                                     VA_SCF, matrices_["WC"], matrices_["LoccA"], options_);
     scfA->compute_energy();
 
@@ -923,7 +928,7 @@ void FISAPT::scf() {
     VB_SCF->copy(matrices_["VB"]);
     if (reference_->has_potential_variable("C")) VB_SCF->add(matrices_["VE"]);
     std::shared_ptr<FISAPTSCF> scfB =
-        std::make_shared<FISAPTSCF>(jk_, matrices_["E NUC"]->get(1, 1), matrices_["S"], matrices_["XC"], matrices_["T"],
+        std::make_shared<FISAPTSCF>(jk_ref_, matrices_["E NUC"]->get(1, 1), matrices_["S"], matrices_["XC"], matrices_["T"],
                                     VB_SCF, matrices_["WC"], matrices_["LoccB"], options_);
     scfB->compute_energy();
 
@@ -1425,10 +1430,10 @@ void FISAPT::unify() {
         AlloccA = linalg::horzcat({Cocc_A,thislinkA});
         AlloccB = linalg::horzcat({Cocc_B,thislinkB});
 
-        std::vector<SharedMatrix>& Cl = jk_->C_left();
-        std::vector<SharedMatrix>& Cr = jk_->C_right();
-        const std::vector<SharedMatrix>& J = jk_->J();
-        const std::vector<SharedMatrix>& K = jk_->K();
+        std::vector<SharedMatrix>& Cl = jk_ref_->C_left();
+        std::vector<SharedMatrix>& Cr = jk_ref_->C_right();
+        const std::vector<SharedMatrix>& J = jk_ref_->J();
+        const std::vector<SharedMatrix>& K = jk_ref_->K();
 
         Cl.clear();
         Cr.clear();
@@ -1437,7 +1442,7 @@ void FISAPT::unify() {
         Cl.push_back(thislinkB);
         Cr.push_back(thislinkB);
 
-        jk_->compute();
+        jk_ref_->compute();
 
         J_A->add(J[0]);
         K_A->add(K[0]);
@@ -7635,7 +7640,10 @@ FISAPTSCF::FISAPTSCF(std::shared_ptr<JK> jk, double enuc, std::shared_ptr<Matrix
 
 FISAPTSCF::~FISAPTSCF() {}
 void FISAPTSCF::compute_energy() {
-    // => Sizing <= //
+    
+    jk_->print_header();
+    
+     // => Sizing <= //
     int nbf = matrices_["X"]->rowspi()[0];
     int nmo = matrices_["X"]->colspi()[0];
     int nocc = matrices_["C0"]->colspi()[0];
