@@ -899,18 +899,23 @@ void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 }
 
 void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                        const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
+                        const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, bool do_incfock_iter) {
 
     timer_on("CFMMTree: J");
     
     std::vector<SharedMatrix> nf_J, ff_J;
     
     // Zero the J matrix
+    auto zero_mat = J[0]->clone();
+    zero_mat->zero(); 
     for (int ind = 0; ind < D.size(); ind++) {
-        J[ind]->zero();
-        
-        nf_J.push_back(std::make_shared<Matrix>(J[ind]->clone()));
-        ff_J.push_back(std::make_shared<Matrix>(J[ind]->clone()));
+        if (!do_incfock_iter) 
+        {
+          J[ind]->zero();
+        }
+
+        nf_J.push_back(std::make_shared<Matrix>(zero_mat->clone()));
+        ff_J.push_back(std::make_shared<Matrix>(zero_mat->clone()));
     }
 
     // Update the densities

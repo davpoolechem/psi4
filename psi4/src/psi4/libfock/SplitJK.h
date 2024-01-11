@@ -148,6 +148,9 @@ class PSI_API SplitJK {
     /**
     * Method-specific knobs, if necessary
     */
+    virtual void set_CFMM_incfock_iter(bool incfock_iter) {
+        throw PSIEXCEPTION("SplitJK::set_CFMM_incfock_iter was called, but CFMM is not being used!");
+    }
 };
 
 // ==> Start SplitJK Coulomb (J) Algorithms here <== //
@@ -204,6 +207,10 @@ class PSI_API CFMM : public SplitJK {
    /// The CFMMTree object used to compute the CFMM integrals
    std::shared_ptr<CFMMTree> cfmmtree_;
 
+   /// Are we doing an incremental Fock build this iteration?
+   /// Needed to pass into CFMM tree
+   bool incfock_iter_;
+
   public:
    /**
     * @brief Construct a new CFMM object
@@ -243,6 +250,9 @@ class PSI_API CFMM : public SplitJK {
     * print name of method
     */
     std::string name() override { return "CFMM"; }
+
+    // setters and getters
+    void set_CFMM_incfock_iter(bool incfock_iter) override { incfock_iter_ = incfock_iter; }
 };
 
 // ==> Start SplitJK Exchange (K) Algorithms here <== //
