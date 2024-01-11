@@ -180,7 +180,7 @@ class PSI_API CFMMTree {
 
       // Build the J matrix of CFMMTree
       void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                    const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J);
+                    const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, bool do_incfock_iter = false);
       // Returns the max tree depth
       int nlevels() { return nlevels_; }
       // Returns the max multipole AM

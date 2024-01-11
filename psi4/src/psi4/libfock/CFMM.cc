@@ -50,7 +50,7 @@ void CFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
     //timer_on("CFMM: J");
 
     //outfile->Printf("BEGIN BUILD J \n");
-    cfmmtree_->build_J(eri_computers, D, G_comp);
+    cfmmtree_->build_J(eri_computers, D, G_comp, incfock_iter_);
     //outfile->Printf("END BUILD J");
 
     //timer_off("CFMM: J");
