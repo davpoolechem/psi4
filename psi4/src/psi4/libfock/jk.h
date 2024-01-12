@@ -585,6 +585,8 @@ class PSI_API JK {
     * type on output file
     */
     virtual void print_header() const = 0;
+
+    virtual bool do_incfock_iter() { return false; }
 };
 
 // => APPLIED CLASSES <= //
@@ -813,7 +815,7 @@ class PSI_API DirectJK : public JK {
     void set_df_ints_num_threads(int val) { df_ints_num_threads_ = val; }
 
     // => Accessors <= //
-    bool do_incfock_iter() { return do_incfock_iter_; }
+    bool do_incfock_iter() override { return do_incfock_iter_; }
 
     /**
     * Print header information regarding JK
@@ -1281,7 +1283,7 @@ class PSI_API CompositeJK : public JK {
     /// Destructor
     ~CompositeJK() override;
 
-    bool do_incfock_iter() { return do_incfock_iter_; }
+    bool do_incfock_iter() override { return do_incfock_iter_; }
 
     /**
      * Clear D_prev_
