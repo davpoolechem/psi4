@@ -7767,9 +7767,11 @@ void FISAPTSCF::compute_energy() {
         G1->transform(X);
         double Gnorm = G1->rms();
 
+        Process::environment.globals["SCF D NORM"] = Gnorm; // hack!
+
         // => Print and Check Convergence <= //
 
-        outfile->Printf("    Iter %3d: %24.16E %11.3E %11.3E %s\n", iter, E, Ediff, Gnorm, (diised ? "DIIS" : ""));
+        outfile->Printf("    Iter %3d: %24.16E %11.3E %11.3E %s%s\n", iter, E, Ediff, Gnorm, (diised ? "DIIS" : ""), (jk_->do_incfock_iter() ? "/INCFOCK" : ""));
 
         if (std::fabs(Ediff) < Etol && std::fabs(Gnorm) < Gtol) {
             converged = true;
