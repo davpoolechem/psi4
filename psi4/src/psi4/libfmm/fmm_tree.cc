@@ -383,10 +383,14 @@ bool CFMMTree::regenerate_root_node() {
 
     // damp new origin
     origin_new = (origin_new + origin_old) / 2.0;
+
+    // if the root box becomes smaller than the molecule, just use original proposed box size
     if (std::abs(origin_new[0]) < std::abs(min_dim_mol)) {
       outfile->Printf("  Warning! Root CFMM box has iterated to a size smaller than the molecule. Setting box to molecule size and ending adaptive CFMM iterations.\n");
 
       origin_new = Vector3(min_dim_mol, min_dim_mol, min_dim_mol);
+      length = (max_dim_mol - min_dim_mol) / std::pow(f_, 1.0 / dimensionality_);
+ 
       converged = true;
     }
 
