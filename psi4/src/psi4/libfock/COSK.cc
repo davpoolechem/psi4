@@ -184,6 +184,7 @@ COSK::COSK(std::shared_ptr<BasisSet> primary, Options& options) : SplitJK(primar
     overlap_fitted_ = options.get_bool("COSX_OVERLAP_FITTING");
 
     current_grid_ = "Final"; // default in case it is not explicitly set anywhere
+    //current_grid_ = "Initial"; // default in case it is not explicitly set anywhere
 
     timer_on("COSK: COSX Grid Construction");
 

@@ -623,7 +623,7 @@ void JK::AO2USO() {
 void JK::initialize() { preiterations(); }
 
 void JK::compute() {
-    print_header();
+    //print_header();
     // Is this density symmetric?
     if (C_left_.size() && !C_right_.size()) {
         lr_symmetric_ = true;
@@ -644,7 +644,7 @@ void JK::compute() {
                 iCl->subtract(*iCr);
                 auto rms = iCl->rms();
                 auto absmax = iCl->absmax();
-                outfile->Printf("  %i, %.8f, %.8f\n", iC, rms, absmax);
+                //outfile->Printf("  %i, %.8f, %.8f\n", iC, rms, absmax);
                 if (rms >= 1e-6 || absmax >= 1e-6) lr_symmetric_ = false;
             }
         }

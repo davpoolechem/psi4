@@ -274,6 +274,8 @@ void CompositeJK::compute_JK() {
             k_algo_derived->set_incfock_iter(do_incfock_iter_);
         }
 
+        //outfile->Printf("  reset: %i, incfock_conv: %.10f, Dnorm: %.10f\n", reset, incfock_conv, Dnorm);
+        //outfile->Printf("  Incfock iter? %s\n", (do_incfock_iter_ ? "Yes" : "No"));
         if (!initial_iteration_ && (Dnorm >= incfock_conv)) incfock_count_ += 1;
 
         incfock_setup();
