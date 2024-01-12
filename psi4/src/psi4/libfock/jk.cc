@@ -623,6 +623,7 @@ void JK::AO2USO() {
 void JK::initialize() { preiterations(); }
 
 void JK::compute() {
+    print_header();
     // Is this density symmetric?
     if (C_left_.size() && !C_right_.size()) {
         lr_symmetric_ = true;

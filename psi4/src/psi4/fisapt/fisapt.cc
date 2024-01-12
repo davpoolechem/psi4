@@ -831,10 +831,28 @@ void FISAPT::coulomb() {
 
     // => Global JK Objects <= //
 
+    // build main JK object 
     jk_ = JK::build_JK(primary_, reference_->get_basisset("DF_BASIS_SCF"), options_, false, doubles_);
     jk_->set_memory(doubles_);
 
-    jk_df_ = JK::build_JK(primary_, reference_->get_basisset("DF_BASIS_SCF"), options_, false, doubles_, std::make_optional("DF"));
+    // hacky solution to make CompositeJK work with FISAPT
+    // we run selected CompositeJK combo on monomer SCFs, and DF for the rest of the SAPT terms
+    // because CompositeJK isn't set up for nonsymmetric densities yet
+    // TODO: Fix this!
+    auto jk_type = options_.get_str("SCF_TYPE");
+
+    std::array<std::string, 3> composite_algos = { "DFDIRJ", "COSX", "LINK" };
+    bool is_composite = std::any_of(
+      composite_algos.cbegin(),
+      composite_algos.cend(),
+      [&](std::string composite_algo) { return jk_type.find(composite_algo) != std::string::npos; }
+    );
+ 
+    is_composite = options_.get_str("SCF_TYPE") == "DFDIRJ+LINK";
+ 
+    // becomes a JK object for DF runs if CompositeJK SCF_TYPE is selected
+    // otherwise becomes a shallow copy of jk_ 
+    jk_df_ = (is_composite) ? JK::build_JK(primary_, reference_->get_basisset("DF_BASIS_SCF"), options_, false, doubles_, std::make_optional("DF")) : jk_;
     jk_df_->set_memory(doubles_);
 
     jk_ref_ = jk_df_;
@@ -860,14 +878,14 @@ void FISAPT::coulomb() {
     jk_->set_do_J(true);
     jk_->set_do_K(true);
     jk_->initialize();
-    //jk__->print_header();
 
-    jk_df_->set_do_J(true);
-    jk_df_->set_do_K(true);
-    jk_df_->initialize();
-    //jk_df_->print_header();
+    if (is_composite) {
+        jk_df_->set_do_J(true);
+        jk_df_->set_do_K(true);
+        jk_df_->initialize();
+    }
 
-    jk_ref_->print_header();
+    //jk_ref_->print_header();
     jk_ref_->compute();
 
     int nn = primary_->nbf();
@@ -2200,11 +2218,12 @@ void FISAPT::dHF() {
     std::shared_ptr<Matrix> LD_B = linalg::doublet(LoccB, LoccB, false, true);
 
     // Get J and K from A and B HF localized orbitals while we are at it
-    std::vector<SharedMatrix>& Cl = jk_df_->C_left();
-    std::vector<SharedMatrix>& Cr = jk_df_->C_right();
+    jk_ref_ = jk_df_;
+    std::vector<SharedMatrix>& Cl = jk_ref_->C_left();
+    std::vector<SharedMatrix>& Cr = jk_ref_->C_right();
 
-    const std::vector<SharedMatrix>& J = jk_df_->J();
-    const std::vector<SharedMatrix>& K = jk_df_->K();
+    const std::vector<SharedMatrix>& J = jk_ref_->J();
+    const std::vector<SharedMatrix>& K = jk_ref_->K();
 
     Cl.clear();
     Cr.clear();
@@ -2214,7 +2233,7 @@ void FISAPT::dHF() {
     Cl.push_back(LoccB);
     Cr.push_back(LoccB);
 
-    jk_df_->compute();
+    jk_ref_->compute();
 
     std::shared_ptr<Matrix> LJ_A(J[0]->clone());
     std::shared_ptr<Matrix> LK_A(K[0]->clone());
@@ -2438,10 +2457,10 @@ void FISAPT::exch() {
     std::shared_ptr<Matrix> K_A = matrices_["K_A"];
     std::shared_ptr<Matrix> K_B = matrices_["K_B"];
 
-    std::vector<SharedMatrix>& Cl = jk_df_->C_left();
-    std::vector<SharedMatrix>& Cr = jk_df_->C_right();
-    const std::vector<SharedMatrix>& J = jk_df_->J();
-    const std::vector<SharedMatrix>& K = jk_df_->K();
+    std::vector<SharedMatrix>& Cl = jk_ref_->C_left();
+    std::vector<SharedMatrix>& Cr = jk_ref_->C_right();
+    const std::vector<SharedMatrix>& J = jk_ref_->J();
+    const std::vector<SharedMatrix>& K = jk_ref_->K();
 
     // ==> Exchange Terms (S^2, MCBS or DCBS) <== //
 
@@ -2456,7 +2475,7 @@ void FISAPT::exch() {
     Cr.clear();
     Cl.push_back(Cocc_A);
     Cr.push_back(C_O);
-    jk_df_->compute();
+    jk_ref_->compute();
     std::shared_ptr<Matrix> K_O = K[0];
 
     double Exch10_2M = 0.0;
@@ -2561,7 +2580,7 @@ void FISAPT::exch() {
     Cl.push_back(matrices_["Cocc0A"]);
     Cr.push_back(C_T_AB_n);
 
-    jk_df_->compute();
+    jk_ref_->compute();
 
     std::shared_ptr<Matrix> J_T_A_n = J[0];
     std::shared_ptr<Matrix> K_T_A_n = K[0];
@@ -2646,7 +2665,7 @@ void FISAPT::exch() {
     Cr.push_back(C_XOB);
     Cr.push_back(C_AOY);
     Cr.push_back(C_XOY);
-    jk_df_->compute();
+    jk_ref_->compute();
     std::shared_ptr<Matrix> K_AOB = K[0];
     std::shared_ptr<Matrix> K_XOB = K[1];
     std::shared_ptr<Matrix> K_AOY = K[2];
@@ -2906,7 +2925,7 @@ void FISAPT::exch() {
     Cl.push_back(Dsj_osh);
     Cr.push_back(matrices_["AlloccB"]);
     
-    jk_df_->compute();
+    jk_ref_->compute();
 
     std::shared_ptr<Matrix> J_ss = J[0];
     std::shared_ptr<Matrix> K_ss = K[0];
@@ -3019,7 +3038,7 @@ void FISAPT::exch() {
     Cl.push_back(Dsj_osh);
     Cr.push_back(matrices_["AlloccB"]);
     
-    jk_df_->compute();
+    jk_ref_->compute();
 
     std::shared_ptr<Matrix> J2_ss = J[0];
     std::shared_ptr<Matrix> K2_ss = K[0];
@@ -3093,10 +3112,10 @@ void FISAPT::ind() {
     std::shared_ptr<Vector> eps_vir0A = vectors_["eps_vir0A"];
     std::shared_ptr<Vector> eps_vir0B = vectors_["eps_vir0B"];
 
-    std::vector<SharedMatrix>& Cl = jk_df_->C_left();
-    std::vector<SharedMatrix>& Cr = jk_df_->C_right();
-    const std::vector<SharedMatrix>& J = jk_df_->J();
-    const std::vector<SharedMatrix>& K = jk_df_->K();
+    std::vector<SharedMatrix>& Cl = jk_ref_->C_left();
+    std::vector<SharedMatrix>& Cr = jk_ref_->C_right();
+    const std::vector<SharedMatrix>& J = jk_ref_->J();
+    const std::vector<SharedMatrix>& K = jk_ref_->K();
 
     int na = eps_occ0A->dimpi()[0];
     int nb = eps_occ0B->dimpi()[0];
@@ -3144,7 +3163,7 @@ void FISAPT::ind() {
         Cr.push_back(C_XOB);
         Cr.push_back(C_AOY);
         Cr.push_back(C_XOY);
-        jk_df_->compute();
+        jk_ref_->compute();
         std::shared_ptr<Matrix> K_AOB = K[0];
         std::shared_ptr<Matrix> K_XOB = K[1];
         std::shared_ptr<Matrix> K_AOY = K[2];
@@ -3190,7 +3209,7 @@ void FISAPT::ind() {
       
         // => Compute the JK matrices <= //
       
-        jk_df_->compute();
+        jk_ref_->compute();
       
         // => Unload the JK Object <= //
       
@@ -3333,7 +3352,7 @@ void FISAPT::ind() {
       
         // => Compute the JK matrices <= //
       
-        jk_df_->compute();
+        jk_ref_->compute();
       
         // => Unload the JK Object <= //
       
@@ -3524,7 +3543,7 @@ void FISAPT::ind() {
     // Effective constructor
     cphf->delta_ = options_.get_double("D_CONVERGENCE");
     cphf->maxiter_ = options_.get_int("MAXITER");
-    cphf->jk_ = jk_df_;
+    cphf->jk_ = jk_ref_;
 
     cphf->w_A_ = wB;  // Reversal of convention
     cphf->Cocc_A_ = Cocc0A;
@@ -7641,7 +7660,7 @@ FISAPTSCF::FISAPTSCF(std::shared_ptr<JK> jk, double enuc, std::shared_ptr<Matrix
 FISAPTSCF::~FISAPTSCF() {}
 void FISAPTSCF::compute_energy() {
     
-    jk_->print_header();
+    //jk_->print_header();
     
      // => Sizing <= //
     int nbf = matrices_["X"]->rowspi()[0];
