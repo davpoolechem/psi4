@@ -855,6 +855,12 @@ void FISAPT::coulomb() {
     jk_df_ = (is_composite) ? JK::build_JK(primary_, reference_->get_basisset("DF_BASIS_SCF"), options_, false, doubles_, std::make_optional("DF")) : jk_;
     jk_df_->set_memory(doubles_);
 
+    outfile->Printf("jk_: %p; jk_df_: %p\n", jk_.get(), jk_df_.get());
+
+    if (!is_composite && jk_df_.get() != jk_.get()) {
+        throw PSIEXCEPTION("jk_ and jk_df_ do not refer to the same object!");
+    }
+
     jk_ref_ = jk_df_;
 
     // => Build J and K for embedding <= //
@@ -2218,7 +2224,10 @@ void FISAPT::dHF() {
     std::shared_ptr<Matrix> LD_B = linalg::doublet(LoccB, LoccB, false, true);
 
     // Get J and K from A and B HF localized orbitals while we are at it
-    jk_ref_ = jk_df_;
+    bool link_enabled = options_.get_str("SCF_TYPE").find("LINK") != std::string::npos;
+    link_enabled = false;
+    if (link_enabled) { jk_ref_ = jk_df_; } else { jk_ref_ = jk_; };
+    
     std::vector<SharedMatrix>& Cl = jk_ref_->C_left();
     std::vector<SharedMatrix>& Cr = jk_ref_->C_right();
 
@@ -2478,21 +2487,62 @@ void FISAPT::exch() {
     jk_ref_->compute();
     std::shared_ptr<Matrix> K_O = K[0];
 
+    std::array<SharedMatrix, 4> matrices_to_print = { D_A, S, D_B, K_O };
+    for (const auto& matrix : matrices_to_print) {
+      outfile->Printf("Matrix %s\n", matrix->name().c_str());
+      outfile->Printf("----------\n");
+    
+      constexpr size_t block_size = 5;
+      for (int irow = 0; irow != block_size; ++irow) {
+        for (int icol = 0; icol != block_size; ++icol) {
+          outfile->Printf("%.10f, ", matrix->get(irow, icol));
+        }
+        outfile->Printf("\n");
+      }
+      outfile->Printf("\n");
+    }
+
+    outfile->Printf("Exch10_2M terms:\n");
+    outfile->Printf("----------------\n");
     double Exch10_2M = 0.0;
     std::vector<double> Exch10_2M_terms;
     Exch10_2M_terms.resize(6);
     Exch10_2M_terms[0] -= 2.0 * D_A->vector_dot(K_B);
+    outfile->Printf("  0 <- %f\n", -(D_A->vector_dot(K_B)));
+    
     Exch10_2M_terms[1] -= 2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(V_A);
+    outfile->Printf("  1 <- %f\n", -(2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(V_A)));
+    
     Exch10_2M_terms[1] -= 4.0 * linalg::triplet(D_A, S, D_B)->vector_dot(J_A);
+    outfile->Printf("  1 <- %f\n", -(4.0 * linalg::triplet(D_A, S, D_B)->vector_dot(J_A)));
+
     Exch10_2M_terms[1] += 2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(K_A);
+    outfile->Printf("  1 <- %f\n", 2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(K_A));
+
     Exch10_2M_terms[2] -= 2.0 * linalg::triplet(D_B, S, D_A)->vector_dot(V_B);
+    outfile->Printf("  2 <- %f\n", -(2.0 * linalg::triplet(D_B, S, D_A)->vector_dot(V_B)));
+
     Exch10_2M_terms[2] -= 4.0 * linalg::triplet(D_B, S, D_A)->vector_dot(J_B);
+    outfile->Printf("  2 <- %f\n", -(4.0 * linalg::triplet(D_B, S, D_A)->vector_dot(J_B)));
+
     Exch10_2M_terms[2] += 2.0 * linalg::triplet(D_B, S, D_A)->vector_dot(K_B);
+    outfile->Printf("  2 <- %f\n", 2.0 * linalg::triplet(D_B, S, D_A)->vector_dot(K_B));
+
     Exch10_2M_terms[3] += 2.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, D_B)->vector_dot(V_A);
+    outfile->Printf("  3 <- %f\n", 2.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, D_B)->vector_dot(V_A));
+
     Exch10_2M_terms[3] += 4.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, D_B)->vector_dot(J_A);
+    outfile->Printf("  3 <- %f\n", 4.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, D_B)->vector_dot(J_A));
+
     Exch10_2M_terms[4] += 2.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, D_A)->vector_dot(V_B);
+    outfile->Printf("  4 <- %f\n", 2.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, D_A)->vector_dot(V_B));
+
     Exch10_2M_terms[4] += 4.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, D_A)->vector_dot(J_B);
+    outfile->Printf("  4 <- %f\n", 4.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, D_A)->vector_dot(J_B));
+
     Exch10_2M_terms[5] -= 2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(K_O);
+    outfile->Printf("  5 <- %f\n", -(2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(K_O)));
+
     for (int k = 0; k < Exch10_2M_terms.size(); k++) {
         Exch10_2M += Exch10_2M_terms[k];
     }
@@ -7720,10 +7770,27 @@ void FISAPTSCF::compute_energy() {
     diis.set_vector_size(F.get());
     Gsize.reset();
 
-    // ==> Master Loop <== //
+    // ==> two-grid COSX setup, if applicable <== //
+    bool cosx_enabled = options_.get_str("SCF_TYPE").find("COSX") != std::string::npos;
+    
+    bool early_screening = false;
+    if (cosx_enabled) {
+        early_screening = true;
+        jk_->set_COSX_grid("Initial");
+    }
+    
+    bool early_screening_disabled = false;
+    size_t scf_maxiter_post_screening = options_.get_int("COSX_MAXITER_FINAL");
+    size_t scf_iter_post_screening = 0;
 
+    // ==> Master Loop <== //
+    size_t iter = 0;
+     
     outfile->Printf("    Iter %3s: %24s %11s %11s\n", "N", "E", "dE", "|D|");
-    for (int iter = 1; iter <= maxiter; iter++) {
+    //for (int iter = 1; iter <= maxiter; iter++) {
+    while (true) { 
+        ++iter;
+
         // => Compute Density Matrix <= //
 
         auto D = linalg::doublet(Cocc2, Cocc2, false, true);
@@ -7773,10 +7840,75 @@ void FISAPTSCF::compute_energy() {
 
         outfile->Printf("    Iter %3d: %24.16E %11.3E %11.3E %s%s\n", iter, E, Ediff, Gnorm, (diised ? "DIIS" : ""), (jk_->do_incfock_iter() ? "/INCFOCK" : ""));
 
+        if (early_screening_disabled) {
+            scf_iter_post_screening += 1;
+            if ((scf_iter_post_screening >= scf_maxiter_post_screening) and (scf_maxiter_post_screening > 0)) {
+                converged = true;
+                break;
+            }
+        }
+
         if (std::fabs(Ediff) < Etol && std::fabs(Gnorm) < Gtol) {
-            converged = true;
+            if (early_screening) {
+
+                // we've reached convergence with early screning enabled; disable it
+                early_screening = false;
+
+                // make note of the change to early screening; next SCF iteration(s) will be the last
+                early_screening_disabled = true;
+
+                // cosx uses the largest grid for its final SCF iteration(s)
+                if (cosx_enabled) jk_->set_COSX_grid("Final");
+
+                // clear any cached matrices associated with incremental fock construction
+                // the change in the screening spoils the linearity in the density matrix
+                //if hasattr(self.jk(), 'clear_D_prev'):
+                //    self.jk().clear_D_prev()
+
+                if (scf_maxiter_post_screening == 0) {
+                    break;
+                } else {
+                    outfile->Printf("  Energy and wave function converged with early screening.\n");
+                    outfile->Printf("  Continuing SCF iterations with tighter screening.\n\n");
+                }
+            } else {
+              converged = true;
+              break;
+            } 
+        } else if (iter > maxiter) {
             break;
         }
+/*
+        // Call any postiteration callbacks
+        if (converged) {
+            if (early_screening) {
+
+                // we've reached convergence with early screning enabled; disable it
+                early_screening = false;
+
+                // make note of the change to early screening; next SCF iteration(s) will be the last
+                early_screening_disabled = true;
+
+                // cosx uses the largest grid for its final SCF iteration(s)
+                if (cosx_enabled) jk_->set_COSX_grid("Final");
+
+                // clear any cached matrices associated with incremental fock construction
+                // the change in the screening spoils the linearity in the density matrix
+                if hasattr(self.jk(), 'clear_D_prev'):
+                    self.jk().clear_D_prev()
+
+                if (scf_maxiter_post_screening == 0) {
+                    break;
+                } else {
+                    outfile->Printf("  Energy and wave function converged with early screening.\n")
+                    outfile->Printf("  Continuing SCF iterations with tighter screening.\n\n")
+            else:
+                break
+
+        if self.iteration_ >= core.get_option('SCF', 'MAXITER'):
+            raise SCFConvergenceError("""SCF iterations""", self.iteration_, self, Ediff, Dnorm)
+
+*/
 
         Eold = E;
 
