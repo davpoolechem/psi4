@@ -98,9 +98,9 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
     std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) {
 
     // LinK does not support non-symmetric matrices
-    if (!lr_symmetric_) {
-        throw PSIEXCEPTION("Non-symmetric K matrix builds are currently not supported in the LinK algorithm.");
-    }
+    //if (!lr_symmetric_) {
+   //     throw PSIEXCEPTION("Non-symmetric K matrix builds are currently not supported in the LinK algorithm.");
+    //}
 
     // ==> Prep Auxiliary Quantities <== //
 
@@ -490,7 +490,9 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
     }  // End master task list
 
     for (auto& Kmat : K) {
-        Kmat->hermitivitize();
+        if (lr_symmetric_) {
+            Kmat->hermitivitize();
+        }
     }
 
     num_computed_shells_ = computed_shells;

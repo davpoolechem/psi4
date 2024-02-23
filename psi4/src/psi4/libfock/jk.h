@@ -586,7 +586,20 @@ class PSI_API JK {
     */
     virtual void print_header() const = 0;
 
+
+    /**
+    * Method-specific knobs, if necessary
+    */
     virtual bool do_incfock_iter() { return false; }
+    
+    virtual void set_COSX_grid(std::string current_grid) {
+        throw PSIEXCEPTION("JK::set_COSX_grid was called, but COSX is not being used!");
+    }
+
+    virtual std::string get_COSX_grid() {
+        throw PSIEXCEPTION("JK::get_COSX_grid was called, but COSX is not being used!");
+    };
+
 };
 
 // => APPLIED CLASSES <= //
@@ -1304,8 +1317,8 @@ class PSI_API CompositeJK : public JK {
     * Knobs for getting and setting current COSX grid for this SCF iteration, if COSX is used
     * throws if COSX is not used
     */
-    void set_COSX_grid(std::string current_grid);
-    std::string get_COSX_grid();
+    void set_COSX_grid(std::string current_grid) override { return k_algo_->set_COSX_grid(current_grid); }
+    std::string get_COSX_grid() override { return k_algo_->get_COSX_grid(); }
 
     /**
     * Get maximum AM for GauXC used for snLinK, if GauXC support is enabled
