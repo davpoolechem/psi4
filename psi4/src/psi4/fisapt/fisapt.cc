@@ -7866,6 +7866,7 @@ void FISAPTSCF::compute_energy() {
                 //    self.jk().clear_D_prev()
 
                 if (scf_maxiter_post_screening == 0) {
+                    converged = true;
                     break;
                 } else {
                     outfile->Printf("  Energy and wave function converged with early screening.\n");
