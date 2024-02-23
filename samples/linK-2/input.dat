@@ -21,7 +21,7 @@ molecule mol {
 }
 
 set {
-    scf_type direct 
+    scf_type dfdirj+link 
     df_scf_guess false
     basis cc-pVTZ
     e_convergence 1.0e-10
@@ -29,6 +29,8 @@ set {
     incfock true
     ints_tolerance 1.0e-12
     linK_ints_tolerance 1.0e-12
+    print 7
+    debug 7
 }
 
 linK_energy = energy('b3lyp')
