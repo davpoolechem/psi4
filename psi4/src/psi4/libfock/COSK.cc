@@ -722,6 +722,11 @@ void COSK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
         }
         if (lr_symmetric_) {
             K[jki]->hermitivitize();
+        // discovered during FISAPT+CompositeJK development
+        // it seems that COSX returns the TRANSPOSE of the correct nonsymmetric exchange
+        // we rectify that here for now
+        } else {
+            K[jki]->transpose_this(); 
         }
     }
 
