@@ -623,7 +623,7 @@ void JK::AO2USO() {
 void JK::initialize() { preiterations(); }
 
 void JK::compute() {
-    //print_header();
+    print_header();
     // Is this density symmetric?
     if (C_left_.size() && !C_right_.size()) {
         lr_symmetric_ = true;
@@ -650,6 +650,9 @@ void JK::compute() {
         }
         //outfile->Printf("%s\n", (lr_symmetric_ ? "true.\n" : "false.\n"));
     }
+
+    // I shall force lr_symmetric to false for now
+    //lr_symmetric_ = false;
 
     // Figure out the symmetry and which codes will stay in C1 symmetry
     input_symmetry_cast_map_.clear();

@@ -724,6 +724,10 @@ class PSI_API Matrix : public std::enable_shared_from_this<Matrix> {
     double rms();
     /// Returns the absolute maximum value
     double absmax();
+    /// Returns the matrix index of the absolute maximum value
+    std::tuple<int, int, int> absmax_idx();
+    /// Returns the minimum value 
+    double min();
     /// Add val to an element of this
     void add(int h, int m, int n, double val) {
 #ifdef PSIDEBUG
