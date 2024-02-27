@@ -296,6 +296,14 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
                 if (Q > P) continue;
                 if (!eri_computers[0]->shell_pair_significant(P, Q)) continue;
 
+                if (Patom != primary_->shell(P).ncenter()) {
+                    throw PSIEXCEPTION("Patom doesnt match!");
+                }
+
+                if (Qatom != primary_->shell(Q).ncenter()) {
+                    throw PSIEXCEPTION("Qatom doesnt match!");
+                }
+ 
                 int dP = P - Pstart;
                 int dQ = Q - Qstart;
 
@@ -348,6 +356,13 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
                     int R = RS / nshell;
                     int S = RS % nshell;
 
+                    int Ratom = primary_->shell(R).ncenter();
+                    int Satom = primary_->shell(S).ncenter();
+
+                    // First shell per atom
+                    int Rstart = shell_endpoints_for_atom[Ratom];
+                    int Sstart = shell_endpoints_for_atom[Satom];
+
                     if (!eri_computers[0]->shell_pair_significant(R, S)) continue;
                     if (!eri_computers[0]->shell_significant(P, Q, R, S)) continue;
 
@@ -372,6 +387,8 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
                     // Basis Function offset from first basis function in the atom
                     int shell_P_offset = basis_endpoints_for_shell[P] - basis_endpoints_for_shell[Pstart];
                     int shell_Q_offset = basis_endpoints_for_shell[Q] - basis_endpoints_for_shell[Qstart];
+                    int shell_R_offset = basis_endpoints_for_shell[R] - basis_endpoints_for_shell[Rstart];
+                    int shell_S_offset = basis_endpoints_for_shell[S] - basis_endpoints_for_shell[Sstart];
 
                     for (size_t ind = 0; ind < D.size(); ind++) {
                         double** Kp = K[ind]->pointer();
@@ -402,10 +419,10 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
                         double* K7p;
                         double* K8p;
                         if (!lr_symmetric_) { 
-                            double* K5p = KTp[4L * max_functions_per_atom];
-                            double* K6p = KTp[5L * max_functions_per_atom];
-                            double* K7p = KTp[6L * max_functions_per_atom];
-                            double* K8p = KTp[7L * max_functions_per_atom];
+                            K5p = KTp[4L * max_functions_per_atom];
+                            K6p = KTp[5L * max_functions_per_atom];
+                            K7p = KTp[6L * max_functions_per_atom];
+                            K8p = KTp[7L * max_functions_per_atom];
                         }
 
                         double prefactor = 1.0;
@@ -420,6 +437,8 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
                                     for (int s = 0; s < shell_S_nfunc; s++) {
                                         auto ip_off = p + shell_P_offset;
                                         auto iq_off = q + shell_Q_offset; 
+                                        auto ir_off = q + shell_R_offset; 
+                                        auto is_off = q + shell_S_offset; 
 
                                         auto ip_start = p + shell_P_start;
                                         auto iq_start = q + shell_Q_start; 
@@ -434,18 +453,36 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
                                             prefactor * (Dp[ip_start][is_start]) * (*buffer2);
                                         K4p[(iq_off) * nbf + is_start] +=
                                             prefactor * (Dp[ip_start][ir_start]) * (*buffer2);
-/*
+
                                         if (!lr_symmetric_) {
-                                            K5p[(ir_off) * nbf + ip_start] +=
+                                            //K5p[(ir_start) * nbf + ip_off] +=
+                                            //    prefactor * (Dp[is_start][iq_start]) * (*buffer2);
+                                            //K6p[(is_start) * nbf + ip_off] +=
+                                            //    prefactor * (Dp[ir_start][iq_start]) * (*buffer2);
+                                            //K7p[(ir_start) * nbf + iq_off] +=
+                                            //    prefactor * (Dp[is_start][ip_start]) * (*buffer2);
+                                            //K8p[(is_start) * nbf + iq_off] +=
+                                            //    prefactor * (Dp[ir_start][ip_start]) * (*buffer2);
+                                            
+                                            //K5p[(ir_off) * nbf + ip_start] +=
+                                            //    prefactor * (Dp[is_start][iq_start]) * (*buffer2);
+                                            //K6p[(is_off) * nbf + ip_start] +=
+                                            //    prefactor * (Dp[ir_start][iq_start]) * (*buffer2);
+                                            //K7p[(ir_off) * nbf + iq_start] +=
+                                            //    prefactor * (Dp[is_start][ip_start]) * (*buffer2);
+                                            //K8p[(is_off) * nbf + iq_start] +=
+                                            //    prefactor * (Dp[ir_start][ip_start]) * (*buffer2);
+
+                                            K5p[(ip_off) * nbf + ir_start] +=
                                                 prefactor * (Dp[is_start][iq_start]) * (*buffer2);
-                                            K6p[(is_off) * nbf + ip_start] +=
+                                            K6p[(ip_off) * nbf + is_start] +=
                                                 prefactor * (Dp[ir_start][iq_start]) * (*buffer2);
-                                            K7p[(ir_off) * nbf + iq_start] +=
+                                            K7p[(iq_off) * nbf + ir_start] +=
                                                 prefactor * (Dp[is_start][ip_start]) * (*buffer2);
-                                            K8p[(is_off) * nbf + iq_start] +=
+                                            K8p[(iq_off) * nbf + is_start] +=
                                                 prefactor * (Dp[ir_start][ip_start]) * (*buffer2);
                                         }
-*/
+
                                         buffer2++;
                                     }
                                 }
@@ -481,10 +518,10 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
             double* K7p;
             double* K8p;
             if (!lr_symmetric_) { 
-                double* K5p = KTp[4L * max_functions_per_atom];
-                double* K6p = KTp[5L * max_functions_per_atom];
-                double* K7p = KTp[6L * max_functions_per_atom];
-                double* K8p = KTp[7L * max_functions_per_atom];
+                K5p = KTp[4L * max_functions_per_atom];
+                K6p = KTp[5L * max_functions_per_atom];
+                K7p = KTp[6L * max_functions_per_atom];
+                K8p = KTp[7L * max_functions_per_atom];
             }
 
             // K_PR and K_PS
@@ -494,32 +531,75 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
                 int shell_P_nfunc = primary_->shell(P).nfunction();
                 int shell_P_offset = basis_endpoints_for_shell[P] - basis_endpoints_for_shell[Pstart];
                 for (const int S : P_stripeout_list[dP]) {
+                    int Satom = primary_->shell(S).ncenter();
+                    int Sstart = shell_endpoints_for_atom[Satom];
+                    int dS = S - Sstart;
                     int shell_S_start = primary_->shell(S).function_index();
                     int shell_S_nfunc = primary_->shell(S).nfunction();
+                    int shell_S_offset = basis_endpoints_for_shell[S] - basis_endpoints_for_shell[Sstart];
 
+                    //outfile->Printf("PR/PS task (%i, %i)\n", P, S);
+                    //outfile->Printf("----------------\n");
+
+                    std::array<int, 2> ishells = { P, S };
+                    //outfile->Printf("  Shells:\n");
+                    for (const auto ishell : ishells) {
+                        auto shell = primary_->shell(ishell);
+                        //shell.print("outfile");
+                        //outfile->Printf("\n");
+                    }
+
+                    std::array<double*, 2> buffers = { K1p, K5p };
+                    //outfile->Printf("  Buffers:\n");
+                    for (const auto buffer : buffers) {
+                        int idx = 0;
+                        while (idx < max_functions_per_atom * max_functions_per_atom) {
+                            for (int i = 0; i != 10; ++i, ++idx) {
+                                if (idx >= max_functions_per_atom * max_functions_per_atom) break;
+                                //outfile->Printf("%f, ", buffer[idx]);
+                            } 
+                            if (idx >= max_functions_per_atom * max_functions_per_atom) break;
+                            //outfile->Printf("\n"); 
+                        }
+                        //outfile->Printf("\n");
+                    }
+                    
                     for (int p = 0; p < shell_P_nfunc; p++) {
                         for (int s = 0; s < shell_S_nfunc; s++) {
                             auto ip_off = p + shell_P_offset;
+                            auto is_off = s + shell_S_offset; 
 
                             auto ip_start = p + shell_P_start;
                             auto is_start = s + shell_S_start;
 
+                            //outfile->Printf("  Kp[%i][%i] <- K1p[%i * %i + %i = %i] (= %f)\n", ip_start, is_start, ip_off, nbf, is_start, (ip_off) * nbf + is_start, K1p[(ip_off) * nbf + is_start]);
 #pragma omp atomic
                             Kp[ip_start][is_start] += K1p[(ip_off) * nbf + is_start];
+                            
+                            //outfile->Printf("  Kp[%i][%i] <- K2p[%i * %i + %i = %i] (= %f)\n", ip_start, is_start, ip_off, nbf, is_start, (ip_off) * nbf + is_start, K2p[(ip_off) * nbf + is_start]);
 #pragma omp atomic
                             Kp[ip_start][is_start] += K2p[(ip_off) * nbf + is_start];
 
-/*
                             if (!lr_symmetric_) {
+                                //outfile->Printf("  Kp[%i][%i] <- K5p[%i * %i + %i = %i] (= %f)\n", is_start, ip_start, ip_off, nbf, is_start, (ip_off) * nbf + is_start, K5p[(ip_off) * nbf + is_start]);
+                                //outfile->Printf("  Kp[%i][%i] <- K6p[%i * %i + %i = %i] (= %f)\n", is_start, ip_start, ip_off, nbf, is_start, (ip_off) * nbf + is_start, K5p[(ip_off) * nbf + is_start]);
 #pragma omp atomic
-                                Kp[is_start][ip_start] += K5p[(is_off) * nbf + ip_start];
+                                Kp[is_start][ip_start] += K5p[(ip_off) * nbf + is_start];
+                                
+                                //outfile->Printf("  Kp[%i][%i] <- K6p[%i * %i + %i = %i] (= %f)\n", is_start, ip_start, ip_off, nbf, is_start, (ip_off) * nbf + is_start, K6p[(ip_off) * nbf + is_start]);
+                                
 #pragma omp atomic
-                                Kp[is_start][ip_start] += K6p[(is_off) * nbf + ip_start];
+                                Kp[is_start][ip_start] += K6p[(ip_off) * nbf + is_start];
+
+                                //outfile->Printf("  Kp[%i][%i] <- K5p[%i * %i + %i = %i] (= %f)\n", is_start, ip_start, is_off, nbf, ip_start, (is_off) * nbf + ip_start, K5p[(is_off) * nbf + ip_start]);
+//#pragma omp atomic
+                                //Kp[is_start][ip_start] += K5p[(is_off) * nbf + ip_start];
+                                //outfile->Printf("  Kp[%i][%i] <- K6p[%i] (= %f)\n", is_start, ip_start, (is_off) * dPsize + ip_start, K6p[(is_off) * dPsize + ip_start]);
+//#pragma omp atomic
+                                //Kp[is_start][ip_start] += K6p[(is_off) * nbf + ip_start];
                             }
-*/
                         }
                     }
-
                 }
             }
 
@@ -530,12 +610,17 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
                 int shell_Q_nfunc = primary_->shell(Q).nfunction();
                 int shell_Q_offset = basis_endpoints_for_shell[Q] - basis_endpoints_for_shell[Qstart];
                 for (const int S : Q_stripeout_list[dQ]) {
+                    int Satom = primary_->shell(S).ncenter();
+                    int Sstart = shell_endpoints_for_atom[Satom];
+                    int dS = S - Sstart;
                     int shell_S_start = primary_->shell(S).function_index();
                     int shell_S_nfunc = primary_->shell(S).nfunction();
+                    int shell_S_offset = basis_endpoints_for_shell[S] - basis_endpoints_for_shell[Sstart];
 
                     for (int q = 0; q < shell_Q_nfunc; q++) {
                         for (int s = 0; s < shell_S_nfunc; s++) {
                             auto iq_off = q + shell_Q_offset; 
+                            auto is_off = s + shell_S_offset; 
 
                             auto iq_start = q + shell_Q_start; 
                             auto is_start = s + shell_S_start;
@@ -545,14 +630,20 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
 #pragma omp atomic
                             Kp[iq_start][is_start] += K4p[(iq_off) * nbf + is_start];
 
-/*
                             if (!lr_symmetric_) {
 #pragma omp atomic
-                                Kp[is_start][iq_start] += K7p[(is_off) * nbf + iq_start];
+                                Kp[is_start][iq_start] += K7p[(iq_off) * nbf + is_start];
 #pragma omp atomic
-                                Kp[is_start][iq_start] += K8p[(is_off) * nbf + iq_start];
+                                Kp[is_start][iq_start] += K8p[(iq_off) * nbf + is_start];
+
+                                //outfile->Printf("  Kp[%i][%i] <- K5p[%i] (= %f)\n", is, ip, (ir2) * dPsize + ip2, K1p[(ir2) * dPsize + ip2]);
+
+
+//#pragma omp atomic
+//                                Kp[is_start][iq_start] += K7p[(is_off) * nbf + iq_start];
+//#pragma omp atomic
+//                                Kp[is_start][iq_start] += K8p[(is_off) * nbf + iq_start];
                             }
-*/
                         }
                     }
 
@@ -563,11 +654,11 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
 
     }  // End master task list
 
-    //for (auto& Kmat : K) {
-    //    if (lr_symmetric_) {
-    //        Kmat->hermitivitize();
-    //    }
-    //}
+    if (lr_symmetric_) {
+        for (auto& Kmat : K) {
+            Kmat->hermitivitize();
+        }
+    }
 
     num_computed_shells_ = computed_shells;
 }
