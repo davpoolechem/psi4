@@ -1299,6 +1299,42 @@ double Matrix::absmax() {
     return max;
 }
 
+std::tuple<int, int, int> Matrix::absmax_idx() {
+    double max = (double)0.0;
+    std::array<int, 3> absmax_idx = { 0, 0, 0 };
+    for (int h = 0; h < nirrep_; ++h) {
+        for (int i = 0; i < rowspi_[h]; ++i) {
+            for (int j = 0; j < colspi_[h ^ symmetry_]; ++j) {
+                double absval = std::abs(matrix_[h][i][j]);
+                if (absval > max) {
+                    max = absval;
+                    absmax_idx[0] = h; 
+                    absmax_idx[1] = i; 
+                    absmax_idx[2] = j; 
+                }
+            }
+        }
+    }
+
+    return std::tie(absmax_idx[0], absmax_idx[1], absmax_idx[2]);
+}
+
+double Matrix::min() {
+    double min = std::numeric_limits<double>::max(); 
+    for (int h = 0; h < nirrep_; ++h) {
+        for (int i = 0; i < rowspi_[h]; ++i) {
+            for (int j = 0; j < colspi_[h ^ symmetry_]; ++j) {
+                double val = matrix_[h][i][j];
+                if (val < min) {
+                    min = val;
+                } 
+            }
+        }
+    }
+
+    return min;
+}
+
 void Matrix::transform(const Matrix *const a, const Matrix *const transformer) {
     transform(*a, *transformer);
 }
