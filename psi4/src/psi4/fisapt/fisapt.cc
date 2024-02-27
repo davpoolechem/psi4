@@ -847,18 +847,26 @@ void FISAPT::coulomb() {
       composite_algos.cend(),
       [&](std::string composite_algo) { return jk_type.find(composite_algo) != std::string::npos; }
     );
+    //is_composite = options_.get_str("SCF_TYPE") == "DFDIRJ+LINK";
+    
+    std::array<std::string, 3> df_algos = { "DF", "MEM_DF", "DISK_DF" };
+    bool is_df = std::any_of(
+      df_algos.cbegin(),
+      df_algos.cend(),
+      [&](std::string df_algo) { return jk_type == df_algo; }
+    );
  
-    is_composite = options_.get_str("SCF_TYPE") == "DFDIRJ+LINK";
- 
-    // becomes a JK object for DF runs if CompositeJK SCF_TYPE is selected
+    // becomes a JK object for DF runs if non-DF SCF_TYPE is selected
     // otherwise becomes a shallow copy of jk_ 
-    jk_df_ = (is_composite) ? JK::build_JK(primary_, reference_->get_basisset("DF_BASIS_SCF"), options_, false, doubles_, std::make_optional("DF")) : jk_;
+    jk_df_ = (is_df) ? jk_ : JK::build_JK(primary_, reference_->get_basisset("DF_BASIS_SCF"), options_, false, doubles_, std::make_optional("DF"));
     jk_df_->set_memory(doubles_);
 
     outfile->Printf("jk_: %p; jk_df_: %p\n", jk_.get(), jk_df_.get());
 
-    if (!is_composite && jk_df_.get() != jk_.get()) {
-        throw PSIEXCEPTION("jk_ and jk_df_ do not refer to the same object!");
+    if (is_df && jk_df_.get() != jk_.get()) {
+        throw PSIEXCEPTION("DF algorithm is being used, but jk_ and jk_df_ do not refer to the same object!");
+    } else if (!is_df && jk_df_.get() == jk_.get()) {
+        throw PSIEXCEPTION("DF algorithm is not being used, but jk_ and jk_df_ refer to the same object!");
     }
 
     jk_ref_ = jk_df_;
@@ -885,7 +893,8 @@ void FISAPT::coulomb() {
     jk_->set_do_K(true);
     jk_->initialize();
 
-    if (is_composite) {
+    //if (is_composite) {
+    if (!is_df) {
         jk_df_->set_do_J(true);
         jk_df_->set_do_K(true);
         jk_df_->initialize();
@@ -2471,6 +2480,11 @@ void FISAPT::exch() {
     const std::vector<SharedMatrix>& J = jk_ref_->J();
     const std::vector<SharedMatrix>& K = jk_ref_->K();
 
+    std::vector<SharedMatrix>& Cl_df = jk_df_->C_left();
+    std::vector<SharedMatrix>& Cr_df = jk_df_->C_right();
+    const std::vector<SharedMatrix>& J_df = jk_df_->J();
+    const std::vector<SharedMatrix>& K_df = jk_df_->K();
+
     // ==> Exchange Terms (S^2, MCBS or DCBS) <== //
 
     std::string link_assignment = options_.get_str("FISAPT_LINK_ASSIGNMENT");
@@ -2485,9 +2499,21 @@ void FISAPT::exch() {
     Cl.push_back(Cocc_A);
     Cr.push_back(C_O);
     jk_ref_->compute();
-    std::shared_ptr<Matrix> K_O = K[0];
 
-    std::array<SharedMatrix, 4> matrices_to_print = { D_A, S, D_B, K_O };
+    if (jk_ref_.get() != jk_df_.get()) {
+        Cl_df.clear();
+        Cr_df.clear();
+        Cl_df.push_back(Cocc_A);
+        Cr_df.push_back(C_O);
+        jk_df_->compute();
+    }
+    std::shared_ptr<Matrix> K_O = K[0];
+    std::shared_ptr<Matrix> K_O_df = K_df[0];
+
+    auto dK_O = K_O_df->clone();
+    dK_O->subtract(K_O);
+
+    std::array<SharedMatrix, 6> matrices_to_print = { D_A, S, D_B, K_O, K_O_df, dK_O };
     for (const auto& matrix : matrices_to_print) {
       outfile->Printf("Matrix %s\n", matrix->name().c_str());
       outfile->Printf("----------\n");
@@ -2500,6 +2526,15 @@ void FISAPT::exch() {
         outfile->Printf("\n");
       }
       outfile->Printf("\n");
+    }
+
+    {
+    outfile->Printf("K_df vs K_ref:\n");
+    outfile->Printf("----------\n");
+    outfile->Printf("  RMS: %.10f\n", dK_O->rms());
+
+    auto [max_h, max_i, max_j] = dK_O->absmax_idx();
+    outfile->Printf("  Absmax: %.10f at (%i, %i, %i)\n", dK_O->absmax(), max_h, max_i, max_j);
     }
 
     outfile->Printf("Exch10_2M terms:\n");
@@ -3593,7 +3628,8 @@ void FISAPT::ind() {
     // Effective constructor
     cphf->delta_ = options_.get_double("D_CONVERGENCE");
     cphf->maxiter_ = options_.get_int("MAXITER");
-    cphf->jk_ = jk_ref_;
+    //cphf->jk_ = jk_ref_;
+    cphf->jk_ = jk_df_;
 
     cphf->w_A_ = wB;  // Reversal of convention
     cphf->Cocc_A_ = Cocc0A;
@@ -8093,6 +8129,12 @@ void CPHF_FISAPT::compute_cphf() {
             double alpha = r_A->vector_dot(z_A) / p_A->vector_dot(s_A);
             if (alpha < 0.0) {
                 throw PSIEXCEPTION("Monomer A: A Matrix is not SPD");
+                //outfile->Printf("Monomer A: A Matrix is not SPD:\n");
+                //outfile->Printf("  min(r_A): %f\n", r_A->min());     
+                //outfile->Printf("  min(z_A): %f\n", z_A->min());     
+                
+                //outfile->Printf("  min(p_A): %f\n", p_A->min());     
+                //outfile->Printf("  min(s_A): %f\n", s_A->min());     
             }
             size_t no = x_A_->nrow();
             size_t nv = x_A_->ncol();
@@ -8110,6 +8152,12 @@ void CPHF_FISAPT::compute_cphf() {
             double alpha = r_B->vector_dot(z_B) / p_B->vector_dot(s_B);
             if (alpha < 0.0) {
                 throw PSIEXCEPTION("Monomer B: A Matrix is not SPD");
+                //outfile->Printf("Monomer B: A Matrix is not SPD:\n");
+                //outfile->Printf("  min(r_B): %f\n", r_B->min());     
+                //outfile->Printf("  min(z_B): %f\n", z_B->min());     
+                
+                //outfile->Printf("  min(p_B): %f\n", p_B->min());     
+                //outfile->Printf("  min(s_B): %f\n", s_B->min());     
             }
             int no = x_B_->nrow();
             int nv = x_B_->ncol();
