@@ -18,10 +18,20 @@ no_com
 }
 
 set {
-basis         jun-cc-pvdz
-scf_type df
+basis         jun-cc-pvdz 
+fisapt_do_fsapt true 
+scf_type dfdirj+cosx 
 guess sad
 freeze_core true
+screening schwarz 
+incfock true
+ints_tolerance 1e-10
+linK_ints_tolerance 1e-10 
+cosx_ints_tolerance 1e-10
+cphf_r_convergence 1e-6
+d_convergence 1e-6
+e_convergence 1e-6
+cosx_maxiter_final 0 
 }
 
 energy('fisapt0')
