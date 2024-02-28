@@ -3628,8 +3628,8 @@ void FISAPT::ind() {
     // Effective constructor
     cphf->delta_ = options_.get_double("D_CONVERGENCE");
     cphf->maxiter_ = options_.get_int("MAXITER");
-    //cphf->jk_ = jk_ref_;
-    cphf->jk_ = jk_df_;
+    cphf->jk_ = jk_ref_;
+    cphf->jk_df_ = jk_df_;
 
     cphf->w_A_ = wB;  // Reversal of convention
     cphf->Cocc_A_ = Cocc0A;
@@ -8122,19 +8122,46 @@ void CPHF_FISAPT::compute_cphf() {
             b["B"] = p_B;
         }
 
+        outfile->Printf("Start Product\n");
         std::map<std::string, std::shared_ptr<Matrix> > s = product(b);
-
+        outfile->Printf("End Product\n");
+        
+        // what are the matrices in question???
+        // r_A:
+        // z_A:
+        // p_A:
+        // s_A:
         if (r2A > delta_) {
             std::shared_ptr<Matrix> s_A = s["A"];
+
+            std::array<SharedMatrix, 4> matrices_to_print = { r_A, z_A, p_A, s_A }; 
+            for (const auto& matrix : matrices_to_print) {
+              auto name = matrix->name().c_str();
+              outfile->Printf("Matrix %s\n", name);
+              outfile->Printf("----------\n");
+            
+              constexpr size_t block_size = 5;
+              for (int irow = 0; irow != block_size; ++irow) {
+                for (int icol = 0; icol != block_size; ++icol) {
+                  outfile->Printf("%.10f, ", matrix->get(irow, icol));
+                }
+                outfile->Printf("\n");
+              }
+              outfile->Printf("\n");
+              auto [min_h, min_i, min_j] = matrix->min_idx();
+              outfile->Printf("  min(%s): %f at (%i, %i, %i)\n", name, matrix->min(), min_h, min_i, min_j);     
+          
+              outfile->Printf("\n");
+            }
+
             double alpha = r_A->vector_dot(z_A) / p_A->vector_dot(s_A);
+            outfile->Printf("  Numerator: %.10f\n", r_A->vector_dot(z_A));
+            outfile->Printf("  Denominator: %.10f\n", p_A->vector_dot(s_A));
+            outfile->Printf("  Alpha: %.10f\n", alpha);
+
             if (alpha < 0.0) {
                 throw PSIEXCEPTION("Monomer A: A Matrix is not SPD");
                 //outfile->Printf("Monomer A: A Matrix is not SPD:\n");
-                //outfile->Printf("  min(r_A): %f\n", r_A->min());     
-                //outfile->Printf("  min(z_A): %f\n", z_A->min());     
-                
-                //outfile->Printf("  min(p_A): %f\n", p_A->min());     
-                //outfile->Printf("  min(s_A): %f\n", s_A->min());     
             }
             size_t no = x_A_->nrow();
             size_t nv = x_A_->ncol();
@@ -8150,14 +8177,15 @@ void CPHF_FISAPT::compute_cphf() {
         if (r2B > delta_) {
             std::shared_ptr<Matrix> s_B = s["B"];
             double alpha = r_B->vector_dot(z_B) / p_B->vector_dot(s_B);
+            outfile->Printf("  min(r_B): %f\n", r_B->min());     
+            outfile->Printf("  min(z_B): %f\n", z_B->min());     
+            
+            outfile->Printf("  min(p_B): %f\n", p_B->min());     
+            outfile->Printf("  min(s_B): %f\n", s_B->min());     
+ 
             if (alpha < 0.0) {
                 throw PSIEXCEPTION("Monomer B: A Matrix is not SPD");
                 //outfile->Printf("Monomer B: A Matrix is not SPD:\n");
-                //outfile->Printf("  min(r_B): %f\n", r_B->min());     
-                //outfile->Printf("  min(z_B): %f\n", z_B->min());     
-                
-                //outfile->Printf("  min(p_B): %f\n", p_B->min());     
-                //outfile->Printf("  min(s_B): %f\n", s_B->min());     
             }
             int no = x_B_->nrow();
             int nv = x_B_->ncol();
@@ -8257,8 +8285,61 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
 
     jk_->compute();
 
+    if (jk_.get() != jk_df_.get()) {
+        std::vector<SharedMatrix>& Cl_df = jk_df_->C_left();
+        std::vector<SharedMatrix>& Cr_df = jk_df_->C_right();
+
+        Cl_df.clear();
+        Cr_df.clear();
+    
+        if (do_A) {
+            Cl_df.push_back(Cocc_A_);
+            auto T = linalg::doublet(Cvir_A_, b["A"], false, true);
+            Cr_df.push_back(T);
+        }
+    
+        if (do_B) {
+            Cl_df.push_back(Cocc_B_);
+            auto T = linalg::doublet(Cvir_B_, b["B"], false, true);
+            Cr_df.push_back(T);
+        }
+
+        jk_df_->compute();
+    }
+
     const std::vector<SharedMatrix>& J = jk_->J();
     const std::vector<SharedMatrix>& K = jk_->K();
+    const std::vector<SharedMatrix>& K_df = jk_df_->K();
+
+    for (int i = 0; i != K.size(); ++i) {
+      auto dKi = K[i]->clone();
+      dKi->subtract(K_df[i]);
+
+      std::array<SharedMatrix, 5> matrices_to_print = { Cl[i], Cr[i], K[i], K_df[i], dKi };
+
+      for (const auto& matrix : matrices_to_print) {
+        outfile->Printf("Matrix %s\n", matrix->name().c_str());
+        outfile->Printf("----------\n");
+    
+        constexpr size_t block_size = 5;
+        for (int irow = 0; irow != block_size; ++irow) {
+          for (int icol = 0; icol != block_size; ++icol) {
+            outfile->Printf("%.10f, ", matrix->get(irow, icol));
+          }
+          outfile->Printf("\n");
+        }
+        outfile->Printf("\n");
+      }
+    
+      {
+      outfile->Printf("K_df vs K_ref:\n");
+      outfile->Printf("----------\n");
+      outfile->Printf("  RMS: %.10f\n", dKi->rms());
+
+      auto [max_h, max_i, max_j] = dKi->absmax_idx();
+      outfile->Printf("  Absmax: %.10f at (%i, %i, %i)\n", dKi->absmax(), max_h, max_i, max_j);
+      }
+    }
 
     int indA = 0;
     int indB = (do_A ? 1 : 0);

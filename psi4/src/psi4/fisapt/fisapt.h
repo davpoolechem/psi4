@@ -224,6 +224,7 @@ class CPHF_FISAPT {
     int maxiter_;
     // JK Object
     std::shared_ptr<JK> jk_;
+    std::shared_ptr<JK> jk_df_;
 
     // => Monomer A Problem <= //
 
