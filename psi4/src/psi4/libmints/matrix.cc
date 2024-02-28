@@ -1335,6 +1335,26 @@ double Matrix::min() {
     return min;
 }
 
+std::tuple<int, int, int> Matrix::min_idx() {
+    double min = std::numeric_limits<double>::max(); 
+    std::array<int, 3> min_idx = { 0, 0, 0 };
+    for (int h = 0; h < nirrep_; ++h) {
+        for (int i = 0; i < rowspi_[h]; ++i) {
+            for (int j = 0; j < colspi_[h ^ symmetry_]; ++j) {
+                double val = matrix_[h][i][j];
+                if (val < min) {
+                    min = val;
+                    min_idx[0] = h; 
+                    min_idx[1] = i; 
+                    min_idx[2] = j; 
+                }
+            }
+        }
+    }
+
+    return std::tie(min_idx[0], min_idx[1], min_idx[2]);
+}
+
 void Matrix::transform(const Matrix *const a, const Matrix *const transformer) {
     transform(*a, *transformer);
 }

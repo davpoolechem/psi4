@@ -315,7 +315,7 @@ void COSK::print_header() const {
         outfile->Printf("    K Density Cutoff:   %11.0E\n", dscreen_);
         outfile->Printf("    K Basis Cutoff:     %11.0E\n", basis_tol_);
         outfile->Printf("    K Overlap Fitting:  %11s\n\n", (overlap_fitted_ ? "Yes" : "No"));
-        //outfile->Printf("    (Debug) K Grid ID:  %11s\n\n", current_grid_.c_str()); 
+        outfile->Printf("    (Debug) K Grid ID:  %11s\n\n", current_grid_.c_str()); 
     }
 }
 
