@@ -2233,9 +2233,9 @@ void FISAPT::dHF() {
     std::shared_ptr<Matrix> LD_B = linalg::doublet(LoccB, LoccB, false, true);
 
     // Get J and K from A and B HF localized orbitals while we are at it
-    bool link_enabled = options_.get_str("SCF_TYPE").find("LINK") != std::string::npos;
-    link_enabled = false;
-    if (link_enabled) { jk_ref_ = jk_df_; } else { jk_ref_ = jk_; };
+    //bool link_enabled = options_.get_str("SCF_TYPE").find("LINK") != std::string::npos;
+    //link_enabled = false;
+    //if (link_enabled) { jk_ref_ = jk_df_; } else { jk_ref_ = jk_; };
     
     std::vector<SharedMatrix>& Cl = jk_ref_->C_left();
     std::vector<SharedMatrix>& Cr = jk_ref_->C_right();
@@ -2479,12 +2479,12 @@ void FISAPT::exch() {
     std::vector<SharedMatrix>& Cr = jk_ref_->C_right();
     const std::vector<SharedMatrix>& J = jk_ref_->J();
     const std::vector<SharedMatrix>& K = jk_ref_->K();
-
+/*
     std::vector<SharedMatrix>& Cl_df = jk_df_->C_left();
     std::vector<SharedMatrix>& Cr_df = jk_df_->C_right();
     const std::vector<SharedMatrix>& J_df = jk_df_->J();
     const std::vector<SharedMatrix>& K_df = jk_df_->K();
-
+*/
     // ==> Exchange Terms (S^2, MCBS or DCBS) <== //
 
     std::string link_assignment = options_.get_str("FISAPT_LINK_ASSIGNMENT");
@@ -2500,6 +2500,7 @@ void FISAPT::exch() {
     Cr.push_back(C_O);
     jk_ref_->compute();
 
+/*
     if (jk_ref_.get() != jk_df_.get()) {
         Cl_df.clear();
         Cr_df.clear();
@@ -2507,9 +2508,11 @@ void FISAPT::exch() {
         Cr_df.push_back(C_O);
         jk_df_->compute();
     }
+*/
     std::shared_ptr<Matrix> K_O = K[0];
-    std::shared_ptr<Matrix> K_O_df = K_df[0];
+    //std::shared_ptr<Matrix> K_O_df = K_df[0];
 
+/*
     auto dK_O = K_O_df->clone();
     dK_O->subtract(K_O);
 
@@ -2539,44 +2542,45 @@ void FISAPT::exch() {
 
     outfile->Printf("Exch10_2M terms:\n");
     outfile->Printf("----------------\n");
+    */
     double Exch10_2M = 0.0;
     std::vector<double> Exch10_2M_terms;
     Exch10_2M_terms.resize(6);
     Exch10_2M_terms[0] -= 2.0 * D_A->vector_dot(K_B);
-    outfile->Printf("  0 <- %f\n", -(D_A->vector_dot(K_B)));
+    //outfile->Printf("  0 <- %f\n", -(D_A->vector_dot(K_B)));
     
     Exch10_2M_terms[1] -= 2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(V_A);
-    outfile->Printf("  1 <- %f\n", -(2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(V_A)));
+    //outfile->Printf("  1 <- %f\n", -(2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(V_A)));
     
     Exch10_2M_terms[1] -= 4.0 * linalg::triplet(D_A, S, D_B)->vector_dot(J_A);
-    outfile->Printf("  1 <- %f\n", -(4.0 * linalg::triplet(D_A, S, D_B)->vector_dot(J_A)));
+    //outfile->Printf("  1 <- %f\n", -(4.0 * linalg::triplet(D_A, S, D_B)->vector_dot(J_A)));
 
     Exch10_2M_terms[1] += 2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(K_A);
-    outfile->Printf("  1 <- %f\n", 2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(K_A));
+    //outfile->Printf("  1 <- %f\n", 2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(K_A));
 
     Exch10_2M_terms[2] -= 2.0 * linalg::triplet(D_B, S, D_A)->vector_dot(V_B);
-    outfile->Printf("  2 <- %f\n", -(2.0 * linalg::triplet(D_B, S, D_A)->vector_dot(V_B)));
+    //outfile->Printf("  2 <- %f\n", -(2.0 * linalg::triplet(D_B, S, D_A)->vector_dot(V_B)));
 
     Exch10_2M_terms[2] -= 4.0 * linalg::triplet(D_B, S, D_A)->vector_dot(J_B);
-    outfile->Printf("  2 <- %f\n", -(4.0 * linalg::triplet(D_B, S, D_A)->vector_dot(J_B)));
+    //outfile->Printf("  2 <- %f\n", -(4.0 * linalg::triplet(D_B, S, D_A)->vector_dot(J_B)));
 
     Exch10_2M_terms[2] += 2.0 * linalg::triplet(D_B, S, D_A)->vector_dot(K_B);
-    outfile->Printf("  2 <- %f\n", 2.0 * linalg::triplet(D_B, S, D_A)->vector_dot(K_B));
+    //outfile->Printf("  2 <- %f\n", 2.0 * linalg::triplet(D_B, S, D_A)->vector_dot(K_B));
 
     Exch10_2M_terms[3] += 2.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, D_B)->vector_dot(V_A);
-    outfile->Printf("  3 <- %f\n", 2.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, D_B)->vector_dot(V_A));
+    //outfile->Printf("  3 <- %f\n", 2.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, D_B)->vector_dot(V_A));
 
     Exch10_2M_terms[3] += 4.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, D_B)->vector_dot(J_A);
-    outfile->Printf("  3 <- %f\n", 4.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, D_B)->vector_dot(J_A));
+    //outfile->Printf("  3 <- %f\n", 4.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, D_B)->vector_dot(J_A));
 
     Exch10_2M_terms[4] += 2.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, D_A)->vector_dot(V_B);
-    outfile->Printf("  4 <- %f\n", 2.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, D_A)->vector_dot(V_B));
+    //outfile->Printf("  4 <- %f\n", 2.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, D_A)->vector_dot(V_B));
 
     Exch10_2M_terms[4] += 4.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, D_A)->vector_dot(J_B);
-    outfile->Printf("  4 <- %f\n", 4.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, D_A)->vector_dot(J_B));
+    //outfile->Printf("  4 <- %f\n", 4.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, D_A)->vector_dot(J_B));
 
     Exch10_2M_terms[5] -= 2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(K_O);
-    outfile->Printf("  5 <- %f\n", -(2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(K_O)));
+    //outfile->Printf("  5 <- %f\n", -(2.0 * linalg::triplet(D_A, S, D_B)->vector_dot(K_O)));
 
     for (int k = 0; k < Exch10_2M_terms.size(); k++) {
         Exch10_2M += Exch10_2M_terms[k];
@@ -2612,6 +2616,36 @@ void FISAPT::exch() {
     //scalars_["Exch10(S^2)"] = Exch10_2;
     //outfile->Printf("    Exch10(S^2) [DCBS]  = %18.12lf [Eh]\n",Exch10_2);
     //outfile->Printf("    Exch10(S^2)         = %18.12lf [Eh]\n", Exch10_2);
+    // => Accumulation <= //
+//    outfile->Printf("Exch10_2 terms:\n");
+//    outfile->Printf("----------------\n");
+    double Exch10_2 = 0.0;
+    std::vector<double> Exch10_2_terms;
+    Exch10_2_terms.resize(3);
+    Exch10_2_terms[0] -= 2.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, P_A)->vector_dot(V_B);
+    //outfile->Printf("  0 <- %f\n", -2.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, P_A)->vector_dot(V_B));
+    
+    Exch10_2_terms[0] -= 4.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, P_A)->vector_dot(J_B);
+    //outfile->Printf("  0 <- %f\n", -4.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, P_A)->vector_dot(J_B));
+    
+    Exch10_2_terms[1] -= 2.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, P_B)->vector_dot(V_A);
+    //outfile->Printf("  1 <- %f\n", -2.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, P_B)->vector_dot(V_A));
+    
+    Exch10_2_terms[1] -= 4.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, P_B)->vector_dot(J_A);
+    //outfile->Printf("  1 <- %f\n", -4.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, P_B)->vector_dot(J_A));
+    
+    Exch10_2_terms[2] -= 2.0 * linalg::triplet(P_A, S, D_B)->vector_dot(K_AS);
+    //outfile->Printf("  2 <- %f\n", -2.0 * linalg::triplet(P_A, S, D_B)->vector_dot(K_AS));
+    for (int k = 0; k < Exch10_2_terms.size(); k++) {
+        Exch10_2 += Exch10_2_terms[k];
+    }
+    for (int k = 0; k < Exch10_2_terms.size(); k++) {
+       outfile->Printf("    Exch10(S^2) (%1d)     = %18.12lf [Eh]\n",k+1,Exch10_2_terms[k]);
+    }
+    scalars_["Exch10(S^2)"] = Exch10_2;
+    outfile->Printf("    Exch10(S^2) [DCBS]  = %18.12lf [Eh]\n",Exch10_2);
+    outfile->Printf("    Exch10(S^2)         = %18.12lf [Eh]\n", Exch10_2);
+>>>>>>> Comment out a lot of CPHF debug printout for now
     // fflush(outfile);
 
     // ==> Exchange Terms (S^\infty, MCBS or DCBS) <== //
@@ -8123,21 +8157,17 @@ void CPHF_FISAPT::compute_cphf() {
             b["B"] = p_B;
         }
 
-        outfile->Printf("Start Product\n");
+        //outfile->Printf("Start Product\n");
         std::map<std::string, std::shared_ptr<Matrix> > s = product(b);
-        outfile->Printf("End Product\n");
+        //outfile->Printf("End Product\n");
         
-        // what are the matrices in question???
-        // r_A:
-        // z_A:
-        // p_A:
-        // s_A:
         if (r2A > delta_) {
             std::shared_ptr<Matrix> s_A = s["A"];
-
+/*
             std::array<SharedMatrix, 4> matrices_to_print = { r_A, z_A, p_A, s_A }; 
             for (const auto& matrix : matrices_to_print) {
               auto name = matrix->name().c_str();
+
               outfile->Printf("Matrix %s\n", name);
               outfile->Printf("----------\n");
             
@@ -8154,12 +8184,13 @@ void CPHF_FISAPT::compute_cphf() {
           
               outfile->Printf("\n");
             }
-
+*/
             double alpha = r_A->vector_dot(z_A) / p_A->vector_dot(s_A);
+/*
             outfile->Printf("  Numerator: %.10f\n", r_A->vector_dot(z_A));
             outfile->Printf("  Denominator: %.10f\n", p_A->vector_dot(s_A));
             outfile->Printf("  Alpha: %.10f\n", alpha);
-
+*/
             if (alpha < 0.0) {
                 throw PSIEXCEPTION("Monomer A: A Matrix is not SPD");
                 //outfile->Printf("Monomer A: A Matrix is not SPD:\n");
@@ -8178,12 +8209,13 @@ void CPHF_FISAPT::compute_cphf() {
         if (r2B > delta_) {
             std::shared_ptr<Matrix> s_B = s["B"];
             double alpha = r_B->vector_dot(z_B) / p_B->vector_dot(s_B);
+/*
             outfile->Printf("  min(r_B): %f\n", r_B->min());     
             outfile->Printf("  min(z_B): %f\n", z_B->min());     
             
             outfile->Printf("  min(p_B): %f\n", p_B->min());     
             outfile->Printf("  min(s_B): %f\n", s_B->min());     
- 
+ */
             if (alpha < 0.0) {
                 throw PSIEXCEPTION("Monomer B: A Matrix is not SPD");
                 //outfile->Printf("Monomer B: A Matrix is not SPD:\n");
@@ -8285,7 +8317,7 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
     }
  
     jk_->compute();
-
+/*
     std::vector<SharedMatrix> J; 
     std::vector<SharedMatrix> K; 
     for (int i = 0; i != jk_->J().size(); ++i) {
@@ -8293,8 +8325,8 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
         K.push_back(jk_->K()[i]->clone());
     } 
     
-    //if (jk_.get() != jk_df_.get()) {
-    {
+    if (jk_.get() != jk_df_.get()) {
+    //{
         std::vector<SharedMatrix>& Cl_df = jk_df_->C_left();
         std::vector<SharedMatrix>& Cr_df = jk_df_->C_right();
 
@@ -8322,12 +8354,11 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
         J_df.push_back(jk_df_->J()[i]->clone());
         K_df.push_back(jk_df_->K()[i]->clone());
     } 
- 
+*/
+    const std::vector<SharedMatrix>& J = jk_->J();
+    const std::vector<SharedMatrix>& K = jk_->K();
 
-    //const std::vector<SharedMatrix>& J = jk_->J();
-    //const std::vector<SharedMatrix>& K = jk_->K();
-    //const std::vector<SharedMatrix>& K_df = jk_df_->K();
-
+/*
     for (int i = 0; i != K.size(); ++i) {
       auto dKi = K[i]->clone();
       dKi->subtract(K_df[i]);
@@ -8365,6 +8396,7 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
       ); 
       }
     }
+*/
 
     int indA = 0;
     int indB = (do_A ? 1 : 0);
