@@ -3628,6 +3628,7 @@ void FISAPT::ind() {
     // Effective constructor
     cphf->delta_ = options_.get_double("D_CONVERGENCE");
     cphf->maxiter_ = options_.get_int("MAXITER");
+    //cphf->jk_ = jk_ref_;
     cphf->jk_ = jk_ref_;
     cphf->jk_df_ = jk_df_;
 
@@ -3734,7 +3735,7 @@ void FISAPT::ind() {
     }
 
     // => Kill the JK Object <= //
-
+    jk_ref_.reset();
     jk_df_.reset();
 }
 
@@ -8270,22 +8271,30 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
     std::vector<SharedMatrix>& Cr = jk_->C_right();
     Cl.clear();
     Cr.clear();
-
+ 
     if (do_A) {
         Cl.push_back(Cocc_A_);
         auto T = linalg::doublet(Cvir_A_, b["A"], false, true);
         Cr.push_back(T);
     }
-
+ 
     if (do_B) {
         Cl.push_back(Cocc_B_);
         auto T = linalg::doublet(Cvir_B_, b["B"], false, true);
         Cr.push_back(T);
     }
-
+ 
     jk_->compute();
 
-    if (jk_.get() != jk_df_.get()) {
+    std::vector<SharedMatrix> J; 
+    std::vector<SharedMatrix> K; 
+    for (int i = 0; i != jk_->J().size(); ++i) {
+        J.push_back(jk_->J()[i]->clone());
+        K.push_back(jk_->K()[i]->clone());
+    } 
+    
+    //if (jk_.get() != jk_df_.get()) {
+    {
         std::vector<SharedMatrix>& Cl_df = jk_df_->C_left();
         std::vector<SharedMatrix>& Cr_df = jk_df_->C_right();
 
@@ -8307,9 +8316,17 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
         jk_df_->compute();
     }
 
-    const std::vector<SharedMatrix>& J = jk_->J();
-    const std::vector<SharedMatrix>& K = jk_->K();
-    const std::vector<SharedMatrix>& K_df = jk_df_->K();
+    std::vector<SharedMatrix> J_df; 
+    std::vector<SharedMatrix> K_df; 
+    for (int i = 0; i != jk_df_->J().size(); ++i) {
+        J_df.push_back(jk_df_->J()[i]->clone());
+        K_df.push_back(jk_df_->K()[i]->clone());
+    } 
+ 
+
+    //const std::vector<SharedMatrix>& J = jk_->J();
+    //const std::vector<SharedMatrix>& K = jk_->K();
+    //const std::vector<SharedMatrix>& K_df = jk_df_->K();
 
     for (int i = 0; i != K.size(); ++i) {
       auto dKi = K[i]->clone();
@@ -8338,6 +8355,14 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
 
       auto [max_h, max_i, max_j] = dKi->absmax_idx();
       outfile->Printf("  Absmax: %.10f at (%i, %i, %i)\n", dKi->absmax(), max_h, max_i, max_j);
+      outfile->Printf("  Reldev Absmax (K_ref): %3.2f (%.10f / %.10f) \n", 
+          100 * dKi->absmax() / std::abs(K[i]->get(max_h, max_i, max_j)), 
+          dKi->absmax(), std::abs(K[i]->get(max_h, max_i, max_j))
+      );
+      outfile->Printf("  Reldev Absmax (K_df): %3.2f (%.10f / %.10f) \n", 
+          100 * dKi->absmax() / std::abs(K_df[i]->get(max_h, max_i, max_j)), 
+          dKi->absmax(), std::abs(K_df[i]->get(max_h, max_i, max_j))
+      ); 
       }
     }
 
