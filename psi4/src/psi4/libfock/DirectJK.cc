@@ -350,6 +350,24 @@ void DirectJK::compute_JK() {
     // Passed in as a dummy when J (and/or K) is not built
     std::vector<SharedMatrix> temp;
 
+    for (auto& iD_ref : D_ref_) { 
+      outfile->Printf("Matrix %s\n", iD_ref->name().c_str());
+      outfile->Printf("----------\n");
+
+      constexpr size_t block_size = 5;
+      for (int irow = 0; irow != block_size; ++irow) {
+        for (int icol = 0; icol != block_size; ++icol) {
+          outfile->Printf("%.10f, ", iD_ref->get(irow, icol));
+        }
+        outfile->Printf("\n");
+      }
+      outfile->Printf("\n");
+     
+      auto dD_ref = iD_ref->clone();
+      dD_ref->subtract(iD_ref->clone()->transpose());
+      outfile->Printf("  RMS: %.10f\n\n", dD_ref->rms());
+    }
+
     if (do_wK_) {
         std::vector<std::shared_ptr<TwoBodyAOInt>> ints;
         for (int thread = 0; thread < df_ints_num_threads_; thread++) {
