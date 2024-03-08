@@ -212,6 +212,8 @@ class FISAPTSCF {
     std::map<std::string, std::shared_ptr<Matrix> >& matrices() { return matrices_; }
 };
 
+/// Good old CPHF, for the purposes of FISAPT 
+/// Seems to be based on the algorithm in https://doi.org/10.1002/jcc.20633 
 class CPHF_FISAPT {
     friend class FISAPT;
 
@@ -226,6 +228,24 @@ class CPHF_FISAPT {
     std::shared_ptr<JK> jk_;
     std::shared_ptr<JK> jk_df_;
 
+    // => Important Notice <= //
+   
+    // While the algorithm used in this class seems to correspond to 
+    // https://doi.org/10.1002/jcc.20633, the variable naming scheme below 
+    // does not match. This little table will map the terminology
+    // used in the code, to matrices listed in the reference paper.
+    // N stands for monomer N ⊂ { A, B }.
+    //
+    // |---------------------|-------------------------|
+    // |         Code        |        Reference        |   
+    // |---------------------|-------------------------|
+    // |         w_N_        |             B???        |
+    // |         x_N_        |             U???        | 
+    // |       Cocc_N_       |             C           |
+    // |       Cvir_N_       |             C           |
+    // |          b          |           U????         |
+    // |---------------------|-------------------------|
+    
     // => Monomer A Problem <= //
 
     // Perturbation applied to A
@@ -257,6 +277,7 @@ class CPHF_FISAPT {
     std::shared_ptr<Vector> eps_vir_B_;
 
     // Form the s = Ab product for the provided vectors b (may or may not need more iterations)
+    // Seems to solve Eq. 2 of https://doi.org/10.1002/jcc.20633 
     std::map<std::string, std::shared_ptr<Matrix> > product(std::map<std::string, std::shared_ptr<Matrix> > b);
     // Apply the denominator from r into z
     void preconditioner(std::shared_ptr<Matrix> r, std::shared_ptr<Matrix> z, std::shared_ptr<Vector> o,

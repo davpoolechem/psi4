@@ -869,7 +869,7 @@ void FISAPT::coulomb() {
         throw PSIEXCEPTION("DF algorithm is not being used, but jk_ and jk_df_ refer to the same object!");
     }
 
-    jk_ref_ = jk_df_;
+    jk_ref_ = jk_;
 
     // => Build J and K for embedding <= //
 
@@ -3663,7 +3663,7 @@ void FISAPT::ind() {
     cphf->delta_ = options_.get_double("D_CONVERGENCE");
     cphf->maxiter_ = options_.get_int("MAXITER");
     //cphf->jk_ = jk_ref_;
-    cphf->jk_ = jk_ref_;
+    cphf->jk_ = jk_df_;
     cphf->jk_df_ = jk_df_;
 
     cphf->w_A_ = wB;  // Reversal of convention
@@ -3769,6 +3769,7 @@ void FISAPT::ind() {
     }
 
     // => Kill the JK Object <= //
+    jk_.reset();
     jk_ref_.reset();
     jk_df_.reset();
 }
@@ -8299,6 +8300,8 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
     bool do_A = b.count("A");
     bool do_B = b.count("B");
 
+    // form pseudo-density for monomers A and B???
+    // Eq. 3 in https://doi.org/10.1002/jcc.20633 
     std::vector<SharedMatrix>& Cl = jk_->C_left();
     std::vector<SharedMatrix>& Cr = jk_->C_right();
     Cl.clear();
@@ -8315,8 +8318,10 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
         auto T = linalg::doublet(Cvir_B_, b["B"], false, true);
         Cr.push_back(T);
     }
- 
+
+    // compute J-like and K-like terms using pseudo-densities 
     jk_->compute();
+
 /*
     std::vector<SharedMatrix> J; 
     std::vector<SharedMatrix> K; 
@@ -8402,12 +8407,17 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
     int indB = (do_A ? 1 : 0);
 
     if (do_A) {
+        // construct Fock-like term from computed pseudo-Js and Ks
+        // Eq. 4 in https://doi.org/10.1002/jcc.20633 
+        // Jv acts as the G term from Eq. 4
         std::shared_ptr<Matrix> Jv = J[indA];
         std::shared_ptr<Matrix> Kv = K[indA];
         Jv->scale(4.0);
         Jv->subtract(Kv);
         Jv->subtract(Kv->transpose());
 
+        // back-transform to MO basis???
+        // Eq. 5 in https://doi.org/10.1002/jcc.20633  
         int no = b["A"]->nrow();
         int nv = b["A"]->ncol();
         int nso = Cvir_A_->nrow();
@@ -8425,12 +8435,17 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
     }
 
     if (do_B) {
+        // construct Fock-like term from computed pseudo-Js and Ks
+        // Eq. 4 in https://doi.org/10.1002/jcc.20633 
+        // Jv acts as the G term from Eq. 4
         std::shared_ptr<Matrix> Jv = J[indB];
         std::shared_ptr<Matrix> Kv = K[indB];
         Jv->scale(4.0);
         Jv->subtract(Kv);
         Jv->subtract(Kv->transpose());
 
+        // back-transform to MO basis???
+        // Eq. 5 in https://doi.org/10.1002/jcc.20633 
         int no = b["B"]->nrow();
         int nv = b["B"]->ncol();
         s["B"] = linalg::triplet(Cocc_B_, Jv, Cvir_B_, true, false, false);
