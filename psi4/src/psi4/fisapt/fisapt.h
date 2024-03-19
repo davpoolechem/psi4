@@ -239,16 +239,19 @@ class CPHF_FISAPT {
     // |---------------------|-------------------------|
     // |         Code        |        Reference        |   
     // |---------------------|-------------------------|
-    // |         w_N_        |             B???        |
-    // |         x_N_        |             U???        | 
-    // |       Cocc_N_       |             C           |
-    // |       Cvir_N_       |             C           |
+    // |         w_N_        |            B            |
+    // |         x_N_        |            U            | 
+    // |       Cocc_N_       |            C            |
+    // |       Cvir_N_       |            C            |
     // |          b          |           U????         |
     // |---------------------|-------------------------|
     
     // => Monomer A Problem <= //
 
     // Perturbation applied to A
+    // Equivalent to V^{A} in Rob's thesis 
+    // (https://repository.gatech.edu/entities/publication/3b07d336-b2f7-4eac-b376-e20c7a93f103) 
+    // see Eqs. 227-229
     std::shared_ptr<Matrix> w_A_;
     // Response of A
     std::shared_ptr<Matrix> x_A_;
@@ -264,6 +267,9 @@ class CPHF_FISAPT {
     // => Monomer B Problem <= //
 
     // Perturbation applied to B
+    // Equivalent to V^{B} in Rob's thesis 
+    // (https://repository.gatech.edu/entities/publication/3b07d336-b2f7-4eac-b376-e20c7a93f103) 
+    // see Eqs. 227-229
     std::shared_ptr<Matrix> w_B_;
     // Response of B
     std::shared_ptr<Matrix> x_B_;
