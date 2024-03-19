@@ -869,7 +869,7 @@ void FISAPT::coulomb() {
         throw PSIEXCEPTION("DF algorithm is not being used, but jk_ and jk_df_ refer to the same object!");
     }
 
-    jk_ref_ = jk_;
+    jk_ref_ = jk_df_;
 
     // => Build J and K for embedding <= //
 
@@ -900,8 +900,8 @@ void FISAPT::coulomb() {
         jk_df_->initialize();
     }
 
-    //jk_ref_->print_header();
-    jk_ref_->compute();
+    jk_ref_->print_header();
+    //jk_df_->compute();
 
     int nn = primary_->nbf();
     matrices_["JC"] = std::make_shared<Matrix>("JC", nn, nn);
@@ -2619,33 +2619,32 @@ void FISAPT::exch() {
     // => Accumulation <= //
 //    outfile->Printf("Exch10_2 terms:\n");
 //    outfile->Printf("----------------\n");
-    double Exch10_2 = 0.0;
-    std::vector<double> Exch10_2_terms;
-    Exch10_2_terms.resize(3);
-    Exch10_2_terms[0] -= 2.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, P_A)->vector_dot(V_B);
+    //double Exch10_2 = 0.0;
+    //std::vector<double> Exch10_2_terms;
+    //Exch10_2_terms.resize(3);
+    //Exch10_2_terms[0] -= 2.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, P_A)->vector_dot(V_B);
     //outfile->Printf("  0 <- %f\n", -2.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, P_A)->vector_dot(V_B));
     
-    Exch10_2_terms[0] -= 4.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, P_A)->vector_dot(J_B);
+    //Exch10_2_terms[0] -= 4.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, P_A)->vector_dot(J_B);
     //outfile->Printf("  0 <- %f\n", -4.0 * linalg::triplet(linalg::triplet(D_A, S, D_B), S, P_A)->vector_dot(J_B));
     
-    Exch10_2_terms[1] -= 2.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, P_B)->vector_dot(V_A);
+    //Exch10_2_terms[1] -= 2.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, P_B)->vector_dot(V_A);
     //outfile->Printf("  1 <- %f\n", -2.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, P_B)->vector_dot(V_A));
     
-    Exch10_2_terms[1] -= 4.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, P_B)->vector_dot(J_A);
+    //Exch10_2_terms[1] -= 4.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, P_B)->vector_dot(J_A);
     //outfile->Printf("  1 <- %f\n", -4.0 * linalg::triplet(linalg::triplet(D_B, S, D_A), S, P_B)->vector_dot(J_A));
     
-    Exch10_2_terms[2] -= 2.0 * linalg::triplet(P_A, S, D_B)->vector_dot(K_AS);
+    //Exch10_2_terms[2] -= 2.0 * linalg::triplet(P_A, S, D_B)->vector_dot(K_AS);
     //outfile->Printf("  2 <- %f\n", -2.0 * linalg::triplet(P_A, S, D_B)->vector_dot(K_AS));
-    for (int k = 0; k < Exch10_2_terms.size(); k++) {
-        Exch10_2 += Exch10_2_terms[k];
-    }
-    for (int k = 0; k < Exch10_2_terms.size(); k++) {
-       outfile->Printf("    Exch10(S^2) (%1d)     = %18.12lf [Eh]\n",k+1,Exch10_2_terms[k]);
-    }
-    scalars_["Exch10(S^2)"] = Exch10_2;
-    outfile->Printf("    Exch10(S^2) [DCBS]  = %18.12lf [Eh]\n",Exch10_2);
-    outfile->Printf("    Exch10(S^2)         = %18.12lf [Eh]\n", Exch10_2);
->>>>>>> Comment out a lot of CPHF debug printout for now
+    //for (int k = 0; k < Exch10_2_terms.size(); k++) {
+    //    Exch10_2 += Exch10_2_terms[k];
+    //}
+    //for (int k = 0; k < Exch10_2_terms.size(); k++) {
+    //   outfile->Printf("    Exch10(S^2) (%1d)     = %18.12lf [Eh]\n",k+1,Exch10_2_terms[k]);
+    //}
+    //scalars_["Exch10(S^2)"] = Exch10_2;
+    //utfile->Printf("    Exch10(S^2) [DCBS]  = %18.12lf [Eh]\n",Exch10_2);
+    //utfile->Printf("    Exch10(S^2)         = %18.12lf [Eh]\n", Exch10_2);
     // fflush(outfile);
 
     // ==> Exchange Terms (S^\infty, MCBS or DCBS) <== //
