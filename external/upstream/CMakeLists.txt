@@ -25,7 +25,6 @@ foreach(dir
   brianqc
   ddx
   integratorxx
-  exchcxx 
   gauxc 
   )
   add_subdirectory(${dir})
