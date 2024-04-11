@@ -78,6 +78,30 @@ def scf_compute_energy(self):
         if self.initialized_diis_manager_:
             self.diis_manager_.reset_subspace()
         self.initialize_jk(self.memory_jk_)
+    elif core.get_option('SCF', 'SNLINK_DIRGUESS') and any([ core.get_global_option('SCF_TYPE') == x for x in [ 'DFDIRJ+SNLINK' ] ]):
+        core.print_out("  Starting with a DF-DirJ+LinK guess...\n\n")
+        with p4util.OptionsStateCM(['SCF_TYPE', 'SCREENING']):
+            #with p4util.OptionsStateCM(['SCF', 'E_CONVERGENCE', 'D_CONVERGENCE']):
+            with p4util.OptionsStateCM(['SCF', 'E_CONVERGENCE']):
+                with p4util.OptionsStateCM(['SCF', 'D_CONVERGENCE']):
+                    core.set_global_option('SCF_TYPE', 'DFDIRJ+LINK')
+                    core.set_global_option('SCREENING', "DENSITY")
+                    core.set_local_option('SCF', 'E_CONVERGENCE', 1e-4)
+                    core.set_local_option('SCF', 'D_CONVERGENCE', 1e-4)
+
+                    self.initialize()
+                    try:
+                        self.iterations()
+                    except SCFConvergenceError:
+                        self.finalize()
+                        raise SCFConvergenceError("""SCF DF-DirJ+LinK preiterations""", self.iteration_, self, 0, 0)
+        core.print_out("\n  LinK guess converged.\n\n")
+
+       # reset the DIIS & JK objects in prep for DIRECT
+        core.set_global_option('SCF_TYPE', 'DFDIRJ+SNLINK')
+        if self.initialized_diis_manager_:
+            self.diis_manager_.reset_subspace()
+        self.initialize_jk(self.memory_jk_)
     else:
         self.initialize()
     self.iteration_energies = []

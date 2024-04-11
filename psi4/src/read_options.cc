@@ -1420,6 +1420,8 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
             orbitals before switching to the use of exact integrals in
             a |globals__scf_type| ``DIRECT`` calculation -*/
         options.add_bool("DF_SCF_GUESS", true);
+        /*- Do a DF-DirJ+LinK guess before DF-DirJ+sn-LinK? -*/
+        options.add_bool("SNLINK_DIRGUESS", true);
         /*- For certain |globals__scf_type| algorithms that have internal sub-algorithms
             depending on available memory or other hardware constraints, allow the best
             sub-algorithm for the molecule and conditions (``AUTO`` ; usual mode) or
