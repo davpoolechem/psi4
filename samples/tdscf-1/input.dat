@@ -21,10 +21,11 @@ symmetry c1
 
 set {
     reference uhf
-    scf_type dfdirj+link 
+    scf_type dfdirj+link
+    df_basis_scf aug-cc-pVQZ-jkfit
     screening density 
-    incfock true 
-    ints_tolerance 0.0 
+    incfock false
+    ints_tolerance 1e-14
 }
 
 set scf tdscf_states [9]
