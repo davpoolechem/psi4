@@ -29,7 +29,6 @@
 #ifndef JK_H
 #define JK_H
 
-#include <optional>
 #include <vector>
 
 #include "psi4/pragma.h"
@@ -389,7 +388,7 @@ class PSI_API JK {
     static std::shared_ptr<JK> build_JK(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary,
                                         Options& options, std::string jk_type);
     static std::shared_ptr<JK> build_JK(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary,
-                                        Options& options, bool do_wK, size_t doubles, const std::optional<std::string>& overriden_jk_type = std::nullopt);
+                                        Options& options, bool do_wK, size_t doubles);
 
     /// Do we need to backtransform to C1 under the hood?
     virtual bool C1() const = 0;
@@ -585,12 +584,6 @@ class PSI_API JK {
     * type on output file
     */
     virtual void print_header() const = 0;
-
-
-    /**
-    * Method-specific knobs, if necessary
-    */
-    virtual bool do_incfock_iter() { return false; }
 };
 
 // => APPLIED CLASSES <= //
@@ -819,7 +812,7 @@ class PSI_API DirectJK : public JK {
     void set_df_ints_num_threads(int val) { df_ints_num_threads_ = val; }
 
     // => Accessors <= //
-    bool do_incfock_iter() override { return do_incfock_iter_; }
+    bool do_incfock_iter() { return do_incfock_iter_; }
 
     /**
     * Print header information regarding JK
@@ -1288,7 +1281,7 @@ class PSI_API CompositeJK : public JK {
     /// Destructor
     ~CompositeJK() override;
 
-    bool do_incfock_iter() override { return do_incfock_iter_; }
+    bool do_incfock_iter() { return do_incfock_iter_; }
 
     /**
      * Clear D_prev_
