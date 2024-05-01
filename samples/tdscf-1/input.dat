@@ -21,9 +21,10 @@ symmetry c1
 
 set {
     reference uhf
-    scf_type pk
-    e_convergence 8
-    d_convergence 8
+    scf_type dfdirj+link 
+    screening density 
+    incfock true 
+    ints_tolerance 0.0 
 }
 
 set scf tdscf_states [9]
