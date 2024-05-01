@@ -204,8 +204,8 @@ std::shared_ptr<JK> JK::build_JK(std::shared_ptr<BasisSet> primary, std::shared_
     return build_JK(primary, auxiliary, options, options.get_str("SCF_TYPE"));
 }
 std::shared_ptr<JK> JK::build_JK(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary,
-                                 Options& options, bool do_wK, size_t doubles) {
-    std::string jk_type = options.get_str("SCF_TYPE");
+                                 Options& options, bool do_wK, size_t doubles, const std::optional<std::string>& overriden_jk_type) {
+    std::string jk_type = overriden_jk_type.value_or(options.get_str("SCF_TYPE"));
     if (jk_type == "DF") {
         // logic for MemDFJK vs DiskDFJK
         if (options["DF_INTS_IO"].has_changed()) {
@@ -593,13 +593,36 @@ void JK::AO2USO() {
 void JK::initialize() { preiterations(); }
 
 void JK::compute() {
+    print_header();
     // Is this density symmetric?
     if (C_left_.size() && !C_right_.size()) {
         lr_symmetric_ = true;
         C_right_ = C_left_;
+        //outfile->Printf("lr_symm condition #1 met!\n");
+    } else if (!C_left_.size() && !C_right_.size()) {
+        lr_symmetric_ = true; 
+        //outfile->Printf("lr_symm condition #2 met!\n");
     } else {
-        lr_symmetric_ = false;
+        //outfile->Printf("lr_symm condition #3 met...\n");
+
+        lr_symmetric_ = true;
+        if (C_left_.size() == C_right_.size()) {
+            for (int iC = 0; iC != C_left_.size(); ++iC) { 
+                SharedMatrix iCl = C_left_[iC]->clone();
+                SharedMatrix iCr = C_right_[iC]->clone();
+
+                iCl->subtract(*iCr);
+                auto rms = iCl->rms();
+                auto absmax = iCl->absmax();
+                //outfile->Printf("  %i, %.8f, %.8f\n", iC, rms, absmax);
+                if (rms >= 1e-6 || absmax >= 1e-6) lr_symmetric_ = false;
+            }
+        }
+        //outfile->Printf("%s\n", (lr_symmetric_ ? "true.\n" : "false.\n"));
     }
+
+    // I shall force lr_symmetric to false for now
+    //lr_symmetric_ = false;
 
     // Figure out the symmetry and which codes will stay in C1 symmetry
     input_symmetry_cast_map_.clear();

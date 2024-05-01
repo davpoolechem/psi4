@@ -359,6 +359,24 @@ void DirectJK::compute_JK() {
     // Passed in as a dummy when J (and/or K) is not built
     std::vector<SharedMatrix> temp;
 
+    for (auto& iD_ref : D_ref_) { 
+      outfile->Printf("Matrix %s\n", iD_ref->name().c_str());
+      outfile->Printf("----------\n");
+
+      constexpr size_t block_size = 5;
+      for (int irow = 0; irow != block_size; ++irow) {
+        for (int icol = 0; icol != block_size; ++icol) {
+          outfile->Printf("%.10f, ", iD_ref->get(irow, icol));
+        }
+        outfile->Printf("\n");
+      }
+      outfile->Printf("\n");
+     
+      auto dD_ref = iD_ref->clone();
+      dD_ref->subtract(iD_ref->clone()->transpose());
+      outfile->Printf("  RMS: %.10f\n\n", dD_ref->rms());
+    }
+
     if (do_wK_) {
         std::vector<std::shared_ptr<TwoBodyAOInt>> ints;
         for (int thread = 0; thread < df_ints_num_threads_; thread++) {
@@ -690,33 +708,69 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                                 for (int q = 0; q < Qsize; q++) {
                                     for (int r = 0; r < Rsize; r++) {
                                         for (int s = 0; s < Ssize; s++) {
+                                            size_t ip = p + Poff;
+                                            size_t iq = q + Qoff; 
+                                            size_t ir = r + Roff;
+                                            size_t is = s + Soff;
+   
+                                            size_t ip2 = p + Poff2;
+                                            size_t iq2 = q + Qoff2; 
+                                            size_t ir2 = r + Roff2;
+                                            size_t is2 = s + Soff2;
                                             if (build_J) {
                                                 J1p[(p + Poff2) * dQsize + q + Qoff2] +=
                                                     prefactor * (Dp[r + Roff][s + Soff] + Dp[s + Soff][r + Roff]) *
                                                     (*buffer2);
+                                                //J1p[(ip2) * dQsize + iq2] +=
+                                                //    prefactor * (Dp[ir][is] + Dp[is][ir]) *
+                                                //     (*buffer2);
                                                 J2p[(r + Roff2) * dSsize + s + Soff2] +=
                                                     prefactor * (Dp[p + Poff][q + Qoff] + Dp[q + Qoff][p + Poff]) *
                                                     (*buffer2);
+                                                //J2p[(ir2) * dSsize + is2] +=
+                                                //    prefactor * (Dp[ip][iq] + Dp[iq][ip]) *
+                                                //     (*buffer2);
                                             }
-                                            
+
                                             if (build_K) {
-                                                K1p[(p + Poff2) * dRsize + r + Roff2] +=
-                                                    prefactor * (Dp[q + Qoff][s + Soff]) * (*buffer2);
-                                                K2p[(p + Poff2) * dSsize + s + Soff2] +=
-                                                    prefactor * (Dp[q + Qoff][r + Roff]) * (*buffer2);
-                                                K3p[(q + Qoff2) * dRsize + r + Roff2] +=
-                                                    prefactor * (Dp[p + Poff][s + Soff]) * (*buffer2);
-                                                K4p[(q + Qoff2) * dSsize + s + Soff2] +=
-                                                    prefactor * (Dp[p + Poff][r + Roff]) * (*buffer2);
+                                                //K1p[(p + Poff2) * dRsize + r + Roff2] +=
+                                                //    prefactor * (Dp[q + Qoff][s + Soff]) * (*buffer2);
+                                                //outfile->Printf("  K1p[%i * %i + %i = %i] <- %f * Dp[%i][%i] (= %f) * %f\n", 
+                                                //        ip2, dRsize, ir2, 
+                                                //        prefactor, iq, is, Dp[iq][is],
+                                                //        (*buffer2) 
+                                                //)
+                                                K1p[(ip2) * dRsize + ir2] +=
+                                                    prefactor * (Dp[iq][is]) * (*buffer2);
+                                                //K2p[(p + Poff2) * dSsize + s + Soff2] +=
+                                                //    prefactor * (Dp[q + Qoff][r + Roff]) * (*buffer2);
+                                                K2p[(ip2) * dSsize + is2] +=
+                                                    prefactor * (Dp[iq][ir]) * (*buffer2);
+                                                //K3p[(q + Qoff2) * dRsize + r + Roff2] +=
+                                                //    prefactor * (Dp[p + Poff][s + Soff]) * (*buffer2);
+                                                K3p[(iq2) * dRsize + ir2] +=
+                                                    prefactor * (Dp[ip][is]) * (*buffer2);
+                                                //K4p[(q + Qoff2) * dSsize + s + Soff2] +=
+                                                //    prefactor * (Dp[p + Poff][r + Roff]) * (*buffer2);
+                                                K4p[(iq2) * dSsize + is2] +=
+                                                    prefactor * (Dp[ip][ir]) * (*buffer2);
                                                 if (!lr_symmetric_) {
-                                                    K5p[(r + Roff2) * dPsize + p + Poff2] +=
-                                                        prefactor * (Dp[s + Soff][q + Qoff]) * (*buffer2);
-                                                    K6p[(s + Soff2) * dPsize + p + Poff2] +=
-                                                        prefactor * (Dp[r + Roff][q + Qoff]) * (*buffer2);
-                                                    K7p[(r + Roff2) * dQsize + q + Qoff2] +=
-                                                        prefactor * (Dp[s + Soff][p + Poff]) * (*buffer2);
-                                                    K8p[(s + Soff2) * dQsize + q + Qoff2] +=
-                                                        prefactor * (Dp[r + Roff][p + Poff]) * (*buffer2);
+                                                    //K5p[(r + Roff2) * dPsize + p + Poff2] +=
+                                                    //    prefactor * (Dp[s + Soff][q + Qoff]) * (*buffer2);
+                                                    K5p[(ir2) * dPsize + ip2] +=
+                                                        prefactor * (Dp[is][iq]) * (*buffer2);
+                                                    //K6p[(s + Soff2) * dPsize + p + Poff2] +=
+                                                    //    prefactor * (Dp[r + Roff][q + Qoff]) * (*buffer2);
+                                                    K6p[(is2) * dPsize + ip2] +=
+                                                        prefactor * (Dp[ir][iq]) * (*buffer2);
+                                                    //K7p[(r + Roff2) * dQsize + q + Qoff2] +=
+                                                    //    prefactor * (Dp[s + Soff][p + Poff]) * (*buffer2);
+                                                    K7p[(ir2) * dQsize + iq2] +=
+                                                        prefactor * (Dp[is][ip]) * (*buffer2);
+                                                    //K8p[(s + Soff2) * dQsize + q + Qoff2] +=
+                                                    //    prefactor * (Dp[r + Roff][p + Poff]) * (*buffer2);
+                                                    K8p[(is2) * dQsize + iq2] +=
+                                                        prefactor * (Dp[ir][ip]) * (*buffer2);
                                                 }
                                             }
                                             
@@ -810,8 +864,15 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                         int Qoff2 = task_offsets[Q2 + Q2start] - task_offsets[Q2start];
                         for (int p = 0; p < Psize; p++) {
                             for (int q = 0; q < Qsize; q++) {
+                                size_t ip = p + Poff;
+                                size_t iq = q + Qoff; 
+   
+                                size_t ip2 = p + Poff2;
+                                size_t iq2 = q + Qoff2; 
+ 
 #pragma omp atomic
-                                Jp[p + Poff][q + Qoff] += J1p[(p + Poff2) * dQsize + q + Qoff2];
+                                //Jp[p + Poff][q + Qoff] += J1p[(p + Poff2) * dQsize + q + Qoff2];
+                                Jp[ip][iq] += J1p[(ip2) * dQsize + iq2];
                             }
                         }
                     }
@@ -831,8 +892,15 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                         int Soff2 = task_offsets[S2 + S2start] - task_offsets[S2start];
                         for (int r = 0; r < Rsize; r++) {
                             for (int s = 0; s < Ssize; s++) {
+                                size_t ir = r + Roff;
+                                size_t is = s + Soff;
+   
+                                size_t ir2 = r + Roff2;
+                                size_t is2 = s + Soff2;
+ 
 #pragma omp atomic
-                                Jp[r + Roff][s + Soff] += J2p[(r + Roff2) * dSsize + s + Soff2];
+                                //Jp[r + Roff][s + Soff] += J2p[(r + Roff2) * dSsize + s + Soff2];
+                                Jp[ir][is] += J2p[(ir2) * dSsize + is2];
                             }
                         }
                     }
@@ -847,19 +915,56 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                     for (int R2 = 0; R2 < nRtask; R2++) {
                         int P = task_shells[P2start + P2];
                         int R = task_shells[R2start + R2];
+                        //outfile->Printf("PR task (%i, %i)\n", P, R);
+                        //outfile->Printf("----------------\n");
+
+                        std::array<int, 2> ishells = { P, R };
+                        //outfile->Printf("  Shells:\n");
+                        for (const auto ishell : ishells) {
+                            auto shell = primary_->shell(ishell);
+                            //shell.print("outfile");
+                            //outfile->Printf("\n");
+                        }
+    
                         int Psize = primary_->shell(P).nfunction();
                         int Rsize = primary_->shell(R).nfunction();
+
+                        std::array<double*, 2> buffers = { K1p, K5p };
+                        //outfile->Printf("  Buffers:\n");
+                        for (const auto buffer : buffers) {
+                            int idx = 0;
+                            while (idx < max_task * max_task) {
+                                for (int i = 0; i != 10; ++i, ++idx) {
+                                    if (idx >= max_task * max_task) break;
+                                    //outfile->Printf("%f, ", buffer[idx]);
+                                } 
+                                if (idx >= max_task * max_task) break;
+                                //outfile->Printf("\n"); 
+                            }
+                            //outfile->Printf("\n");
+                        }
+
                         int Poff = primary_->shell(P).function_index();
                         int Roff = primary_->shell(R).function_index();
                         int Poff2 = task_offsets[P2 + P2start] - task_offsets[P2start];
                         int Roff2 = task_offsets[R2 + R2start] - task_offsets[R2start];
                         for (int p = 0; p < Psize; p++) {
                             for (int r = 0; r < Rsize; r++) {
+                                size_t ip = p + Poff;
+                                size_t ir = r + Roff;
+   
+                                size_t ip2 = p + Poff2;
+                                size_t ir2 = r + Roff2;
+
+                                //outfile->Printf("  Kp[%i][%i] <- K1p[%i * %i + %i = %i] (= %f)\n", ip, ir, ip2, dRsize, ir2, (ip2) * dRsize + ir2, K1p[(ip2) * dRsize + ir2]);
 #pragma omp atomic
-                                Kp[p + Poff][r + Roff] += K1p[(p + Poff2) * dRsize + r + Roff2];
+                                //Kp[p + Poff][r + Roff] += K1p[(p + Poff2) * dRsize + r + Roff2];
+                                Kp[ip][ir] += K1p[(ip2) * dRsize + ir2];
                                 if (!lr_symmetric_) {
+                                    //outfile->Printf("  Kp[%i][%i] <- K5p[%i * %i + %i = %i] (= %f)\n", ir, ip, ir2, dPsize, ip2, (ir2) * dPsize + ip2, K5p[(ir2) * dPsize + ip2]);
 #pragma omp atomic
-                                    Kp[r + Roff][p + Poff] += K5p[(r + Roff2) * dPsize + p + Poff2];
+                                    //Kp[r + Roff][p + Poff] += K5p[(r + Roff2) * dPsize + p + Poff2];
+                                    Kp[ir][ip] += K5p[(ir2) * dPsize + ip2];
                                 }
                             }
                         }
@@ -880,11 +985,21 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                         int Soff2 = task_offsets[S2 + S2start] - task_offsets[S2start];
                         for (int p = 0; p < Psize; p++) {
                             for (int s = 0; s < Ssize; s++) {
+                                size_t ip = p + Poff;
+                                size_t is = s + Soff;
+   
+                                size_t ip2 = p + Poff2;
+                                size_t is2 = s + Soff2;
+ 
+                                //outfile->Printf("  Kp[%i][%i] <- K2p[%i * %i + %i = %i] (= %f)\n", ip, is, ip2, dSsize, is2, (ip2) * dSsize + is2, K2p[(ip2) * dSsize + is2]);
 #pragma omp atomic
-                                Kp[p + Poff][s + Soff] += K2p[(p + Poff2) * dSsize + s + Soff2];
+                                //Kp[p + Poff][s + Soff] += K2p[(p + Poff2) * dSsize + s + Soff2];
+                                Kp[ip][is] += K2p[(ip2) * dSsize + is2];
                                 if (!lr_symmetric_) {
+                                    //outfile->Printf("  Kp[%i][%i] <- K6p[%i * %i + %i = %i] (= %f)\n", is, ip, is2, dPsize, ip2, (is2) * dPsize + ip2, K6p[(is2) * dPsize + ip2]);
 #pragma omp atomic
-                                    Kp[s + Soff][p + Poff] += K6p[(s + Soff2) * dPsize + p + Poff2];
+                                    //Kp[s + Soff][p + Poff] += K6p[(s + Soff2) * dPsize + p + Poff2];
+                                    Kp[is][ip] += K6p[(is2) * dPsize + ip2];
                                 }
                             }
                         }
@@ -905,11 +1020,19 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                         int Roff2 = task_offsets[R2 + R2start] - task_offsets[R2start];
                         for (int q = 0; q < Qsize; q++) {
                             for (int r = 0; r < Rsize; r++) {
+                                size_t iq = q + Qoff; 
+                                size_t ir = r + Roff;
+   
+                                size_t iq2 = q + Qoff2; 
+                                size_t ir2 = r + Roff2;
+ 
 #pragma omp atomic
-                                Kp[q + Qoff][r + Roff] += K3p[(q + Qoff2) * dRsize + r + Roff2];
+                                //Kp[q + Qoff][r + Roff] += K3p[(q + Qoff2) * dRsize + r + Roff2];
+                                Kp[iq][ir] += K3p[(iq2) * dRsize + ir2];
                                 if (!lr_symmetric_) {
 #pragma omp atomic
-                                    Kp[r + Roff][q + Qoff] += K7p[(r + Roff2) * dQsize + q + Qoff2];
+                                    //Kp[r + Roff][q + Qoff] += K7p[(r + Roff2) * dQsize + q + Qoff2];
+                                    Kp[ir][iq] += K7p[(ir2) * dQsize + iq2];
                                 }
                             }
                         }
@@ -930,11 +1053,19 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                         int Soff2 = task_offsets[S2 + S2start] - task_offsets[S2start];
                         for (int q = 0; q < Qsize; q++) {
                             for (int s = 0; s < Ssize; s++) {
+                                size_t iq = q + Qoff; 
+                                size_t is = s + Soff;
+   
+                                size_t iq2 = q + Qoff2; 
+                                size_t is2 = s + Soff2;
+ 
 #pragma omp atomic
-                                Kp[q + Qoff][s + Soff] += K4p[(q + Qoff2) * dSsize + s + Soff2];
+                                //Kp[q + Qoff][s + Soff] += K4p[(q + Qoff2) * dSsize + s + Soff2];
+                                Kp[iq][is] += K4p[(iq2) * dSsize + is2];
                                 if (!lr_symmetric_) {
 #pragma omp atomic
-                                    Kp[s + Soff][q + Qoff] += K8p[(s + Soff2) * dQsize + q + Qoff2];
+                                    //Kp[s + Soff][q + Qoff] += K8p[(s + Soff2) * dQsize + q + Qoff2];
+                                    Kp[is][iq] += K8p[(is2) * dQsize + iq2];
                                 }
                             }
                         }
