@@ -700,52 +700,30 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
                                             size_t ir2 = r + Roff2;
                                             size_t is2 = s + Soff2;
                                             if (build_J) {
-                                                J1p[(p + Poff2) * dQsize + q + Qoff2] +=
-                                                    prefactor * (Dp[r + Roff][s + Soff] + Dp[s + Soff][r + Roff]) *
-                                                    (*buffer2);
-                                                //J1p[(ip2) * dQsize + iq2] +=
-                                                //    prefactor * (Dp[ir][is] + Dp[is][ir]) *
-                                                //     (*buffer2);
-                                                J2p[(r + Roff2) * dSsize + s + Soff2] +=
-                                                    prefactor * (Dp[p + Poff][q + Qoff] + Dp[q + Qoff][p + Poff]) *
-                                                    (*buffer2);
-                                                //J2p[(ir2) * dSsize + is2] +=
-                                                //    prefactor * (Dp[ip][iq] + Dp[iq][ip]) *
-                                                //     (*buffer2);
+                                                J1p[(ip2) * dQsize + iq2] +=
+                                                    prefactor * (Dp[ir][is] + Dp[is][ir]) *
+                                                     (*buffer2);
+                                                J2p[(ir2) * dSsize + is2] +=
+                                                    prefactor * (Dp[ip][iq] + Dp[iq][ip]) *
+                                                     (*buffer2);
                                             }
 
                                             if (build_K) {
-                                                //K1p[(p + Poff2) * dRsize + r + Roff2] +=
-                                                //    prefactor * (Dp[q + Qoff][s + Soff]) * (*buffer2);
                                                 K1p[(ip2) * dRsize + ir2] +=
                                                     prefactor * (Dp[iq][is]) * (*buffer2);
-                                                //K2p[(p + Poff2) * dSsize + s + Soff2] +=
-                                                //    prefactor * (Dp[q + Qoff][r + Roff]) * (*buffer2);
                                                 K2p[(ip2) * dSsize + is2] +=
                                                     prefactor * (Dp[iq][ir]) * (*buffer2);
-                                                //K3p[(q + Qoff2) * dRsize + r + Roff2] +=
-                                                //    prefactor * (Dp[p + Poff][s + Soff]) * (*buffer2);
                                                 K3p[(iq2) * dRsize + ir2] +=
                                                     prefactor * (Dp[ip][is]) * (*buffer2);
-                                                //K4p[(q + Qoff2) * dSsize + s + Soff2] +=
-                                                //    prefactor * (Dp[p + Poff][r + Roff]) * (*buffer2);
                                                 K4p[(iq2) * dSsize + is2] +=
                                                     prefactor * (Dp[ip][ir]) * (*buffer2);
                                                 if (!lr_symmetric_) {
-                                                    //K5p[(r + Roff2) * dPsize + p + Poff2] +=
-                                                    //    prefactor * (Dp[s + Soff][q + Qoff]) * (*buffer2);
                                                     K5p[(ir2) * dPsize + ip2] +=
                                                         prefactor * (Dp[is][iq]) * (*buffer2);
-                                                    //K6p[(s + Soff2) * dPsize + p + Poff2] +=
-                                                    //    prefactor * (Dp[r + Roff][q + Qoff]) * (*buffer2);
                                                     K6p[(is2) * dPsize + ip2] +=
                                                         prefactor * (Dp[ir][iq]) * (*buffer2);
-                                                    //K7p[(r + Roff2) * dQsize + q + Qoff2] +=
-                                                    //    prefactor * (Dp[s + Soff][p + Poff]) * (*buffer2);
                                                     K7p[(ir2) * dQsize + iq2] +=
                                                         prefactor * (Dp[is][ip]) * (*buffer2);
-                                                    //K8p[(s + Soff2) * dQsize + q + Qoff2] +=
-                                                    //    prefactor * (Dp[r + Roff][p + Poff]) * (*buffer2);
                                                     K8p[(is2) * dQsize + iq2] +=
                                                         prefactor * (Dp[ir][ip]) * (*buffer2);
                                                 }
