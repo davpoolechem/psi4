@@ -128,7 +128,14 @@ void TwoBodyAOInt::update_density(const std::vector<SharedMatrix>& D) {
         for (int i = 0; i < D.size(); i++) {
             max_dens_shell_pair_[i].resize(nshell_ * nshell_);
         }
+    } else if (max_dens_shell_pair_.size() != D.size()) {
+        max_dens_shell_pair_.clear();
+        max_dens_shell_pair_.resize(D.size());
+        for (int i = 0; i < D.size(); i++) {
+            max_dens_shell_pair_[i].resize(nshell_ * nshell_);
+        }
     }
+ 
     
     timer_on("Update Density");
 #pragma omp parallel for

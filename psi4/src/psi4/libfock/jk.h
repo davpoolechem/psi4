@@ -29,6 +29,7 @@
 #ifndef JK_H
 #define JK_H
 
+#include <optional>
 #include <vector>
 
 #include "psi4/pragma.h"
@@ -387,7 +388,7 @@ class PSI_API JK {
     static std::shared_ptr<JK> build_JK(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary,
                                         Options& options, std::string jk_type);
     static std::shared_ptr<JK> build_JK(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary,
-                                        Options& options, bool do_wK, size_t doubles);
+                                        Options& options, bool do_wK, size_t doubles, const std::optional<std::string>& overriden_jk_type = std::nullopt);
 
     /// Do we need to backtransform to C1 under the hood?
     virtual bool C1() const = 0;
@@ -583,6 +584,21 @@ class PSI_API JK {
     * type on output file
     */
     virtual void print_header() const = 0;
+
+
+    /**
+    * Method-specific knobs, if necessary
+    */
+    virtual bool do_incfock_iter() { return false; }
+    
+    virtual void set_COSX_grid(std::string current_grid) {
+        throw PSIEXCEPTION("JK::set_COSX_grid was called, but COSX is not being used!");
+    }
+
+    virtual std::string get_COSX_grid() {
+        throw PSIEXCEPTION("JK::get_COSX_grid was called, but COSX is not being used!");
+    };
+
 };
 
 // => APPLIED CLASSES <= //
@@ -811,7 +827,7 @@ class PSI_API DirectJK : public JK {
     void set_df_ints_num_threads(int val) { df_ints_num_threads_ = val; }
 
     // => Accessors <= //
-    bool do_incfock_iter() { return do_incfock_iter_; }
+    bool do_incfock_iter() override { return do_incfock_iter_; }
 
     /**
     * Print header information regarding JK
@@ -1280,7 +1296,7 @@ class PSI_API CompositeJK : public JK {
     /// Destructor
     ~CompositeJK() override;
 
-    bool do_incfock_iter() { return do_incfock_iter_; }
+    bool do_incfock_iter() override { return do_incfock_iter_; }
 
     /**
      * Clear D_prev_
@@ -1301,8 +1317,8 @@ class PSI_API CompositeJK : public JK {
     * Knobs for getting and setting current COSX grid for this SCF iteration, if COSX is used
     * throws by default, if COSX is not used
     */
-    void set_COSX_grid(std::string current_grid) { return k_algo_->set_COSX_grid(current_grid); }
-    std::string get_COSX_grid() { return k_algo_->get_COSX_grid(); }
+    void set_COSX_grid(std::string current_grid) override { return k_algo_->set_COSX_grid(current_grid); }
+    std::string get_COSX_grid() override { return k_algo_->get_COSX_grid(); }
 
     /**
     * Print header information regarding JK

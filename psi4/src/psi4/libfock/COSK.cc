@@ -188,6 +188,9 @@ COSK::COSK(std::shared_ptr<BasisSet> primary, Options& options) : SplitJK(primar
     basis_tol_ = options.get_double("COSX_BASIS_TOLERANCE");
     overlap_fitted_ = options.get_bool("COSX_OVERLAP_FITTING");
 
+    current_grid_ = "Final"; // default in case it is not explicitly set anywhere
+    //current_grid_ = "Initial"; // default in case it is not explicitly set anywhere
+
     timer_on("COSK: COSX Grid Construction");
 
     // for now, we use two COSX grids:
@@ -308,7 +311,8 @@ void COSK::print_header() const {
         outfile->Printf("    K Screening Cutoff: %11.0E\n", kscreen_);
         outfile->Printf("    K Density Cutoff:   %11.0E\n", dscreen_);
         outfile->Printf("    K Basis Cutoff:     %11.0E\n", basis_tol_);
-        outfile->Printf("    K Overlap Fitting:  %11s\n", (overlap_fitted_ ? "Yes" : "No"));
+        outfile->Printf("    K Overlap Fitting:  %11s\n\n", (overlap_fitted_ ? "Yes" : "No"));
+        outfile->Printf("    (Debug) K Grid ID:  %11s\n\n", current_grid_.c_str()); 
     }
 }
 
@@ -716,6 +720,11 @@ void COSK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
         }
         if (lr_symmetric_) {
             K[jki]->hermitivitize();
+        // discovered during FISAPT+CompositeJK development
+        // it seems that COSX returns the TRANSPOSE of the correct nonsymmetric exchange
+        // we rectify that here for now
+        } else {
+            K[jki]->transpose_this(); 
         }
     }
 
