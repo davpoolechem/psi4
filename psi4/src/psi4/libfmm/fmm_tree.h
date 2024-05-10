@@ -83,8 +83,7 @@ class PSI_API CFMMTree {
       double f_;
       double f_alt_;
       // Scaling factor connecting number of target distributions to number of target boxes
-      // Always 1.0 for systems of randomly-placed distributions (i.e. molecules)
-      static constexpr double g_ = 1.0; 
+      double g_; 
       // static constexpr double g_ = 0.523598; // pi/6, ratio of cube to sphere 
       // Dimensionality of system modeled by CFMM Tree
       // Always 3 for molecular systems
@@ -139,9 +138,9 @@ class PSI_API CFMMTree {
       // => Functions called ONLY once <= //
 
       // Make the root node of the CFMMTree
-      void make_root_node();
+      void make_root_node(int target);
       // Regenerate the root node of the CFMMTree for iterative tree construction
-      bool regenerate_root_node();
+      std::tuple<bool, int> regenerate_root_node();
       // Create children
       void make_children();
       // Sort the leaf nodes by number of shell-pairs
