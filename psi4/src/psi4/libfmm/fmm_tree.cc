@@ -223,7 +223,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     // generate required boxes and sort shell pairs into proper boxes 
     bool converged = false;
     int target = N_target_;
-    for (int iter = 0; iter != 50; ++iter) {
+    for (int iter = 0; iter != 100; ++iter) {
         if (print_ >= 2) {
             outfile->Printf("  CFMMTree: Setup Iter %d\n", iter);
         }
@@ -340,6 +340,7 @@ void CFMMTree::make_root_node(int target) {
     //f_ = static_cast<double>(N_target_) / static_cast<double>(num_lowest_level_boxes); 
     f_ = static_cast<double>(target) / static_cast<double>(num_lowest_level_boxes); 
     f_alt_ = std::pow(f_, (dimensionality_ + 1.0) / dimensionality_); // account for CFMM tree structure
+    //f_alt_ = std::pow(f_, (dimensionality_ ) / (dimensionality_ + 1.0) ); // account for CFMM tree structure
     if (f_ > 1.0 || f_alt_ > 1.0) {
         std::string error_message = "Bad f scaling factor value! ";
         error_message += std::to_string(target);
@@ -380,6 +381,7 @@ std::tuple<bool, int> CFMMTree::regenerate_root_node() {
 
     // define molecule params
     auto [max_dim_mol, min_dim_mol] = parse_molecular_dims(molecule_);
+    Vector3 origin_mol = Vector3(min_dim_mol, min_dim_mol, min_dim_mol);
 
     generate_per_level_info();
 
@@ -389,12 +391,18 @@ std::tuple<bool, int> CFMMTree::regenerate_root_node() {
     double nshp_per_box = static_cast<double>(num_lowest_level_shells) / static_cast<double>(num_lowest_level_boxes); 
 
     double scaling_factor = static_cast<double>(nshp_per_box)/static_cast<double>(M_target_); 
-    // double scaling_factor = 1.0;
 
-    if (0.95 <= scaling_factor && scaling_factor <= 1.05) {
+    double percent_error = 0.2;
+    if ((1.0-percent_error) <= scaling_factor && scaling_factor <= (1.0 + percent_error)) { // 
         converged = true;
+    } else if (scaling_factor > 5.0 || scaling_factor < 0.2) {
+        std::string error_message = "Iterative adaptive CFMM scaling factor is going wild! Try changing CFMM_TARGET_NSHP to something ";
+        if (scaling_factor > 5.0) { error_message += "higher."; } else { error_message += "lower."; };
+  
+        outfile->Printf("%s\n", error_message.c_str());
+      //throw PSIEXCEPTION(error_message);
     } 
-    
+
     // Scale root CFMM box for adaptive CFMM
     // Logic follows Eq. 3 of White 1996, adapted for CFMM 
     //outfile->Printf("    Do scaling\n");
@@ -410,20 +418,61 @@ std::tuple<bool, int> CFMMTree::regenerate_root_node() {
     double length = length_tmp / std::pow(scaling_factor, 1.0 / dimensionality_);
 
     double min_dim = min_dim_old - (length - length_tmp) / 2.0;
+   
+    // damp expansion
+    double expansion_thresh = 1.0;
+    outfile->Printf("  %f -> %f\n", min_dim_old * bohr2ang, min_dim * bohr2ang);
+    if ((min_dim - min_dim_old) > expansion_thresh) {
+        outfile->Printf("  Damping box shrinkage to %f A\n", expansion_thresh * bohr2ang);
+        min_dim = min_dim_old + expansion_thresh; 
+
+        length = length_old - expansion_thresh;
+    } else if ((min_dim - min_dim_old) < -expansion_thresh) {
+        outfile->Printf("  Damping box expansion to %f A\n", expansion_thresh * bohr2ang);
+        min_dim = min_dim_old - expansion_thresh; 
+
+        length = length_old + expansion_thresh;
+    }
+ 
     Vector3 origin_new = Vector3(min_dim, min_dim, min_dim);
 
     // damp new origin
-    origin_new = (origin_new + origin_old) / 2.0;
+    //origin_new = (origin_new + origin_old) / 2.0;
 
     // if the root box becomes smaller than the molecule, just use original proposed box size
-    if (std::abs(origin_new[0]) < std::abs(min_dim_mol)) {
-      outfile->Printf("  Warning! Root CFMM box has iterated to a size smaller than the molecule. Setting box to molecule size and ending adaptive CFMM iterations.\n");
-      //outfile->Printf("  Warning! Root CFMM box has iterated to a size smaller than the molecule. Setting box to molecule size.\n");
+//    if (std::abs(origin_new[0]) < std::abs(min_dim_mol)) {
+      //outfile->Printf("  Warning! Root CFMM box has iterated to a size smaller than the molecule. Ending adaptive CFMM iterations.\n");
+//      outfile->Printf("  Warning! Root CFMM box has iterated to a size smaller than the molecule. \n");
 
-      origin_new = Vector3(min_dim_mol, min_dim_mol, min_dim_mol);
-      length = (max_dim_mol - min_dim_mol) / std::pow(f_, 1.0 / dimensionality_);
+//      origin_new = ((scaling_factor-1.0)/(scaling_factor)) * origin_old + (1.0/(scaling_factor)) * origin_mol;
+//      length = ((scaling_factor-1.0)/(scaling_factor)) * length_old + (1.0/(scaling_factor)) * (max_dim_mol - min_dim_mol);
  
-      converged = true;
+      //converged = true;
+//    }
+
+   // if the root box becomes smaller than the molecule, increase the tree level 
+    if (std::abs(origin_new[0]) < std::abs(min_dim_mol)) {
+    //outfile->Printf("  Warning! Root CFMM box has iterated to a size smaller than the molecule. Ending adaptive CFMM iterations.\n");
+        outfile->Printf("  Warning! Root CFMM box has iterated to a size smaller than the molecule. \n");
+
+        std::string message = "  Changing number of CFMM tree levels from ";
+        message += std::to_string(nlevels_++);
+        message += " to ";
+        message += std::to_string(nlevels_);
+        message += ".\n";
+
+        outfile->Printf(message);
+
+        tree_.clear();    
+        
+        num_boxes_ = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
+        tree_.resize(num_boxes_);
+
+        changed_nlevels = true;
+       
+        //auto new_target = num_lowest_level_boxes; 
+        auto new_target = N_target_ * 2048/128; 
+        return std::tie(converged, new_target);
     }
 
     if (print_ >= 2) {
@@ -449,6 +498,7 @@ std::tuple<bool, int> CFMMTree::regenerate_root_node() {
         predicted_num_lowest_level_boxes *= 2 * std::pow(2, dimensionality_);
     }
 
+/*
     outfile->Printf("  Current nlevels: %i; Predicted nlevels: %i\n", nlevels_, predicted_nlevels);
     if ((nlevels_ != predicted_nlevels) && !converged) {
         std::string message = "  Changing number of CFMM tree levels from ";
@@ -471,7 +521,7 @@ std::tuple<bool, int> CFMMTree::regenerate_root_node() {
         auto new_target = num_lowest_level_boxes; 
         return std::tie(converged, new_target);
     } 
-
+*/
     //outfile->Printf("    Create root\n");
     tree_.clear();
 
