@@ -392,8 +392,18 @@ std::tuple<bool, int> CFMMTree::regenerate_root_node() {
     double scaling_factor = static_cast<double>(nshp_per_box)/static_cast<double>(M_target_); 
 
     double percent_error = 0.2; // 20% error in exact distribution count for now
-    if ((1.0 - percent_error) <= scaling_factor && scaling_factor <= (1.0 + percent_error)) { // 
+    if ((1.0 - percent_error) <= scaling_factor && scaling_factor <= (1.0 + percent_error)) { 
+        tree_.clear();   
+
+        num_boxes_ = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
+        tree_.resize(num_boxes_);
+    
+        tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin_old, length_old, 0, lmax_, 2);
+ 
         converged = true;
+        auto new_target = -1; 
+
+        return std::tie(converged, new_target);
     } 
 
     // Scale root CFMM box for adaptive CFMM
@@ -445,7 +455,6 @@ std::tuple<bool, int> CFMMTree::regenerate_root_node() {
         
         num_boxes_ = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
         tree_.resize(num_boxes_);
-
 
         int prev_level_boxes = 8 * std::pow(2,  (1 + dimensionality_) * (nlevels_ - 3)); 
         int current_level_boxes = 8 * std::pow(2,  (1 + dimensionality_) * (nlevels_ - 2)); 
