@@ -216,24 +216,20 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     num_boxes_ = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
     tree_.resize(num_boxes_);
 
-    timer_on("CFMMTree: Setup");
 
     // ==> ------------------------------ <== //
     // ==> Actually create CFMM tree now! <== //
     // ==> ------------------------------ <== //
-    // generate required boxes and sort shell pairs into proper boxes 
+    timer_on("CFMMTree: Setup");
+    outfile->Printf("  ==> CFMM Tree Setup <== \n\n");
+    
     bool converged = false;
     for (int iter = 0; iter != 50; ++iter) {
-        if (print_ >= 2) {
-            outfile->Printf("  CFMMTree: Setup Iter %d\n", iter);
-        }
+        if (print_ >= 2) outfile->Printf("  Iteration: %i\n", iter);
 
         if (tree_[0] == nullptr) {
-            //outfile->Printf("  Make Root Node... ");
             make_root_node();
-            //outfile->Printf("  Done! \n");
         } else {
-            //outfile->Printf("  Regenerate Root Node... ");
             shellpair_list_.clear();
             sorted_leaf_boxes_.clear();
          
@@ -241,28 +237,13 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
             std::tie(converged, changed_level) = regenerate_root_node();
             
             if (changed_level) continue;
-            //outfile->Printf("  Done! \n");
         }
 
-        //outfile->Printf("  Make Children... ");
         make_children();
-        //outfile->Printf("  Done! \n");
-
-        //outfile->Printf("  Sort Leaf Boxes... ");
         sort_leaf_boxes();
-        //outfile->Printf("  Done! \n");
-    
-        //outfile->Printf("  Setup Regions... ");
         setup_regions();
-        //outfile->Printf("  Done! \n");
-    
-        //outfile->Printf("  Setup Local Far Field Task Pairs... ");
         setup_local_far_field_task_pairs();
-        //outfile->Printf("  Done! \n");
-    
-        //outfile->Printf("  Setup Shellpair Info... ");
         setup_shellpair_info();
-        //outfile->Printf("  Done! \n");
         
         if (converged) break;
     }
@@ -276,9 +257,9 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
         //warning_message += ")\n";
 
         //outfile->Printf(warning_message);
-        std::string error_message = "  Warning! Adaptive CFMM tree box scaling did not converge!";
+        std::string error_message = "Adaptive CFMM tree box scaling did not converge!";
    
-        outfile->Printf(error_message);
+        throw PSIEXCEPTION(error_message);
     }
 
     if (print_ >= 1) print_out();
@@ -287,19 +268,12 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     if (options_.get_bool("CFMM_TREE_DEBUG")) {
         throw PSIEXCEPTION("Early kill for CFMM debugging!");
     }
-    //outfile->Printf("  Calculate Shellpair Multipoles... ");
     calculate_shellpair_multipoles();
-    //outfile->Printf("  Done! \n");
-    //outfile->Printf("Completed CFMMTree: Setup! \n");
 
     timer_off("CFMMTree: Setup");
-
-    // if (print_ >= 1) print_out();
 }
 
 void CFMMTree::sort_leaf_boxes() {
-
-
     // Starting and ending leaf node box indices
     int start = (nlevels_ == 1) ? 0 : (0.5 * std::pow(16, nlevels_-1) + 7) / 15;
     int end = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
@@ -419,15 +393,15 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
    
         // damp expansion of CFMM box
         double expansion_thresh = 1.0; // box can shrink/expand by 1 Bohr at most
-        if (print_ >= 2) outfile->Printf("  %f -> %f\n", min_dim_old * bohr2ang, min_dim * bohr2ang);
+        if (print_ >= 2) outfile->Printf("    %f -> %f\n", min_dim_old * bohr2ang, min_dim * bohr2ang);
         
         if ((min_dim - min_dim_old) > expansion_thresh) {
-            if (print_ >= 2) outfile->Printf("  Damping box shrinkage to %f A\n", expansion_thresh * bohr2ang);
+            if (print_ >= 2) outfile->Printf("    INFO: Damping box shrinkage to %f A\n", expansion_thresh * bohr2ang);
             min_dim = min_dim_old + expansion_thresh; 
 
             length_new = length_old - expansion_thresh;
         } else if ((min_dim - min_dim_old) < -expansion_thresh) {
-            if (print_ >= 2) outfile->Printf("  Damping box expansion to %f A\n", expansion_thresh * bohr2ang);
+            if (print_ >= 2) outfile->Printf("    INFO: Damping box expansion to %f A\n", expansion_thresh * bohr2ang);
             min_dim = min_dim_old - expansion_thresh; 
 
             length_new = length_old + expansion_thresh;
@@ -439,9 +413,9 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
         auto [max_dim_mol, min_dim_mol] = parse_molecular_dims(molecule_);
         if (std::abs(origin_new[0]) < std::abs(min_dim_mol)) {
             if (print_ >= 2) {
-                outfile->Printf("  Warning! Root CFMM box has iterated to a size smaller than the molecule. \n");
+                outfile->Printf("    WARNING: Root CFMM box has iterated to a size smaller than the molecule. \n");
 
-                std::string message = "  Changing number of CFMM tree levels from ";
+                std::string message = "    Changing number of CFMM tree levels from ";
                 message += std::to_string(nlevels_);
                 message += " to ";
                 message += std::to_string(nlevels_ + 1);
@@ -1052,19 +1026,20 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 void CFMMTree::print_out() {
     // recursive print-out per box
     if (print_ >= 2) {
-        outfile->Printf("CFMM BOX INFO:\n");
+        outfile->Printf("  ==> CFMM: Box Information <==\n\n");
         tree_[0]->print_out();  
     }
 
     // overall tree summary 
     generate_per_level_info();
 
-    outfile->Printf("CFMM TREE LEVEL INFO:\n");
+    outfile->Printf("  ==> CFMM: Tree Information <==\n\n");
     int ilevel = 0;
     while (level_to_box_count_[ilevel] > 0) {
-        outfile->Printf("  LEVEL: %d, BOXES: %d NSHP/BOX: %f \n", ilevel, level_to_box_count_[ilevel], static_cast<double>(level_to_shell_count_[ilevel]) / static_cast<double>(level_to_box_count_[ilevel]) );
+        outfile->Printf("    Tree Level: %d, Num. Boxes: %d -> Avg. Shell Pairs/Box: %f \n", ilevel, level_to_box_count_[ilevel], static_cast<double>(level_to_shell_count_[ilevel]) / static_cast<double>(level_to_box_count_[ilevel]) );
         ++ilevel;
     }
+    outfile->Printf("\n");
 } 
 
 } // end namespace psi
