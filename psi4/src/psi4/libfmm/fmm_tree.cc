@@ -158,7 +158,8 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     // CFMM_GRAIN = -1 or 0 enables adaptive CFMM 
     } else if (grain == -1 || grain == 0) { 
         // Eq. 1 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
-        g_ = 0.75; // perfectly spherical molecule for now 
+        //g_ = 0.75; // perfectly spherical molecule for now 
+        g_ = 1.0; // perfectly spherical molecule for now 
         
         N_target_ = ceil(static_cast<double>(nshell_pairs) / (static_cast<double>(M_target_) * g_)); 
         //outfile->Printf("N_target: %d, %d, %f -> %d \n", nshell_pairs, M_target_, g_, N_target_);
@@ -267,20 +268,23 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     }
 
     if (!converged) {
-        auto real_M_target = static_cast<double>(level_to_box_count_[nlevels() - 1]);
-        std::string warning_message = "  Warning! CFMM tree box scaling did not converge! Using ";
-        warning_message += std::to_string(real_M_target); 
-        warning_message += " distributions instead of target (";
-        warning_message += std::to_string(M_target_); 
-        warning_message += ")\n";
+        //auto real_M_target = static_cast<double>(level_to_box_count_[nlevels() - 1]);
+        //std::string warning_message = "  Warning! CFMM tree box scaling did not converge! Using ";
+        //warning_message += std::to_string(real_M_target); 
+        //warning_message += " distributions instead of target (";
+        //warning_message += std::to_string(M_target_); 
+        //warning_message += ")\n";
 
-        outfile->Printf(warning_message);
+        //outfile->Printf(warning_message);
+        std::string error_message = "  Warning! Adaptive CFMM tree box scaling did not converge!";
+   
+        outfile->Printf(error_message);
     }
 
     if (print_ >= 1) print_out();
    
-    // early kill!
-    if (true) {
+    // early kill?
+    if (options_.get_bool("CFMM_TREE_DEBUG")) {
         throw PSIEXCEPTION("Early kill for CFMM debugging!");
     }
     //outfile->Printf("  Calculate Shellpair Multipoles... ");
@@ -375,11 +379,10 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
     Vector3 origin_new; 
     double length_new;
 
-    // define molecule params
-    generate_per_level_info();
-
     // determine how much box needs to be scaled to reach target distribution value
     //outfile->Printf("    Determine scaling factor\n");
+    generate_per_level_info();
+    
     size_t num_lowest_level_boxes = level_to_box_count_[nlevels() - 1]; 
     size_t num_lowest_level_shells = level_to_shell_count_[nlevels() - 1]; 
     double nshp_per_box = static_cast<double>(num_lowest_level_shells) / static_cast<double>(num_lowest_level_boxes); 
@@ -416,7 +419,8 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
    
         // damp expansion of CFMM box
         double expansion_thresh = 1.0; // box can shrink/expand by 1 Bohr at most
-        outfile->Printf("  %f -> %f\n", min_dim_old * bohr2ang, min_dim * bohr2ang);
+        if (print_ >= 2) outfile->Printf("  %f -> %f\n", min_dim_old * bohr2ang, min_dim * bohr2ang);
+        
         if ((min_dim - min_dim_old) > expansion_thresh) {
             if (print_ >= 2) outfile->Printf("  Damping box shrinkage to %f A\n", expansion_thresh * bohr2ang);
             min_dim = min_dim_old + expansion_thresh; 
@@ -438,13 +442,15 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
                 outfile->Printf("  Warning! Root CFMM box has iterated to a size smaller than the molecule. \n");
 
                 std::string message = "  Changing number of CFMM tree levels from ";
-                message += std::to_string(nlevels_++);
-                message += " to ";
                 message += std::to_string(nlevels_);
+                message += " to ";
+                message += std::to_string(nlevels_ + 1);
                 message += ".\n";
 
                 outfile->Printf(message);
             }
+
+            ++nlevels_;
 
             int prev_level_boxes = 8 * std::pow(2,  (1 + dimensionality_) * (nlevels_ - 3)); 
             int current_level_boxes = 8 * std::pow(2,  (1 + dimensionality_) * (nlevels_ - 2)); 
@@ -1045,8 +1051,10 @@ void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 
 void CFMMTree::print_out() {
     // recursive print-out per box
-    outfile->Printf("CFMM BOX INFO:\n");
-    tree_[0]->print_out();  
+    if (print_ >= 2) {
+        outfile->Printf("CFMM BOX INFO:\n");
+        tree_[0]->print_out();  
+    }
 
     // overall tree summary 
     generate_per_level_info();
