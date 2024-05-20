@@ -247,19 +247,20 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
         
         if (converged) break;
     }
+    
+    generate_per_level_info();
 
     if (!converged) {
-        //auto real_M_target = static_cast<double>(level_to_box_count_[nlevels() - 1]);
-        //std::string warning_message = "  Warning! CFMM tree box scaling did not converge! Using ";
-        //warning_message += std::to_string(real_M_target); 
-        //warning_message += " distributions instead of target (";
-        //warning_message += std::to_string(M_target_); 
-        //warning_message += ")\n";
+        std::string warning_message = "    WARNING: CFMM tree box scaling did not converge! Using ";
+        warning_message += std::to_string(distributions()); 
+        warning_message += " shell pairs per box instead of target (";
+        warning_message += std::to_string(M_target_); 
+        warning_message += ")\n\n";
 
-        //outfile->Printf(warning_message);
-        std::string error_message = "Adaptive CFMM tree box scaling did not converge!";
+        outfile->Printf(warning_message);
+        //std::string error_message = "Adaptive CFMM tree box scaling did not converge!";
    
-        throw PSIEXCEPTION(error_message);
+        //throw PSIEXCEPTION(error_message);
     }
 
     if (print_ >= 1) print_out();
@@ -419,10 +420,11 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
                 message += std::to_string(nlevels_);
                 message += " to ";
                 message += std::to_string(nlevels_ + 1);
-                message += ".\n";
+                message += ".\n\n";
 
                 outfile->Printf(message);
             }
+            //outfile->Printf("\n");
 
             ++nlevels_;
 
@@ -1028,6 +1030,7 @@ void CFMMTree::print_out() {
     if (print_ >= 2) {
         outfile->Printf("  ==> CFMM: Box Information <==\n\n");
         tree_[0]->print_out();  
+        outfile->Printf("\n");
     }
 
     // overall tree summary 

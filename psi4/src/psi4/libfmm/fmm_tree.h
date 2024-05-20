@@ -184,6 +184,8 @@ class PSI_API CFMMTree {
       int nlevels() { return nlevels_; }
       // Returns the max multipole AM
       int lmax() { return lmax_; }
+      // return average number of distributions per occupied lowest-level box
+      int distributions() { return level_to_shell_count_[nlevels_ - 1] / level_to_box_count_[nlevels_ - 1]; }
       // Return number of shell quartets actually computed
       size_t num_computed_shells() { return num_computed_shells_; };
       // Print the CFMM Tree out
