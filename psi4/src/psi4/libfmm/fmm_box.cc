@@ -254,7 +254,7 @@ void CFMMBox::print_out() {
         for (int ilevel = 0; ilevel != level; ++ilevel) {
             outfile->Printf("  ");
         }
-        outfile->Printf("  LEVEL: %d, WS: %d, CENTER: (%f, %f, %f), LENGTH: %f, NSHP: %d \n", level, ws, center[0], center[1], center[2], length, nshells);
+        outfile->Printf("    Tree: %d, WS: %d, Center: (%f, %f, %f), Length: %f, Num. Shell Pairs: %d \n", level, ws, center[0], center[1], center[2], length, nshells);
     }
 
     for (auto& child : this->get_children()) {
