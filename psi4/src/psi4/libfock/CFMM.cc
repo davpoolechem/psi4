@@ -23,9 +23,7 @@ using namespace psi;
 namespace psi {
 
 CFMM::CFMM(std::shared_ptr<BasisSet> primary, Options& options) : SplitJK(primary, options) {
-    outfile->Printf("BEGIN MAKE CFMM TREE \n");
     cfmmtree_ = std::make_shared<CFMMTree>(primary_, options_);
-    outfile->Printf("END MAKE CFMM TREE \n");
 }
 
 CFMM::~CFMM() {}
@@ -41,6 +39,7 @@ void CFMM::print_header() const {
         outfile->Printf("    Primary Basis: %11s\n", primary_->name().c_str());
         outfile->Printf("    Max Multipole Order: %11d\n", cfmmtree_->lmax());
         outfile->Printf("    Max Tree Depth: %11d\n", cfmmtree_->nlevels());
+        //outfile->Printf("    Distributions/Occupied Box: %11d\n", cfmmtree_->nlevels());
     }
 }
 
