@@ -1678,6 +1678,8 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_int("CFMM_TARGET_NSHP", 10000);
         /*- CFMM Extent Tolerance (for well-separated) -*/
         options.add_double("CFMM_EXTENT_TOLERANCE", 1.0e-10);
+         /*- Break calculation for adaptive CFMM debugging? !expert -*/ 
+        options.add_bool("CFMM_TREE_DEBUG", false);
  
         /*- SUBSECTION COSX Algorithm -*/
 
