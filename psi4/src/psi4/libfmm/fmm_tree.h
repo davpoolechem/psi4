@@ -138,9 +138,9 @@ class PSI_API CFMMTree {
       // => Functions called ONLY once <= //
 
       // Make the root node of the CFMMTree
-      void make_root_node(int target);
+      void make_root_node();
       // Regenerate the root node of the CFMMTree for iterative tree construction
-      std::tuple<bool, int> regenerate_root_node();
+      std::tuple<bool, bool> regenerate_root_node();
       // Create children
       void make_children();
       // Sort the leaf nodes by number of shell-pairs
