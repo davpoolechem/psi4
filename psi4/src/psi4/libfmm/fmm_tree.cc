@@ -222,45 +222,57 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     // ==> ------------------------------ <== //
     timer_on("CFMMTree: Setup");
     outfile->Printf("  ==> CFMM Tree Setup <== \n\n");
-    
-    bool converged = false;
-    for (int iter = 0; iter != 50; ++iter) {
-        if (print_ >= 2) outfile->Printf("  Iteration: %i\n", iter);
+   
+    // do "adaptive" CFMM scheme if desired...
+    if (grain <= 0) {
+        bool converged = false;
+        for (int iter = 0; iter != 50; ++iter) {
+            if (print_ >= 2) outfile->Printf("  Iteration: %i\n", iter);
 
-        if (tree_[0] == nullptr) {
-            make_root_node();
-        } else {
-            shellpair_list_.clear();
-            sorted_leaf_boxes_.clear();
-         
-            bool changed_level;   
-            std::tie(converged, changed_level) = regenerate_root_node();
+            if (tree_[0] == nullptr) {
+                make_root_node();
+            } else {
+                shellpair_list_.clear();
+                sorted_leaf_boxes_.clear();
+             
+                bool changed_level;   
+                std::tie(converged, changed_level) = regenerate_root_node();
+                
+                if (changed_level) continue;
+            }
+
+            make_children();
+            sort_leaf_boxes();
+            setup_regions();
+            setup_local_far_field_task_pairs();
+            setup_shellpair_info();
             
-            if (changed_level) continue;
+            if (converged) break;
         }
+    
+        generate_per_level_info();
 
+        if (!converged) {
+            std::string warning_message = "    WARNING: CFMM tree box scaling did not converge! Using ";
+            warning_message += std::to_string(distributions()); 
+            warning_message += " shell pairs per box instead of target (";
+            warning_message += std::to_string(M_target_); 
+            warning_message += ")\n\n";
+
+            outfile->Printf(warning_message);
+            //std::string error_message = "Adaptive CFMM tree box scaling did not converge!";
+   
+            //throw PSIEXCEPTION(error_message);
+        }
+    
+    // ... otherwise just specify tree according to CFMM_GRAIN
+    } else {
+        make_root_node();
         make_children();
         sort_leaf_boxes();
         setup_regions();
         setup_local_far_field_task_pairs();
         setup_shellpair_info();
-        
-        if (converged) break;
-    }
-    
-    generate_per_level_info();
-
-    if (!converged) {
-        std::string warning_message = "    WARNING: CFMM tree box scaling did not converge! Using ";
-        warning_message += std::to_string(distributions()); 
-        warning_message += " shell pairs per box instead of target (";
-        warning_message += std::to_string(M_target_); 
-        warning_message += ")\n\n";
-
-        outfile->Printf(warning_message);
-        //std::string error_message = "Adaptive CFMM tree box scaling did not converge!";
-   
-        //throw PSIEXCEPTION(error_message);
     }
 
     if (print_ >= 1) print_out();
