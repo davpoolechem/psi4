@@ -88,9 +88,6 @@ class PSI_API CFMMTree {
       // Dimensionality of system modeled by CFMM Tree
       // Always 3 for molecular systems
       static constexpr int dimensionality_ = 3;
-      // total of number of boxes in a tree of a given input level N
-      //static constexpr std::array<size_t, 6> level_to_total_box_count_ = { 1, 9, 73, 585, 4681, 37449 };
-      static constexpr std::array<size_t, 6> level_to_total_box_count_ = { 1, 9, 137, 2185, 34953, 559241 };
  
       // The tree structure (implemented as vector for random access)
       std::vector<std::shared_ptr<CFMMBox>> tree_;
@@ -135,7 +132,7 @@ class PSI_API CFMMTree {
       // number of shell pairs per CFMM tree level
       std::array<size_t, max_nlevels_> level_to_shell_count_;
 
-      // => Functions called ONLY once <= //
+      // => Functions related to CFMM Tree construction <= // 
 
       // Make the root node of the CFMMTree
       void make_root_node();
@@ -171,8 +168,11 @@ class PSI_API CFMMTree {
                              const std::vector<SharedMatrix>& D);
 
       // => Other functions <= //
+      // calculate number of boxes and shell pairs at each level of the CFMM tree
       void generate_per_level_info();
-    
+      // change tree depth and sanity-check
+      void set_nlevels(int nlevels);
+ 
     public:
       // Constructor (automatically sets up the tree)
       CFMMTree(std::shared_ptr<BasisSet> basis, Options& options);
