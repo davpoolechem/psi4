@@ -72,7 +72,7 @@ std::shared_ptr<JK> JK::build_JK(std::shared_ptr<BasisSet> primary, std::shared_
                                  Options& options, std::string jk_type) {
 
     // check if algorithm is composite
-    std::array<std::string, 3> composite_algos = { "DFDIRJ", "COSX", "LINK" };
+    std::array<std::string, 4> composite_algos = { "DFDIRJ", "CFMM", "COSX", "LINK" };
     bool is_composite = std::any_of(
       composite_algos.cbegin(),
       composite_algos.cend(),
