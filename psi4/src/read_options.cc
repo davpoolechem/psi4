@@ -1678,8 +1678,12 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_int("CFMM_TARGET_NSHP", 10000);
         /*- CFMM Extent Tolerance (for well-separated) -*/
         options.add_double("CFMM_EXTENT_TOLERANCE", 1.0e-10);
-         /*- Break calculation for adaptive CFMM debugging? !expert -*/ 
+        /*- Break calculation for adaptive CFMM debugging? !expert -*/ 
         options.add_bool("CFMM_TREE_DEBUG", false);
+        /*- Maximum iterations for adaptive CFMM tree scaling !expert -*/
+        options.add_int("CFMM_TREE_MAXITER", 100);
+        /*- % difference from CFMM_TARGET_NSHP to adaptive CFMM converged !expert -*/
+        options.add_int("CFMM_TREE_PRECISION", 10);
  
         /*- SUBSECTION COSX Algorithm -*/
 
