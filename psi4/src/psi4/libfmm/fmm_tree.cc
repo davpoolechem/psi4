@@ -39,22 +39,42 @@ namespace psi {
 
 // determine most positive and most negative molecular coordinates 
 std::pair<double, double> parse_molecular_dims(std::shared_ptr<Molecule> molecule) {
-    // define molecule params
-    double min_dim_mol = molecule->x(0);
-    double max_dim_mol = molecule->x(0);
-
+    std::array<double, 3> min_dims_mol = { molecule->x(0), molecule->y(0), molecule->z(0) };
+    std::array<double, 3> max_dims_mol = { molecule->x(0), molecule->y(0), molecule->z(0) };
+    
     for (int atom = 0; atom < molecule->natom(); atom++) {
         double x = molecule->x(atom);
         double y = molecule->y(atom);
         double z = molecule->z(atom);
-        min_dim_mol = std::min(x, min_dim_mol);
-        min_dim_mol = std::min(y, min_dim_mol);
-        min_dim_mol = std::min(z, min_dim_mol);
-        max_dim_mol = std::max(x, max_dim_mol);
-        max_dim_mol = std::max(y, max_dim_mol);
-        max_dim_mol = std::max(z, max_dim_mol);
+        min_dims_mol[0] = std::min(x, min_dims_mol[0]);
+        min_dims_mol[1] = std::min(y, min_dims_mol[1]);
+        min_dims_mol[2] = std::min(z, min_dims_mol[2]);
+        max_dims_mol[0] = std::max(x, max_dims_mol[0]);
+        max_dims_mol[1] = std::max(y, max_dims_mol[1]);
+        max_dims_mol[2] = std::max(z, max_dims_mol[2]);
     }
 
+    // define molecule params
+    double min_dim_mol = *std::min_element(std::begin(min_dims_mol), std::end(min_dims_mol)); 
+    double max_dim_mol = *std::max_element(std::begin(max_dims_mol), std::end(max_dims_mol));
+
+/*
+    outfile->Printf("Min dims:\n");
+    outfile->Printf("  Min dim x: %f\n", min_dims_mol[0]);
+    outfile->Printf("  Min dim y: %f\n", min_dims_mol[1]);
+    outfile->Printf("  Min dim z: %f\n", min_dims_mol[2]);
+    outfile->Printf("  Min dim total: %f\n", min_dim_mol);
+    outfile->Printf("Max dims:\n");
+    outfile->Printf("  Max dim x: %f\n", max_dims_mol[0]);
+    outfile->Printf("  Max dim y: %f\n", max_dims_mol[1]);
+    outfile->Printf("  Max dim z: %f\n", max_dims_mol[2]);
+    outfile->Printf("  Max dim total: %f\n", max_dim_mol);
+    outfile->Printf("Lengths:\n");
+    outfile->Printf("  Length x: %f\n", max_dims_mol[0] - min_dims_mol[0]);
+    outfile->Printf("  Length y: %f\n", max_dims_mol[1] - min_dims_mol[1]);
+    outfile->Printf("  Length z: %f\n", max_dims_mol[2] - min_dims_mol[2]);
+    outfile->Printf("\n");
+*/
     max_dim_mol += 0.05; // Add a small buffer to the box
     min_dim_mol -= 0.05; // Add a small buffer to the box
     
@@ -158,7 +178,6 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     // CFMM_GRAIN = -1 or 0 enables adaptive CFMM 
     } else if (grain == -1 || grain == 0) { 
         // Eq. 1 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
-        //g_ = 0.75; // perfectly spherical molecule for now 
         g_ = 1.0; // perfectly spherical molecule for now 
         
         N_target_ = ceil(static_cast<double>(nshell_pairs) / (static_cast<double>(M_target_) * g_)); 
@@ -225,8 +244,10 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
    
     // do "adaptive" CFMM scheme if desired...
     if (grain <= 0) {
+        int niter = options_.get_int("CFMM_TREE_MAXITER");
+
         bool converged = false;
-        for (int iter = 0; iter != 50; ++iter) {
+        for (int iter = 0; iter != niter; ++iter) {
             if (print_ >= 2) outfile->Printf("  Iteration: %i\n", iter);
 
             if (tree_[0] == nullptr) {
@@ -377,7 +398,7 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
     double scaling_factor = static_cast<double>(nshp_per_box)/static_cast<double>(M_target_); 
     
     // if here, we have converged the adaptive CFMM scheme, no need for more....
-    double percent_error = 0.2; // 20% error in exact distribution count for now
+    double percent_error = static_cast<double>(options_.get_int("CFMM_TREE_PRECISION")) / 100.0; 
     if ((1.0 - percent_error) <= scaling_factor && scaling_factor <= (1.0 + percent_error)) { 
         origin_new = origin_old; 
         length_new = length_old; 
@@ -405,7 +426,10 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
         double min_dim = min_dim_old - (length_new - length_tmp) / 2.0;
    
         // damp expansion of CFMM box
-        double expansion_thresh = 1.0; // box can shrink/expand by 1 Bohr at most
+        //double expansion_thresh = 1.0; // box can shrink/expand by 1 Bohr at most
+        double expansion_thresh = scaling_factor >= 1.0 ? 1.5 - (1.5 / scaling_factor) : (1.5 / scaling_factor) - 1.5;
+        expansion_thresh = std::min(1.0, std::abs(expansion_thresh)); // box can shrink/expand by 1 Bohr at most 
+     
         if (print_ >= 2) outfile->Printf("    %f -> %f\n", min_dim_old * bohr2ang, min_dim * bohr2ang);
         
         if ((min_dim - min_dim_old) > expansion_thresh) {
