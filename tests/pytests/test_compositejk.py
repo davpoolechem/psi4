@@ -152,7 +152,7 @@ def test_dfjcosk_incfock(inp, mols, request):
     assert compare(True, abs(niter_inc - niter_noinc) <= 3, f'{test_id} IncFock efficient')
 
 @pytest.mark.parametrize("functional", [ "bp86", "b3lyp" ])
-@pytest.mark.parametrize("scf_type", [ "DFDIRJ", "CFMM", "LINK", "COSX", "DFDIRJ+COSX", "DFDIRJ+LINK" ])
+@pytest.mark.parametrize("scf_type", [ "DFDIRJ", "CFMM", "LINK", "COSX", "DFDIRJ+COSX", "DFDIRJ+LINK", "CFMM+LINK", "CFMM+COSX" ])
 def test_dfdirj(functional, scf_type, mols):
     """Test the functionality of the SCF_TYPE keyword for CompositeJK methods under varying situations:
       - Using hybrid DFT functionals without specifying a K algorithm should cause a RuntimeError to be thrown.
@@ -180,6 +180,9 @@ def test_dfdirj(functional, scf_type, mols):
     else:  
         psi4.set_options({"scf_type": scf_type, "reference": "rhf", "basis": "cc-pvdz", "screening": screening}) 
     
+        if "CFMM" in scf_type:
+            psi4.set_options({"cfmm_grain": 128}); # lock CFMM tree to 3 levels if CFMM is used 
+ 
         is_hybrid = True if functional == "b3lyp" else False
         k_algo_specified = True if any([ algo in scf_type for algo, matrix in composite_algo_to_matrix.items() if matrix == "K" ]) else False
 
@@ -210,6 +213,10 @@ def test_j_algo_bp86(j_algo, df_basis_scf, mols):
     
     # run base composite J algorithm 
     psi4.set_options({"scf_type" : j_algo, "basis": "cc-pvdz", "df_basis_scf": df_basis_scf})
+    
+    if "CFMM" in j_algo:
+        psi4.set_options({"cfmm_grain": 128}); # lock CFMM tree to 3 levels if CFMM is used 
+ 
     energy_dfdirj = psi4.energy("bp86", molecule=molecule) 
     
     # compare composite combinations to base J algorithm
