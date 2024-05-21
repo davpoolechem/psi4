@@ -214,6 +214,8 @@ void CompositeJK::print_header() const {
             k_algo_->print_header();
         }
         outfile->Printf("\n");
+
+        if (options_.get_bool("CFMM_TREE_DEBUG")) throw PSIEXCEPTION("Early kill for CFMM debugging!");
     }
 }
 
