@@ -57,14 +57,13 @@ class CFMMShellPair;
 class CFMMBox;
 
 class PSI_API CFMMTree {
-
     protected:
       // The molecule that this tree structure references
       std::shared_ptr<Molecule> molecule_;
       // The basis set that the molecule uses
-      std::shared_ptr<BasisSet> basisset_;
+      std::shared_ptr<BasisSet> primary_;
       // List of all the significant shell-pairs in the molecule
-      std::vector<std::shared_ptr<CFMMShellPair>> shell_pairs_;
+      std::vector<std::shared_ptr<CFMMShellPair>> primary_shell_pairs_;
 
       // Number of Levels in the CFMM Tree
       int nlevels_;
@@ -81,7 +80,6 @@ class PSI_API CFMMTree {
       int N_target_;
       // Final factor by which to scale the root CFMM box
       double f_;
-      double f_alt_;
       // Scaling factor connecting number of target distributions to number of target boxes
       double g_; 
       // static constexpr double g_ = 0.523598; // pi/6, ratio of cube to sphere 
@@ -97,6 +95,8 @@ class PSI_API CFMMTree {
       std::vector<std::shared_ptr<CFMMBox>> sorted_leaf_boxes_;
       // Harmonic Coefficients used to calculate multipoles
       std::shared_ptr<HarmonicCoefficients> mpole_coefs_;
+      // Numerical cutoff for ERI screening
+      double cutoff_;
 
       // Options object
       Options& options_;
@@ -116,7 +116,7 @@ class PSI_API CFMMTree {
       std::vector<std::vector<
         std::tuple<std::shared_ptr<CFMMShellPair>, std::shared_ptr<CFMMBox> 
                   >
-      >> shellpair_list_;
+      >> primary_shellpair_list_;
       // local far-field box pairs at a given level of the tree
       std::vector<std::vector<std::pair<std::shared_ptr<CFMMBox>, std::shared_ptr<CFMMBox>>>> lff_task_pairs_per_level_;
       // Number of ERI shell quartets computed, i.e., not screened out
@@ -158,10 +158,10 @@ class PSI_API CFMMTree {
       // Helper method to compute far field
       void compute_far_field();
       // Build near-field J (Direct SCF)
-      void build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J);
+      virtual void build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) = 0;
       // Build far-field J (long-range multipole interactions)
-      void build_ff_J(std::vector<SharedMatrix>& J);
+      virtual void build_ff_J(std::vector<SharedMatrix>& J) = 0;
 
       // => ERI Screening <= //
       bool shell_significant(int P, int Q, int R, int S, std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
@@ -178,8 +178,8 @@ class PSI_API CFMMTree {
       CFMMTree(std::shared_ptr<BasisSet> basis, Options& options);
 
       // Build the J matrix of CFMMTree
-      void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                    const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, bool do_incfock_iter = false);
+      virtual void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+                    const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, bool do_incfock_iter = false) = 0;
       // Returns the max tree depth
       int nlevels() { return nlevels_; }
       // Returns the max multipole AM
@@ -192,6 +192,22 @@ class PSI_API CFMMTree {
       void print_out();
 
 }; // End class CFMMTree
+
+class PSI_API DirectCFMMTree : public CFMMTree {
+      // Build near-field J (Direct SCF)
+      virtual void build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) override;
+      // Build far-field J (long-range multipole interactions)
+      virtual void build_ff_J(std::vector<SharedMatrix>& J) override;
+
+    public:
+      // Constructor (automatically sets up the tree)
+      DirectCFMMTree(std::shared_ptr<BasisSet> basis, Options& options);
+
+      // Build the J matrix of CFMMTree
+      virtual void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+                    const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, bool do_incfock_iter = false) override;
+}; // End class DirectCFMMTree
 
 } // namespace psi
 

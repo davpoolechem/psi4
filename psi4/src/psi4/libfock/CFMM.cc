@@ -23,7 +23,7 @@ using namespace psi;
 namespace psi {
 
 CFMM::CFMM(std::shared_ptr<BasisSet> primary, Options& options) : SplitJK(primary, options) {
-    cfmmtree_ = std::make_shared<CFMMTree>(primary_, options_);
+    cfmmtree_ = std::make_shared<DirectCFMMTree>(primary_, options_);
 }
 
 CFMM::~CFMM() {}

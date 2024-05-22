@@ -143,14 +143,14 @@ void CFMMTree::set_nlevels(int nlevels) {
 }
 
 CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options) 
-                    : basisset_(basis), options_(options) {
+                    : primary_(basis), options_(options) {
 
     // ==> ---------------- <== //
     // ==> setup parameters <== //
     // ==> ---------------- <== //
     
     // baseline params
-    molecule_ = basisset_->molecule();
+    molecule_ = primary_->molecule();
    
     nthread_ = 1;
 #ifdef _OPENMP
@@ -177,18 +177,18 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     M_target_ = options_["CFMM_TARGET_NSHP"].has_changed() ? options_.get_int("CFMM_TARGET_NSHP") : M_target_computed * M_target_computed;
  
     // ints engine 
-    auto factory = std::make_shared<IntegralFactory>(basisset_);
+    auto factory = std::make_shared<IntegralFactory>(primary_);
     auto shellpair_int = std::shared_ptr<TwoBodyAOInt>(factory->eri());
 
     // shell pair info
     auto& ints_shell_pairs = shellpair_int->shell_pairs();
     size_t nshell_pairs = ints_shell_pairs.size();
-    shell_pairs_.resize(nshell_pairs);
+    primary_shell_pairs_.resize(nshell_pairs);
 
 #pragma omp parallel for
     for (size_t pair_index = 0; pair_index < nshell_pairs; pair_index++) {
         const auto& pair = ints_shell_pairs[pair_index];
-        shell_pairs_[pair_index] = std::make_shared<CFMMShellPair>(basisset_, pair, mpole_coefs_, cfmm_extent_tol);
+        primary_shell_pairs_[pair_index] = std::make_shared<CFMMShellPair>(primary_, pair, mpole_coefs_, cfmm_extent_tol);
     }
 
     // ==> time to define the number of lowest-level boxes in the CFMM tree! <== // 
@@ -262,7 +262,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
             if (tree_[0] == nullptr) {
                 make_root_node();
             } else {
-                shellpair_list_.clear();
+                primary_shellpair_list_.clear();
                 sorted_leaf_boxes_.clear();
              
                 bool changed_level;   
@@ -351,9 +351,7 @@ void CFMMTree::make_root_node() {
     //int num_lowest_level_boxes = std::pow(2,  dimensionality_ * (nlevels_ - 1)); 
 
     f_ = static_cast<double>(N_target_) / static_cast<double>(num_lowest_level_boxes); 
-    f_alt_ = std::pow(f_, (dimensionality_ + 1.0) / dimensionality_); // account for CFMM tree structure
-    //f_alt_ = std::pow(f_, (dimensionality_ ) / (dimensionality_ + 1.0) ); // account for CFMM tree structure
-    if (f_ > 1.0 || f_alt_ > 1.0) {
+    if (f_ > 1.0) {
         std::string error_message = "Bad f scaling factor value! ";
         error_message += std::to_string(N_target_);
         error_message += " N_target_ vs. ";
@@ -371,14 +369,13 @@ void CFMMTree::make_root_node() {
 
     if (print_ >= 2) {
         outfile->Printf("    f scaling factor: %d, %d -> %f\n", N_target_, num_lowest_level_boxes, f_);
-        outfile->Printf("    f scaling factor (alt): %d, %d -> %f\n", N_target_, num_lowest_level_boxes, f_alt_);
         outfile->Printf("    New box volume (bohr): %f, %f -> %f, %f\n", length_tmp, f_, length, length * length * length);
         outfile->Printf("    New box volume (ang): %f, %f -> %f, %f\n", length_tmp * bohr2ang, f_, length * bohr2ang, std::pow(length * bohr2ang, 3));
         outfile->Printf("    New box origin: (%f, %f, %f) \n\n", origin_new[0] * bohr2ang, origin_new[1] * bohr2ang, origin_new[2] * bohr2ang); 
     }
 
     // create top-level box
-    tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin_new, length, 0, lmax_, 2);
+    tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, origin_new, length, 0, lmax_, 2);
 }
 
 std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
@@ -417,7 +414,6 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
         //outfile->Printf("    Do scaling\n");
         if (print_ >= 2) {
             outfile->Printf("    Original f scaling factor: %f\n", f_);
-            outfile->Printf("    Original f scaling factor (alt): %f\n", f_alt_);
             outfile->Printf("    Original box volume (bohr): %f \n", std::pow(length_old, 3));
             outfile->Printf("    Original box volume (ang): %f \n", std::pow(length_old * bohr2ang, 3));
             outfile->Printf("    Original box origin: (%f, %f, %f) \n\n", origin_old[0] * bohr2ang, origin_old[1] * bohr2ang, origin_old[2] * bohr2ang);
@@ -482,7 +478,6 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
                 outfile->Printf("    Lowest level info: %d, %d\n", num_lowest_level_shells, num_lowest_level_boxes); 
                 outfile->Printf("    New scaling factor: %f, %d -> %f\n", nshp_per_box, M_target_, scaling_factor);
                 outfile->Printf("    New f scaling factor: %f, %f -> %f\n", f_, scaling_factor, scaling_factor * f_);
-                outfile->Printf("    New f scaling factor (alt): %f, %f -> %f\n", f_alt_, scaling_factor, scaling_factor * f_alt_);
                 outfile->Printf("    New box volume (bohr): %f, %f -> %f, %f\n", length_tmp, scaling_factor, length_new, length_new * length_new * length_new);
                 outfile->Printf("    New box volume (ang): %f, %f -> %f, %f\n", length_tmp * bohr2ang, scaling_factor, length_new * bohr2ang, std::pow(length_new * bohr2ang, 3));
                 outfile->Printf("    New box origin: (%f, %f, %f) \n\n", origin_new[0] * bohr2ang, origin_new[1] * bohr2ang, origin_new[2] * bohr2ang); 
@@ -496,7 +491,7 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
     num_boxes_ = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
     tree_.resize(num_boxes_);
 
-    if (!changed_level) tree_[0] = std::make_shared<CFMMBox>(nullptr, shell_pairs_, origin_new, length_new, 0, lmax_, 2);
+    if (!changed_level) tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, origin_new, length_new, 0, lmax_, 2);
 
     // we are done
     return std::tie(converged, changed_level);
@@ -557,12 +552,12 @@ void CFMMTree::setup_regions() {
 
 void CFMMTree::setup_shellpair_info() {
 
-    size_t nsh = basisset_->nshell(); 
+    size_t nsh = primary_->nshell(); 
 
-    shellpair_list_.resize(nsh);
+    primary_shellpair_list_.resize(nsh);
 
     for (int P = 0; P != nsh; ++P) { 
-        shellpair_list_[P].resize(nsh);
+        primary_shellpair_list_[P].resize(nsh);
     }
 
     for (int i = 0; i < sorted_leaf_boxes_.size(); i++) {
@@ -573,7 +568,7 @@ void CFMMTree::setup_shellpair_info() {
         for (auto& sp : shellpairs) {
             auto [P, Q] = sp->get_shell_pair_index();
 
-            shellpair_list_[P][Q] = { sp, curr };
+            primary_shellpair_list_[P][Q] = { sp, curr };
         }
     }
 }
@@ -635,19 +630,19 @@ void CFMMTree::calculate_shellpair_multipoles() {
     std::vector<std::shared_ptr<OneBodyAOInt>> sints;
     std::vector<std::shared_ptr<OneBodyAOInt>> mpints;
 
-    auto int_factory = std::make_shared<IntegralFactory>(basisset_);
+    auto int_factory = std::make_shared<IntegralFactory>(primary_);
     for (int thread = 0; thread < nthread_; thread++) {
         sints.push_back(std::shared_ptr<OneBodyAOInt>(int_factory->ao_overlap()));
         mpints.push_back(std::shared_ptr<OneBodyAOInt>(int_factory->ao_multipoles(lmax_)));
     }
 
 #pragma omp parallel for collapse(2) schedule(guided)
-    for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
-        for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
-            std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
+    for (int Ptask = 0; Ptask < primary_shellpair_list_.size(); Ptask++) {
+        for (int Qtask = 0; Qtask < primary_shellpair_list_.size(); Qtask++) {
+            std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(primary_shellpair_list_[Ptask][Qtask]);
             if (shellpair == nullptr) continue;
             
-            std::shared_ptr<CFMMBox> box = std::get<1>(shellpair_list_[Ptask][Qtask]);
+            std::shared_ptr<CFMMBox> box = std::get<1>(primary_shellpair_list_[Ptask][Qtask]);
             
             auto [P, Q] = shellpair->get_shell_pair_index();
     
@@ -672,7 +667,7 @@ void CFMMTree::calculate_multipoles(const std::vector<SharedMatrix>& D) {
     {
 #pragma omp for
         for (int bi = 0; bi < sorted_leaf_boxes_.size(); bi++) {
-            sorted_leaf_boxes_[bi]->compute_multipoles(basisset_, D);
+            sorted_leaf_boxes_[bi]->compute_multipoles(primary_, D);
         }
 
         // Calculate mpoles for higher level boxes
@@ -731,325 +726,6 @@ void CFMMTree::compute_far_field() {
 
     timer_off("CFMMTree: Far Field Vector");
 
-}
-
-void CFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                          const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
-
-    timer_on("CFMMTree: Near Field J");
-
-    int nshell = basisset_->nshell();
-    int natom = molecule_->natom();
-
-    // Maximum space (r_nbf * s_nbf) to allocate per task
-    size_t max_alloc = 0;
-
-    // A map of the function (num_r * num_s) offsets per shell-pair in a box pair
-    std::unordered_map<int, int> offsets;
-    
-    int start = (nlevels_ == 1) ? 0 : (0.5 * std::pow(16, nlevels_-1) + 7) / 15;
-    int end = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
-
-    for (int bi = start; bi < end; bi++) {
-        auto& RSshells = tree_[bi]->get_shell_pairs();
-        int RSoff = 0;
-        for (int RSind = 0; RSind < RSshells.size(); RSind++) {
-            auto [R, S] = RSshells[RSind]->get_shell_pair_index();
-            offsets[R * nshell + S] = RSoff;
-            int Rfunc = basisset_->shell(R).nfunction();
-            int Sfunc = basisset_->shell(S).nfunction();
-            RSoff += Rfunc * Sfunc;
-        }
-        max_alloc = std::max((size_t) RSoff, max_alloc);
-    }
-
-    // Make intermediate buffers (for threading purposes and take advantage of 8-fold perm sym)
-    std::vector<std::vector<std::vector<double>>> JT;
-    for (int thread = 0; thread < nthread_; thread++) {
-        std::vector<std::vector<double>> J2;
-        for (size_t N = 0; N <D.size(); N++) {
-            std::vector<double> temp(2 * max_alloc);
-            J2.push_back(temp);
-        }
-        JT.push_back(J2);
-    }
-
-    // Benchmark Number of Computed Shells
-    num_computed_shells_ = 0L;
-    size_t computed_shells = 0L;
-
-#pragma omp parallel for collapse(2) schedule(guided) reduction(+ : computed_shells)
-    for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
-        for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
-            std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
-            
-            if (shellpair == nullptr) continue;
-       
-            std::shared_ptr<CFMMBox> box = std::get<1>(shellpair_list_[Ptask][Qtask]);
-            std::vector<std::shared_ptr<CFMMBox>> nf_boxes = box->near_field_boxes(); 
- 
-            auto [P, Q] = shellpair->get_shell_pair_index();
-            
-            const GaussianShell& Pshell = basisset_->shell(P);
-            const GaussianShell& Qshell = basisset_->shell(Q);
-
-            int p_start = Pshell.start();
-            int num_p = Pshell.nfunction();
-
-            int q_start = Qshell.start();
-            int num_q = Qshell.nfunction();
-
-            int thread = 0;
-#ifdef _OPENMP
-            thread = omp_get_thread_num();
-#endif
-        
-            for (const auto& nf_box : nf_boxes) {
-                auto& RSshells = nf_box->get_shell_pairs();
-                
-                bool touched = false;
-     
-                for (const auto& RSsh : RSshells) {
-                    auto [R, S] = RSsh->get_shell_pair_index();
-                
-                    if (R * nshell + S > P * nshell + Q) continue;
-                    if (!shell_significant(P, Q, R, S, ints, D)) continue;
-            
-                    if (ints[thread]->compute_shell(P, Q, R, S) == 0) continue;
-                    computed_shells++;
-
-                    const GaussianShell& Rshell = basisset_->shell(R);
-                    const GaussianShell& Sshell = basisset_->shell(S);
-
-                    int r_start = Rshell.start();
-                    int num_r = Rshell.nfunction();
-    
-                    int s_start = Sshell.start();
-                    int num_s = Sshell.nfunction();
-    
-                    double prefactor = 1.0;
-                    if (P != Q) prefactor *= 2;
-                    if (R != S) prefactor *= 2;
-                    if (P == R && Q == S) prefactor *= 0.5;
-    
-                    int RSoff = offsets[R * nshell + S];
-    
-                    const double* pqrs = ints[thread]->buffer();
-    
-                    for (int N = 0; N <D.size(); N++) {
-                        double** Jp = J[N]->pointer();
-                        double** Dp =D[N]->pointer();
-                        double* JTp = JT[thread][N].data();
-                        const double* pqrs2 = pqrs;
-                        
-                        if (!touched) {
-                            ::memset((void*)(&JTp[0L * max_alloc]), '\0', max_alloc * sizeof(double));
-                            ::memset((void*)(&JTp[1L * max_alloc]), '\0', max_alloc * sizeof(double));
-                        }
-    
-                        // Contraction into box shell pairs to improve parallel performance
-                        double* J1p = &JTp[0L * max_alloc];
-                        double* J2p = &JTp[1L * max_alloc];
-    
-                        for (int p = p_start; p < p_start + num_p; p++) {
-                            int dp = p - p_start;
-                            for (int q = q_start; q < q_start + num_q; q++) {
-                                int dq = q - q_start;
-                                for (int r = r_start; r < r_start + num_r; r++) {
-                                    int dr = r - r_start;
-                                    for (int s = s_start; s < s_start + num_s; s++) {
-                                        int ds = s - s_start;
-    
-                                        int pq = dp * num_q + dq;
-                                        int rs = RSoff + dr * num_s + ds;
-    
-                                        J1p[pq] += prefactor * (*pqrs2) * Dp[r][s];
-                                        J2p[rs] += prefactor * (*pqrs2) * Dp[p][q];
-                                        pqrs2++;
-                                    } // end s
-                                } // end r
-                            } // end q
-                        } // end p
-                    } // end N
-                    touched = true;
-                } // end RSshells
-                if (!touched) continue;
-    
-                // = > Stripeout < = //
-                for (int N = 0; N < D.size(); N++) {
-                    double** Jp = J[N]->pointer();
-                    double** Dp = D[N]->pointer();
-                    double* JTp = JT[thread][N].data();
-    
-                    double* J1p = &JTp[0L * max_alloc];
-                    double* J2p = &JTp[1L * max_alloc];
-    
-                    for (int p = p_start; p < p_start + num_p; p++) {
-                        int dp = p - p_start;
-                        for (int q = q_start; q < q_start + num_q; q++) {
-                            int dq = q - q_start;
-                                
-                            int pq = dp * num_q + dq;
-#pragma omp atomic
-                            Jp[p][q] += J1p[pq];
-                        }
-                    }
-            
-                    for (const auto& RSsh : RSshells) {
-                        auto [R, S] = RSsh->get_shell_pair_index();
-    
-                        int RSoff = offsets[R * nshell + S];
-                    
-                        const GaussianShell& Rshell = basisset_->shell(R);
-                        const GaussianShell& Sshell = basisset_->shell(S);
-                    
-                        int r_start = Rshell.start();
-                        int num_r = Rshell.nfunction();
-    
-                        int s_start = Sshell.start();
-                        int num_s = Sshell.nfunction();
-                    
-                        for (int r = r_start; r < r_start + num_r; r++) {
-                            int dr = r - r_start;
-                            for (int s = s_start; s < s_start + num_s; s++) {
-                                int ds = s - s_start;
-                                int rs = RSoff + dr * num_s + ds;
-#pragma omp atomic
-                                Jp[r][s] += J2p[rs];
-                            }
-                        }
-                    }
-                }
-                // => End Stripeout <= //
-            } // end nf_box
-        } // end Qtasks
-    } // end Ptasks
-    
-    num_computed_shells_ = computed_shells; 
-
-    timer_off("CFMMTree: Near Field J");
-}
-
-void CFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
-
-    timer_on("CFMMTree: Far Field J");
-
-#pragma omp parallel for collapse(2) schedule(guided)
-    for (int Ptask = 0; Ptask < shellpair_list_.size(); Ptask++) {
-        for (int Qtask = 0; Qtask < shellpair_list_.size(); Qtask++) {
-            std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(shellpair_list_[Ptask][Qtask]);
-            if (shellpair == nullptr) continue;
-    
-            auto [P, Q] = shellpair->get_shell_pair_index();
-    
-            const auto& Vff = std::get<1>(shellpair_list_[Ptask][Qtask])->far_field_vector();
-                
-            const auto& shellpair_mpoles = shellpair->get_mpoles();
-     
-            double prefactor = (P == Q) ? 1.0 : 2.0;
-        
-            const GaussianShell& Pshell = basisset_->shell(P);
-            const GaussianShell& Qshell = basisset_->shell(Q);
-    
-            int p_start = Pshell.start();
-            int num_p = Pshell.nfunction();
-    
-            int q_start = Qshell.start();
-            int num_q = Qshell.nfunction();
-    
-            for (int p = p_start; p < p_start + num_p; p++) {
-                int dp = p - p_start;
-                for (int q = q_start; q < q_start + num_q; q++) {
-                    int dq = q - q_start;
-                    for (int N = 0; N < J.size(); N++) {
-                        double** Jp = J[N]->pointer();
-                        // Far field multipole contributions
-#pragma omp atomic
-                        Jp[p][q] += prefactor * Vff[N]->dot(shellpair_mpoles[dp * num_q + dq]);
-                    } // end N
-                } // end q
-            } // end p
-        } // end Qtasks
-    } // end Ptasks
-
-    timer_off("CFMMTree: Far Field J");
-}
-
-void CFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                        const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, bool do_incfock_iter) {
-
-    timer_on("CFMMTree: J");
-    
-    std::vector<SharedMatrix> nf_J, ff_J;
-    
-    // Zero the J matrix
-    auto zero_mat = J[0]->clone();
-    zero_mat->zero(); 
-    for (int ind = 0; ind < D.size(); ind++) {
-        if (!do_incfock_iter) 
-        {
-          J[ind]->zero();
-        }
-
-        nf_J.push_back(std::make_shared<Matrix>(zero_mat->clone()));
-        ff_J.push_back(std::make_shared<Matrix>(zero_mat->clone()));
-    }
-
-    // Update the densities
-    for (int thread = 0; thread < nthread_; thread++) {
-        ints[thread]->update_density(D);
-    }
-
-    // Compute multipoles and far field
-    calculate_multipoles(D);
-    compute_far_field();
-
-    // Compute near field J and far field J
-    build_nf_J(ints, D, nf_J);
-    /*
-    outfile->Printf("#========================# \n");
-    outfile->Printf("#== Start Near-Field J ==# \n");
-    outfile->Printf("#========================# \n\n");
-    for (int ind = 0; ind < D.size(); ind++) {
-         outfile->Printf("  Ind = %d \n", ind);
-         outfile->Printf("  -------- \n");
-
-         nf_J[ind]->print_out();
-         outfile->Printf("\n");
-    }
-    outfile->Printf("#========================# \n");
-    outfile->Printf("#==  End Near-Field J  ==# \n");
-    outfile->Printf("#========================# \n");
-    */
-
-    build_ff_J(ff_J);
-    /*
-    outfile->Printf("#=======================# \n");
-    outfile->Printf("#== Start Far-Field J ==# \n");
-    outfile->Printf("#=======================# \n\n");
-    for (int ind = 0; ind < D.size(); ind++) {
-         outfile->Printf("  Ind = %d \n", ind);
-         outfile->Printf("  -------- \n");
- 
-         ff_J[ind]->print_out();
-         outfile->Printf("\n");
-    }
-    outfile->Printf("#=======================# \n");
-    outfile->Printf("#==  End Far-Field J  ==# \n");
-    outfile->Printf("#=======================# \n\n");
-    */
-
-    for (int ind = 0; ind < D.size(); ind++) {
-        J[ind]->add(nf_J[ind]);
-        J[ind]->add(ff_J[ind]);
-    }
-    
-    // Hermitivitize J matrix afterwards
-    for (int ind = 0; ind < D.size(); ind++) {
-        J[ind]->hermitivitize();
-    }
-
-    timer_off("CFMMTree: J");
 }
 
 void CFMMTree::print_out() {
