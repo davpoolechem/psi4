@@ -67,6 +67,7 @@ class Options;
 class PsiOutStream;
 class DFTGrid;
 class CFMMTree;
+class DirectCFMMTree;
 
 /**
  * Class SplitJK
@@ -205,7 +206,7 @@ class PSI_API DirectDFJ : public SplitJK {
 class PSI_API CFMM : public SplitJK {
    
    /// The CFMMTree object used to compute the CFMM integrals
-   std::shared_ptr<CFMMTree> cfmmtree_;
+   std::shared_ptr<DirectCFMMTree> cfmmtree_;
 
    /// Are we doing an incremental Fock build this iteration?
    /// Needed to pass into CFMM tree
