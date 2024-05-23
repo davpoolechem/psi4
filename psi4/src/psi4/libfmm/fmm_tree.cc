@@ -144,6 +144,7 @@ void CFMMTree::set_nlevels(int nlevels) {
 
 CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options) 
                     : primary_(basis), options_(options) {
+    timer_on("CFMMTree: Setup");
 
     // ==> ---------------- <== //
     // ==> setup parameters <== //
@@ -167,7 +168,6 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     lmax_ = options_.get_int("CFMM_ORDER");
 
     mpole_coefs_ = std::make_shared<HarmonicCoefficients>(lmax_, Regular);
-    double cfmm_extent_tol = options.get_double("CFMM_EXTENT_TOLERANCE");
 
     // compute M_target_ based on multipole order as defined by White 1996
     // M_target_ is the average number of distributions (shell pairs) per
@@ -175,23 +175,14 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     int M_target_computed = 5*lmax_ - 5;  
 
     M_target_ = options_["CFMM_TARGET_NSHP"].has_changed() ? options_.get_int("CFMM_TARGET_NSHP") : M_target_computed * M_target_computed;
- 
-    // ints engine 
-    auto factory = std::make_shared<IntegralFactory>(primary_);
-    auto shellpair_int = std::shared_ptr<TwoBodyAOInt>(factory->eri());
+    
+    timer_off("CFMMTree: Setup");
+}
 
-    // shell pair info
-    auto& ints_shell_pairs = shellpair_int->shell_pairs();
-    size_t nshell_pairs = ints_shell_pairs.size();
-    primary_shell_pairs_.resize(nshell_pairs);
-
-#pragma omp parallel for
-    for (size_t pair_index = 0; pair_index < nshell_pairs; pair_index++) {
-        const auto& pair = ints_shell_pairs[pair_index];
-        primary_shell_pairs_[pair_index] = std::make_shared<CFMMShellPair>(primary_, pair, mpole_coefs_, cfmm_extent_tol);
-    }
-
-    // ==> time to define the number of lowest-level boxes in the CFMM tree! <== // 
+void CFMMTree::make_tree(int nshell_pairs) {
+    timer_on("CFMMTree: Make Tree");
+    
+    // ==> define the number of lowest-level boxes in the CFMM tree! <== // 
     int grain = options_.get_int("CFMM_GRAIN");
   
     // CFMM_GRAIN < -1 is invalid 
@@ -202,6 +193,11 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
  
     // CFMM_GRAIN = -1 or 0 enables adaptive CFMM 
     } else if (grain == -1 || grain == 0) { 
+        // nshell_pairs must be set to something if using adaptive CFMM
+        if (nshell_pairs <= 0) {
+            throw PSIEXCEPTION("CFMMTree::make_tree called, but nshell_pairs is set to 0 or less!");
+        }
+
         // Eq. 1 of White 1996 (https://doi.org/10.1016/0009-2614(96)00574-X)
         g_ = 1.0; // perfectly spherical molecule for now 
         
@@ -248,7 +244,6 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     // ==> ------------------------------ <== //
     // ==> Actually create CFMM tree now! <== //
     // ==> ------------------------------ <== //
-    timer_on("CFMMTree: Setup");
     outfile->Printf("  ==> CFMM Tree Setup <== \n\n");
    
     // do "adaptive" CFMM scheme if desired...
@@ -308,7 +303,7 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     // early kill?
     //if (options_.get_bool("CFMM_TREE_DEBUG")) throw PSIEXCEPTION("Early kill for CFMM debugging!");
     
-    timer_off("CFMMTree: Setup");
+    timer_off("CFMMTree: Make Tree");
 }
 
 void CFMMTree::sort_leaf_boxes() {
