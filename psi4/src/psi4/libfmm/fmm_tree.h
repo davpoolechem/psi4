@@ -134,6 +134,8 @@ class PSI_API CFMMTree {
 
       // => Functions related to CFMM Tree construction <= // 
 
+      // Generate the whole tree
+      void make_tree(int nshell_pairs = -1);
       // Make the root node of the CFMMTree
       void make_root_node();
       // Regenerate the root node of the CFMMTree for iterative tree construction
