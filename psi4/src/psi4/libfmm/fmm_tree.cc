@@ -305,13 +305,9 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
         setup_shellpair_info();
     }
 
-    if (print_ >= 1) print_out();
-   
     // early kill?
     //if (options_.get_bool("CFMM_TREE_DEBUG")) throw PSIEXCEPTION("Early kill for CFMM debugging!");
     
-    calculate_shellpair_multipoles();
-
     timer_off("CFMMTree: Setup");
 }
 
@@ -621,42 +617,6 @@ void CFMMTree::setup_local_far_field_task_pairs() {
             }
         }
     }
-}
-
-void CFMMTree::calculate_shellpair_multipoles() {
-
-    timer_on("CFMMTree: Shell-Pair Multipole Ints");
-
-    std::vector<std::shared_ptr<OneBodyAOInt>> sints;
-    std::vector<std::shared_ptr<OneBodyAOInt>> mpints;
-
-    auto int_factory = std::make_shared<IntegralFactory>(primary_);
-    for (int thread = 0; thread < nthread_; thread++) {
-        sints.push_back(std::shared_ptr<OneBodyAOInt>(int_factory->ao_overlap()));
-        mpints.push_back(std::shared_ptr<OneBodyAOInt>(int_factory->ao_multipoles(lmax_)));
-    }
-
-#pragma omp parallel for collapse(2) schedule(guided)
-    for (int Ptask = 0; Ptask < primary_shellpair_list_.size(); Ptask++) {
-        for (int Qtask = 0; Qtask < primary_shellpair_list_.size(); Qtask++) {
-            std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(primary_shellpair_list_[Ptask][Qtask]);
-            if (shellpair == nullptr) continue;
-            
-            std::shared_ptr<CFMMBox> box = std::get<1>(primary_shellpair_list_[Ptask][Qtask]);
-            
-            auto [P, Q] = shellpair->get_shell_pair_index();
-    
-            int thread = 0;
-#ifdef _OPENMP
-            thread = omp_get_thread_num();
-#endif
- 
-            mpints[thread]->set_origin(box->center());
-            shellpair->calculate_mpoles(box->center(), sints[thread], mpints[thread], lmax_);
-        }  
-    }
-
-    timer_off("CFMMTree: Shell-Pair Multipole Ints");
 }
 
 void CFMMTree::calculate_multipoles(const std::vector<SharedMatrix>& D) {
