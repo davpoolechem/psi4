@@ -41,6 +41,25 @@ DirectCFMMTree::DirectCFMMTree(std::shared_ptr<BasisSet> primary, Options& optio
                     : CFMMTree(primary, options) {
     timer_on("DirectCFMMTree: Setup");
 
+    // ints engine 
+    auto factory = std::make_shared<IntegralFactory>(primary_);
+    auto shellpair_int = std::shared_ptr<TwoBodyAOInt>(factory->eri());
+
+    // shell pair info
+    auto& ints_shell_pairs = shellpair_int->shell_pairs();
+    size_t nshell_pairs = ints_shell_pairs.size();
+    primary_shell_pairs_.resize(nshell_pairs);
+    
+    double cfmm_extent_tol = options.get_double("CFMM_EXTENT_TOLERANCE");
+
+#pragma omp parallel for
+    for (size_t pair_index = 0; pair_index < nshell_pairs; pair_index++) {
+        const auto& pair = ints_shell_pairs[pair_index];
+        primary_shell_pairs_[pair_index] = std::make_shared<CFMMShellPair>(primary_, pair, mpole_coefs_, cfmm_extent_tol);
+    }
+
+    make_tree(nshell_pairs);
+
     calculate_shellpair_multipoles();
     if (print_ >= 1) print_out();
 
