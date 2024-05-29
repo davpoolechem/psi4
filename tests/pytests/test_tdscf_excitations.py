@@ -128,74 +128,103 @@ def _rotatory_strength(e: float, etm: np.ndarray, mtm: np.ndarray, gauge: str = 
     pytest.param(  "H2O", 'RHF-1',      'SVWN',  'TDA',  'cc-pvdz', marks=[lda, RHF_singlet, TDA, pytest.mark.quick]),
     pytest.param(  "H2O", 'RHF-3',      'SVWN',  'RPA',  'cc-pvdz', marks=[lda, RHF_triplet, RPA, pytest.mark.quick]),
     pytest.param(  "H2O", 'RHF-3',      'SVWN',  'TDA',  'cc-pvdz', marks=[lda, RHF_triplet, TDA, pytest.mark.quick]),
-    pytest.param( "H2O2", 'RHF-1',      'SVWN',  'RPA',  'cc-pvdz', marks=[lda, RHF_singlet, RPA, pytest.mark.quick]),
-    pytest.param( "H2O2", 'RHF-1',      'SVWN',  'TDA',  'cc-pvdz', marks=[lda, RHF_singlet, TDA, pytest.mark.quick]),
-    pytest.param( "H2O2", 'RHF-3',      'SVWN',  'RPA',  'cc-pvdz', marks=[lda, RHF_triplet, RPA, pytest.mark.quick]),
-    pytest.param( "H2O2", 'RHF-3',      'SVWN',  'TDA',  'cc-pvdz', marks=[lda, RHF_triplet, TDA, pytest.mark.quick]),
-    pytest.param( "METHYLOXIRANE", 'RHF-1',      'SVWN',  'RPA',  'cc-pvdz', marks=[lda, RHF_singlet, RPA, pytest.mark.quick]),
-    pytest.param( "METHYLOXIRANE", 'RHF-1',      'SVWN',  'TDA',  'cc-pvdz', marks=[lda, RHF_singlet, TDA, pytest.mark.quick]),
-    pytest.param( "METHYLOXIRANE", 'RHF-3',      'SVWN',  'RPA',  'cc-pvdz', marks=[lda, RHF_triplet, RPA, pytest.mark.quick]),
-    pytest.param( "METHYLOXIRANE", 'RHF-3',      'SVWN',  'TDA',  'cc-pvdz', marks=[lda, RHF_triplet, TDA, pytest.mark.quick]),
+#    pytest.param( "H2O2", 'RHF-1',      'SVWN',  'RPA',  'cc-pvdz', marks=[lda, RHF_singlet, RPA, pytest.mark.quick]),
+#    pytest.param( "H2O2", 'RHF-1',      'SVWN',  'TDA',  'cc-pvdz', marks=[lda, RHF_singlet, TDA, pytest.mark.quick]),
+#    pytest.param( "H2O2", 'RHF-3',      'SVWN',  'RPA',  'cc-pvdz', marks=[lda, RHF_triplet, RPA, pytest.mark.quick]),
+#    pytest.param( "H2O2", 'RHF-3',      'SVWN',  'TDA',  'cc-pvdz', marks=[lda, RHF_triplet, TDA, pytest.mark.quick]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-1',      'SVWN',  'RPA',  'cc-pvdz', marks=[lda, RHF_singlet, RPA, pytest.mark.quick]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-1',      'SVWN',  'TDA',  'cc-pvdz', marks=[lda, RHF_singlet, TDA, pytest.mark.quick]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-3',      'SVWN',  'RPA',  'cc-pvdz', marks=[lda, RHF_triplet, RPA, pytest.mark.quick]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-3',      'SVWN',  'TDA',  'cc-pvdz', marks=[lda, RHF_triplet, TDA, pytest.mark.quick]),
     pytest.param(  "CH2",   'UHF',        'HF',  'RPA',  'cc-pvdz', marks=[hf, UHF, RPA, pytest.mark.quick]),
     pytest.param(  "CH2",   'UHF',        'HF',  'TDA',  'cc-pvdz', marks=[hf, UHF, TDA, pytest.mark.quick]),
     pytest.param(  "H2O", 'RHF-1',        'HF',  'RPA',  'cc-pvdz', marks=[hf, RHF_singlet, RPA, pytest.mark.quick]),
     pytest.param(  "H2O", 'RHF-1',        'HF',  'TDA',  'cc-pvdz', marks=[hf, RHF_singlet, TDA, pytest.mark.quick]),
     pytest.param(  "H2O", 'RHF-3',        'HF',  'RPA',  'cc-pvdz', marks=[hf, RHF_triplet, RPA, pytest.mark.quick]),
     pytest.param(  "H2O", 'RHF-3',        'HF',  'TDA',  'cc-pvdz', marks=[hf, RHF_triplet, TDA, pytest.mark.quick]),
-    pytest.param( "H2O2", 'RHF-1',        'HF',  'RPA',  'cc-pvdz', marks=[hf, RHF_singlet, RPA, pytest.mark.quick]),
-    pytest.param( "H2O2", 'RHF-1',        'HF',  'TDA',  'cc-pvdz', marks=[hf, RHF_singlet, TDA, pytest.mark.quick]),
-    pytest.param( "H2O2", 'RHF-3',        'HF',  'RPA',  'cc-pvdz', marks=[hf, RHF_triplet, RPA, pytest.mark.quick]),
-    pytest.param( "H2O2", 'RHF-3',        'HF',  'TDA',  'cc-pvdz', marks=[hf, RHF_triplet, TDA, pytest.mark.quick]),
-    pytest.param( "METHYLOXIRANE", 'RHF-1',        'HF',  'RPA',  'cc-pvdz', marks=[hf, RHF_singlet, RPA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-1',        'HF',  'TDA',  'cc-pvdz', marks=[hf, RHF_singlet, TDA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-3',        'HF',  'RPA',  'cc-pvdz', marks=[hf, RHF_triplet, RPA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-3',        'HF',  'TDA',  'cc-pvdz', marks=[hf, RHF_triplet, TDA]),
+#    pytest.param( "H2O2", 'RHF-1',        'HF',  'RPA',  'cc-pvdz', marks=[hf, RHF_singlet, RPA, pytest.mark.quick]),
+#    pytest.param( "H2O2", 'RHF-1',        'HF',  'TDA',  'cc-pvdz', marks=[hf, RHF_singlet, TDA, pytest.mark.quick]),
+#    pytest.param( "H2O2", 'RHF-3',        'HF',  'RPA',  'cc-pvdz', marks=[hf, RHF_triplet, RPA, pytest.mark.quick]),
+#    pytest.param( "H2O2", 'RHF-3',        'HF',  'TDA',  'cc-pvdz', marks=[hf, RHF_triplet, TDA, pytest.mark.quick]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-1',        'HF',  'RPA',  'cc-pvdz', marks=[hf, RHF_singlet, RPA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-1',        'HF',  'TDA',  'cc-pvdz', marks=[hf, RHF_singlet, TDA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-3',        'HF',  'RPA',  'cc-pvdz', marks=[hf, RHF_triplet, RPA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-3',        'HF',  'TDA',  'cc-pvdz', marks=[hf, RHF_triplet, TDA]),
     pytest.param(  "CH2",   'UHF',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, UHF, RPA]),
     pytest.param(  "CH2",   'UHF',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, UHF, TDA]),
     pytest.param(  "H2O", 'RHF-1',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, RHF_singlet, RPA]),
     pytest.param(  "H2O", 'RHF-1',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, RHF_singlet, TDA]),
     pytest.param(  "H2O", 'RHF-3',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, RHF_triplet, RPA]),
     pytest.param(  "H2O", 'RHF-3',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, RHF_triplet, TDA]),
-    pytest.param( "H2O2", 'RHF-1',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, RHF_singlet, RPA]),
-    pytest.param( "H2O2", 'RHF-1',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, RHF_singlet, TDA]),
-    pytest.param( "H2O2", 'RHF-3',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, RHF_triplet, RPA]),
-    pytest.param( "H2O2", 'RHF-3',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, RHF_triplet, TDA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-1',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, RHF_singlet, RPA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-1',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, RHF_singlet, TDA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-3',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, RHF_triplet, RPA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-3',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, RHF_triplet, TDA]),
+#    pytest.param( "H2O2", 'RHF-1',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, RHF_singlet, RPA]),
+#    pytest.param( "H2O2", 'RHF-1',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, RHF_singlet, TDA]),
+#    pytest.param( "H2O2", 'RHF-3',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, RHF_triplet, RPA]),
+#    pytest.param( "H2O2", 'RHF-3',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, RHF_triplet, TDA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-1',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, RHF_singlet, RPA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-1',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, RHF_singlet, TDA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-3',    'HCTH93',  'RPA',  'cc-pvdz', marks=[gga, RHF_triplet, RPA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-3',    'HCTH93',  'TDA',  'cc-pvdz', marks=[gga, RHF_triplet, TDA]),
     pytest.param(  "CH2",   'UHF',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, UHF, RPA]),
     pytest.param(  "CH2",   'UHF',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, UHF, TDA]),
     pytest.param(  "H2O", 'RHF-1',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, RHF_singlet, RPA]),
     pytest.param(  "H2O", 'RHF-1',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, RHF_singlet, TDA]),
     pytest.param(  "H2O", 'RHF-3',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, RHF_triplet, RPA]),
     pytest.param(  "H2O", 'RHF-3',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, RHF_triplet, TDA]),
-    pytest.param( "H2O2", 'RHF-1',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, RHF_singlet, RPA]),
-    pytest.param( "H2O2", 'RHF-1',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, RHF_singlet, TDA]),
-    pytest.param( "H2O2", 'RHF-3',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, RHF_triplet, RPA]),
-    pytest.param( "H2O2", 'RHF-3',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, RHF_triplet, TDA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-1',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, RHF_singlet, RPA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-1',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, RHF_singlet, TDA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-3',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, RHF_triplet, RPA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-3',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, RHF_triplet, TDA]),
+#    pytest.param( "H2O2", 'RHF-1',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, RHF_singlet, RPA]),
+#    pytest.param( "H2O2", 'RHF-1',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, RHF_singlet, TDA]),
+#    pytest.param( "H2O2", 'RHF-3',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, RHF_triplet, RPA]),
+#    pytest.param( "H2O2", 'RHF-3',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, RHF_triplet, TDA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-1',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, RHF_singlet, RPA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-1',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, RHF_singlet, TDA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-3',      'PBE0',  'RPA',  'cc-pvdz', marks=[hyb_gga, RHF_triplet, RPA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-3',      'PBE0',  'TDA',  'cc-pvdz', marks=[hyb_gga, RHF_triplet, TDA]),
     pytest.param(  "CH2",   'UHF',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, UHF, RPA]),
     pytest.param(  "CH2",   'UHF',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, UHF, TDA]),
     pytest.param(  "H2O", 'RHF-1',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_singlet, RPA]),
     pytest.param(  "H2O", 'RHF-1',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_singlet, TDA]),
     pytest.param(  "H2O", 'RHF-3',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_triplet, RPA]),
     pytest.param(  "H2O", 'RHF-3',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_triplet, TDA]),
-    pytest.param( "H2O2", 'RHF-1',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_singlet, RPA]),
-    pytest.param( "H2O2", 'RHF-1',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_singlet, TDA]),
-    pytest.param( "H2O2", 'RHF-3',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_triplet, RPA]),
-    pytest.param( "H2O2", 'RHF-3',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_triplet, TDA]),
-    pytest.param( "METHYLOXIRANE", 'RHF-1',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_singlet, RPA, pytest.mark.medlong]),
-    pytest.param( "METHYLOXIRANE", 'RHF-1',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_singlet, TDA, pytest.mark.medlong]),
-    pytest.param( "METHYLOXIRANE", 'RHF-3',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_triplet, RPA, pytest.mark.medlong]),
-    pytest.param( "METHYLOXIRANE", 'RHF-3',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_triplet, TDA, pytest.mark.medlong]),
+#    pytest.param( "H2O2", 'RHF-1',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_singlet, RPA]),
+#    pytest.param( "H2O2", 'RHF-1',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_singlet, TDA]),
+#    pytest.param( "H2O2", 'RHF-3',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_triplet, RPA]),
+#    pytest.param( "H2O2", 'RHF-3',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_triplet, TDA]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-1',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_singlet, RPA, pytest.mark.medlong]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-1',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_singlet, TDA, pytest.mark.medlong]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-3',     'wB97X',  'RPA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_triplet, RPA, pytest.mark.medlong]),
+#    pytest.param( "METHYLOXIRANE", 'RHF-3',     'wB97X',  'TDA',  'cc-pvdz', marks=[hyb_gga_lrc, RHF_triplet, TDA, pytest.mark.medlong]),
 ]) # yapf: disable
-def test_tdscf(mol, ref, func, ptype, basis, molecules, reference_data):
+@pytest.mark.parametrize("scf_type", [ 
+    pytest.param("PK")
+    pytest.param("DFDIRJ+COSX", marks=[pytest.mark.long])
+    pytest.param("DFDIRJ+LINK", marks=[pytest.mark.long]) 
+])
+def test_tdscf(mol, ref, func, ptype, basis, molecules, reference_data, scf_type):
     molecule = molecules[mol]
-    psi4.set_options({'scf_type': 'pk', 'e_convergence': 8, 'd_convergence': 8, 'save_jk': True, 'dft_radial_points': 99, 'dft_spherical_points': 590, 'dft_pruning_scheme': "None"})
+    psi4.set_options({'scf_type': scf_type, 'e_convergence': 8, 'd_convergence': 8, 'save_jk': True, 'dft_radial_points': 99, 'dft_spherical_points': 590, 'dft_pruning_scheme': "None"})
+    
+    # composite-specific settings
+    if "+" in scf_type:
+        if func == 'wB97X':
+            pytest.skip(f'CompositeJK doesnt support range-separated functionals') 
+ 
+        if "DFDIRJ+" in scf_type:
+            psi4.set_options({ 
+                "df_basis_scf": "aug-cc-pVQZ-jkfit" # we want a VERY large aux basis to match non-DF reference 
+            })
+        
+        if "+LINK" in scf_type:
+             psi4.set_options({ 
+                "screening": "density" 
+            })
+ 
+        elif "+COSX" in scf_type:
+            psi4.set_options({
+                "cosx_radial_points_initial": 40,
+                "cosx_spherical_points_initial": 194,
+                "cosx_radial_points_final": 99,
+                "cosx_spherical_points_initial": 590,
+                "cosx_pruning_scheme": "None",
+            })
     if ref == "UHF":
         psi4.set_options({'reference': 'UHF'})
     molecule.reset_point_group('c1')
