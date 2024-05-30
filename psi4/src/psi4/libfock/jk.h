@@ -763,7 +763,7 @@ class PSI_API DirectJK : public JK {
 
     // Number of initial SCF iterations that have been performed
     // Controls when incfock is turned on 
-    size_t initial_iterations_ = true;
+    size_t initial_iterations_;
     static constexpr size_t initial_iterations_limit_ = 2;
  
     std::string name() override { return "DirectJK"; }
