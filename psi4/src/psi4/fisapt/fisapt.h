@@ -60,9 +60,11 @@ class FISAPT {
     std::shared_ptr<BasisSet> primary_;
     std::shared_ptr<BasisSet> df_basis_scf_;
 
-    /// Global JK object
+    /// Global JK objeck calling JK algo of SCF_TYPE
     std::shared_ptr<JK> jk_;
+    /// Global JK objeck calling DF JK algo, for cases where non-DF doesnt work
     std::shared_ptr<JK> jk_df_;
+    /// Global JK object used immediately for a given function
     std::shared_ptr<JK> jk_ref_;
 
     /// Map of scalars
