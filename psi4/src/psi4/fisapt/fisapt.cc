@@ -835,10 +835,6 @@ void FISAPT::coulomb() {
     jk_ = JK::build_JK(primary_, reference_->get_basisset("DF_BASIS_SCF"), options_, false, doubles_);
     jk_->set_memory(doubles_);
 
-    // hacky solution to make CompositeJK work with FISAPT
-    // we run selected CompositeJK combo on monomer SCFs, and DF for the rest of the SAPT terms
-    // because CompositeJK isn't set up for nonsymmetric densities yet
-    // TODO: Fix this!
     auto jk_type = options_.get_str("SCF_TYPE");
 
     std::array<std::string, 3> composite_algos = { "DFDIRJ", "COSX", "LINK" };
@@ -869,6 +865,8 @@ void FISAPT::coulomb() {
         throw PSIEXCEPTION("DF algorithm is not being used, but jk_ and jk_df_ refer to the same object!");
     }
 
+    // for now, Coulomb calcs dont work with non-DFJK 
+    // so need to define jk_ref_ as the DFJK object for now
     jk_ref_ = jk_df_;
 
     // => Build J and K for embedding <= //
@@ -915,6 +913,7 @@ void FISAPT::coulomb() {
 void FISAPT::scf() {
     outfile->Printf("  ==> Relaxed SCF Equations <==\n\n");
 
+    // redefine jk_ref_ to the specified SCF_TYPE JK object 
     jk_ref_ = jk_;
     
     // => Restricted Basis Sets with C Projected <= //
@@ -3661,9 +3660,11 @@ void FISAPT::ind() {
     // Effective constructor
     cphf->delta_ = options_.get_double("D_CONVERGENCE");
     cphf->maxiter_ = options_.get_int("MAXITER");
-    //cphf->jk_ = jk_ref_;
-    cphf->jk_ = jk_df_;
-    cphf->jk_df_ = jk_df_;
+    
+    jk_ref_ = jk_df_;
+    
+    cphf->jk_ = jk_ref_;
+    cphf->jk_df_ = jk_ref_;
 
     cphf->w_A_ = wB;  // Reversal of convention
     cphf->Cocc_A_ = Cocc0A;
