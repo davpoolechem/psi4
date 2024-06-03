@@ -901,7 +901,7 @@ void FISAPT::coulomb() {
     }
 
     jk_ref_->print_header();
-    //jk_df_->compute();
+    jk_ref_->compute();
 
     int nn = primary_->nbf();
     matrices_["JC"] = std::make_shared<Matrix>("JC", nn, nn);
@@ -8321,7 +8321,6 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
     // compute J-like and K-like terms using pseudo-densities 
     jk_->compute();
 
-/*
     std::vector<SharedMatrix> J; 
     std::vector<SharedMatrix> K; 
     for (int i = 0; i != jk_->J().size(); ++i) {
@@ -8330,7 +8329,6 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
     } 
     
     if (jk_.get() != jk_df_.get()) {
-    //{
         std::vector<SharedMatrix>& Cl_df = jk_df_->C_left();
         std::vector<SharedMatrix>& Cr_df = jk_df_->C_right();
 
@@ -8358,11 +8356,10 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
         J_df.push_back(jk_df_->J()[i]->clone());
         K_df.push_back(jk_df_->K()[i]->clone());
     } 
-*/
-    const std::vector<SharedMatrix>& J = jk_->J();
-    const std::vector<SharedMatrix>& K = jk_->K();
 
-/*
+    //const std::vector<SharedMatrix>& J = jk_->J();
+    //const std::vector<SharedMatrix>& K = jk_->K();
+
     for (int i = 0; i != K.size(); ++i) {
       auto dKi = K[i]->clone();
       dKi->subtract(K_df[i]);
@@ -8390,6 +8387,11 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
 
       auto [max_h, max_i, max_j] = dKi->absmax_idx();
       outfile->Printf("  Absmax: %.10f at (%i, %i, %i)\n", dKi->absmax(), max_h, max_i, max_j);
+      outfile->Printf("  Absmax Associated elements: %.10f, %.10f, %.10f\n", 
+          dKi->get(max_h, max_i, max_j),
+          K[i]->get(max_h, max_i, max_j),
+          K_df[i]->get(max_h, max_i, max_j)
+      );
       outfile->Printf("  Reldev Absmax (K_ref): %3.2f (%.10f / %.10f) \n", 
           100 * dKi->absmax() / std::abs(K[i]->get(max_h, max_i, max_j)), 
           dKi->absmax(), std::abs(K[i]->get(max_h, max_i, max_j))
@@ -8400,7 +8402,6 @@ std::map<std::string, std::shared_ptr<Matrix> > CPHF_FISAPT::product(
       ); 
       }
     }
-*/
 
     int indA = 0;
     int indB = (do_A ? 1 : 0);
