@@ -18,6 +18,7 @@
 #include "psi4/libpsi4util/process.h"
 #include "psi4/libpsi4util/PsiOutStream.h"
 
+#include <optional>
 #include <functional>
 #include <memory>
 #include <tuple>
@@ -87,7 +88,7 @@ void CFMMTree::generate_per_level_info() {
     int level_prev = 0;
     for (int bi = 0; bi < tree_.size(); bi++) {
         std::shared_ptr<CFMMBox> box = tree_[bi];
-        auto sp = box->get_shell_pairs();
+        auto sp = box->get_primary_shell_pairs();
         int nshells = sp.size();
         int level = box->get_level();
         if (nshells > 0) {
@@ -142,8 +143,8 @@ void CFMMTree::set_nlevels(int nlevels) {
     }
 }
 
-CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options) 
-                    : primary_(basis), options_(options) {
+CFMMTree::CFMMTree(std::shared_ptr<BasisSet> primary, Options& options) 
+                    : primary_(primary), options_(options) {
     timer_on("CFMMTree: Setup");
 
     // ==> ---------------- <== //
@@ -178,6 +179,8 @@ CFMMTree::CFMMTree(std::shared_ptr<BasisSet> basis, Options& options)
     
     timer_off("CFMMTree: Setup");
 }
+
+//CFMMTree::CFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options), { CFMMTree(primary, options) };
 
 void CFMMTree::make_tree(int nshell_pairs) {
     timer_on("CFMMTree: Make Tree");
@@ -553,7 +556,7 @@ void CFMMTree::setup_shellpair_info() {
 
     for (int i = 0; i < sorted_leaf_boxes_.size(); i++) {
         std::shared_ptr<CFMMBox> curr = sorted_leaf_boxes_[i];
-        auto& shellpairs = curr->get_shell_pairs();
+        auto& shellpairs = curr->get_primary_shell_pairs();
         auto& nf_boxes = curr->near_field_boxes();
 
         for (auto& sp : shellpairs) {
@@ -622,7 +625,7 @@ void CFMMTree::calculate_multipoles(const std::vector<SharedMatrix>& D) {
     {
 #pragma omp for
         for (int bi = 0; bi < sorted_leaf_boxes_.size(); bi++) {
-            sorted_leaf_boxes_[bi]->compute_multipoles(primary_, D);
+            sorted_leaf_boxes_[bi]->compute_multipoles(D, std::nullopt);
         }
 
         // Calculate mpoles for higher level boxes

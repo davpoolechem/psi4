@@ -140,7 +140,25 @@ void CompositeJK::common_init() {
     } else if (j_type == "CFMM") {
         // initialize SplitJK algo
         j_algo_ = std::make_shared<CFMM>(primary_, options_);
- 
+
+    // DF-CFMM
+    } else if (j_type == "DFCFMM") {
+        // initialize SplitJK algo
+        j_algo_ = std::make_shared<DFCFMM>(primary_, auxiliary_, options_);
+
+        // create 3-center ERIs
+        eri_computers_["3-Center"].emplace({});
+        eri_computers_["3-Center"].resize(nthreads_);
+
+        computed_shells_per_iter_["Triplets"] = {};
+        
+        IntegralFactory rifactory(auxiliary_, zero, primary_, primary_);
+        eri_computers_["3-Center"][0] = std::shared_ptr<TwoBodyAOInt>(rifactory.eri());
+
+        for(int rank = 1; rank < nthreads_; rank++) {
+            eri_computers_["3-Center"][rank] = std::shared_ptr<TwoBodyAOInt>(eri_computers_["3-Center"].front()->clone());
+        }
+
     } else {
         throw PSIEXCEPTION("Invalid Composite J algorithm selected!");
     }

@@ -39,6 +39,7 @@
 #include "psi4/libmints/twobody.h"
 #include "psi4/libfmm/multipoles_helper.h"
 #include "psi4/libfmm/fmm_shell_pair.h"
+#include "psi4/libfmm/fmm_box.h"
 
 #include <functional>
 #include <memory>
@@ -147,21 +148,22 @@ class PSI_API CFMMTree {
       // Set up near field and far field information for each box in the tree
       void setup_regions();
       // Setup shell-pair information and calculate multipoles for each shell-pair
-      void setup_shellpair_info();
+      virtual void setup_shellpair_info();
       // Set up information on local far field task pairs per level
       void setup_local_far_field_task_pairs();
       // Calculate ALL the shell-pair multipoles at each leaf box
-      virtual void calculate_shellpair_multipoles() = 0;
+      virtual void calculate_shellpair_multipoles(bool is_primary = true) = 0;
 
       // => Functions called ONCE per iteration <= //
 
       // Calculate multipoles
-      void calculate_multipoles(const std::vector<SharedMatrix>& D);
+      virtual void calculate_multipoles(const std::vector<SharedMatrix>& D);
       // Helper method to compute far field
       void compute_far_field();
       // Build near-field J (Direct SCF)
       virtual void build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) = 0;
+                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+                      const std::vector<double>& Jmet_max) = 0;
       // Build far-field J (long-range multipole interactions)
       virtual void build_ff_J(std::vector<SharedMatrix>& J) = 0;
 
@@ -177,11 +179,13 @@ class PSI_API CFMMTree {
  
     public:
       // Constructor (automatically sets up the tree)
-      CFMMTree(std::shared_ptr<BasisSet> basis, Options& options);
+      CFMMTree(std::shared_ptr<BasisSet> primary, Options& options);
+      //CFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
 
       // Build the J matrix of CFMMTree
       virtual void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                    const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, bool do_incfock_iter = false) = 0;
+                    const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, 
+                    bool do_incfock_iter = false, const std::vector<double>& Jmet_max = {}) = 0;
       // Returns the max tree depth
       int nlevels() { return nlevels_; }
       // Returns the max multipole AM
@@ -197,88 +201,89 @@ class PSI_API CFMMTree {
 
 class PSI_API DirectCFMMTree : public CFMMTree {
     protected:
-      virtual void calculate_shellpair_multipoles() override;
+      void calculate_shellpair_multipoles(bool is_primary = true) override;
       
       // Build near-field J (Direct SCF)
-      virtual void build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) override;
+      void build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+                      const std::vector<double>& Jmet_max) override;
       // Build far-field J (long-range multipole interactions)
-      virtual void build_ff_J(std::vector<SharedMatrix>& J) override;
+      void build_ff_J(std::vector<SharedMatrix>& J) override;
 
     public:
       // Constructor (automatically sets up the tree)
-      DirectCFMMTree(std::shared_ptr<BasisSet> basis, Options& options);
+      DirectCFMMTree(std::shared_ptr<BasisSet> primary, Options& options);
+      //DirectCFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
 
       // Build the J matrix of CFMMTree
-      virtual void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                    const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, bool do_incfock_iter = false) override;
+      void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+                    const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, 
+                    bool do_incfock_iter = false, const std::vector<double>& Jmet_max = {}) override;
 }; // End class DirectCFMMTree
 
-/*
-enum class ContractionType {
-    DIRECT,
-    DF_AUX_PRI,
-    DF_PRI_AUX,
-    METRIC
-};
-
-class PSI_API DFCFMMTree {
+class PSI_API DFCFMMTree : public CFMMTree{
     protected:
       std::shared_ptr<BasisSet> auxiliary_;
       // List of all the significant primary shell-pairs in the molecule (U_SHELL, V_SHELL), U >= V
       //std::vector<std::shared_ptr<ShellPair>> primary_shell_pairs_;
       // List of all the significant auxiliary shell-pairs in the molecule (SHELL, 0)
-      std::vector<std::shared_ptr<ShellPair>> auxiliary_shell_pairs_;
+      std::vector<std::shared_ptr<CFMMShellPair>> auxiliary_shell_pairs_;
       // What type of contraction is being performed? (Inferred by input parameters)
       ContractionType contraction_type_;
 
-      // List of all the auxiliary shell-pairs to compute
-      std::vector<std::pair<int, int>> auxiliary_shellpair_tasks_;
-      // Index from the auxiliary shell-pair index to the bra shell pair
-      std::vector<std::shared_ptr<ShellPair>> auxiliary_shellpair_list_;
-      // The box each auxiliary shell-pair belongs to
-      std::vector<std::shared_ptr<CFMMBox>> auxiliary_shellpair_to_box_;
+      // Index from the shell-pair index to shell pair info (shellpair, box, nf_boxes)
+      std::vector<std::vector<
+        std::tuple<std::shared_ptr<CFMMShellPair>, std::shared_ptr<CFMMBox> 
+                  >
+      >> auxiliary_shellpair_list_;
+      // List of all the near field boxes that belong to a given primary shell-pair
+      std::vector<std::vector<std::shared_ptr<CFMMBox>>> primary_shellpair_to_nf_boxes_;
       // List of all the near field boxes that belong to a given auxiliary shell-pair
       std::vector<std::vector<std::shared_ptr<CFMMBox>>> auxiliary_shellpair_to_nf_boxes_;
 
       // Calculate the shell-pair multipoles at each leaf box (primary or auxiliary)
-      //void calculate_shellpair_multipoles(bool is_primary);
+      void calculate_shellpair_multipoles(bool is_primary = true) override;
+
+      // Setup shell-pair information and calculate multipoles for each shell-pair
+      virtual void setup_shellpair_info();
 
       // => Functions called ONCE per iteration <= //
 
+      // Calculate multipoles
+      void calculate_multipoles(const std::vector<SharedMatrix>& D) override;
       // Build near-field J (Gateway function, links to specific J builds based on contraction 
-      virtual void build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
+      void build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
 		      const std::vector<double>& Jmet_max) override;
       // Build gammaP's near field (gammaP = (P|uv)Duv)
-      void build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
-                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-		      const std::vector<double>& Jmet_max);
+      //void build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
+     //                 const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+	//	      const std::vector<double>& Jmet_max);
       // Build density-fitted J's near field (Jpq = (pq|Q)*gammaQ)
-      void build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
-                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-		      const std::vector<double>& Jmet_max);
+      //void build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
+      //                const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+	//	      const std::vector<double>& Jmet_max);
       // Builds the near field interactions of the Coulomb metric with an auxiliary density
-      void build_nf_metric(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
-                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J);
+      //void build_nf_metric(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
+      //                const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J);
 
       // Build far-field J (long-range multipole interactions)
-      virtual void build_ff_J(std::vector<SharedMatrix>& J) = 0;
+      void build_ff_J(std::vector<SharedMatrix>& J) override;
 
     public:
       /// Constructor (automatically sets up the tree)
       /// Pass in null pointer if no primary or auxiliary
+      //DFCFMMTree(std::shared_ptr<BasisSet> primary, Options& options);
       DFCFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
 
       // Build the J matrix of CFMMTree
-      virtual void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+      void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
                     const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-		    const std::vector<double>& Jmet_max = {}) override;
+		    bool do_incfock_iter = false, const std::vector<double>& Jmet_max = {}) override;
 
       // Flip the contraction type (for DF integrals)
-      void df_set_contraction(ContractionType contraction_type);
+      //void df_set_contraction(ContractionType contraction_type);
 }; // End class DFCFMMTree
-*/
 
 } // namespace psi
 

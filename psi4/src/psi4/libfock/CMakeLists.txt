@@ -3,6 +3,7 @@ list(APPEND sources
   CFMM.cc
   CompositeJK.cc
   COSK.cc
+  DFCFMM.cc
   DirectDFJ.cc
   DirectJK.cc
   DiskDFJK.cc
