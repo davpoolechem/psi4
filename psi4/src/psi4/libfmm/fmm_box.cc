@@ -67,22 +67,12 @@ CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent,
 #ifdef _OPENMP
     nthread_ = Process::environment.get_n_threads();
 #endif
-   outfile->Printf("  CALL AUXILIARY CONSTRUCTOR\n");
-   outfile->Printf("    length: %f\n", length);
-   outfile->Printf("    length_: %f\n", length_);
-   outfile->Printf("    box->length_: %f\n", this->length());
 }
 
 CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, 
               std::vector<std::shared_ptr<CFMMShellPair>> primary_shell_pairs, 
               Vector3 origin, double length, int level, int lmax, int ws) : 
-    CFMMBox(parent, primary_shell_pairs, {}, origin, length, level, lmax, ws) { 
-
-    outfile->Printf("  RETURN TO PRIMARY CONSTRUCTOR\n");
-    outfile->Printf("    length: %f\n", length);
-    outfile->Printf("    length_: %f\n", length_);
-    outfile->Printf("    box->length_: %f\n", this->length());
-} 
+    CFMMBox(parent, primary_shell_pairs, {}, origin, length, level, lmax, ws) { } 
 
 void CFMMBox::make_children() {
 
