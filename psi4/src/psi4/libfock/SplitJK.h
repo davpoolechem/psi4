@@ -68,6 +68,7 @@ class PsiOutStream;
 class DFTGrid;
 class CFMMTree;
 class DirectCFMMTree;
+class DFCFMMTree;
 
 /**
  * Class SplitJK
@@ -251,6 +252,67 @@ class PSI_API CFMM : public SplitJK {
     * print name of method
     */
     std::string name() override { return "CFMM"; }
+
+    // setters and getters
+    void set_CFMM_incfock_iter(bool incfock_iter) override { incfock_iter_ = incfock_iter; }
+};
+
+//build the J matrix using the Continuous Fast Multipole Method (CFMM) with integral-direct density fitting (DF) for the near-field J
+class PSI_API DFCFMM : public SplitJK {
+   
+   /// The CFMMTree object used to compute the CFMM integrals
+   std::shared_ptr<DFCFMMTree> cfmmtree_;
+
+   /// Are we doing an incremental Fock build this iteration?
+   /// Needed to pass into CFMM tree
+   bool incfock_iter_;
+
+    // => Density Fitting Stuff <= //
+
+    /// Auxiliary basis set
+    std::shared_ptr<BasisSet> auxiliary_;
+    /// Coulomb Metric
+    SharedMatrix J_metric_;
+
+  public:
+   /**
+    * @brief Construct a new DFCFMM object
+    * 
+    * @param primary The primary basis set used in DirectDFJ
+    * @param options The options object
+    */
+    DFCFMM(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
+    /// Destructor
+    ~DFCFMM() override;
+
+   /**
+    * @author Andy Jiang, Andy Simmonett, David Poole, Georgia Tech, April 2022
+    *
+    * @brief Builds the J matrix according to the DF-CFMM Algorithm
+    * 
+    * @param D The list of AO density matrixes to contract to form the J matrix (1 for RHF, 2 for UHF/ROHF)
+    * @param J The list of AO J matrices to build (Same size as D)
+    */
+    void build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
+                 std::vector<std::shared_ptr<Matrix> >& G_comp,
+         std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) override;
+
+
+   /**
+    * @brief Prints information regarding DF-CFMM run
+    * 
+    */
+   void print_header() const override;
+
+    /**
+    * Return number of ERI shell quartets computed during the SplitJK build process.
+    */
+    size_t num_computed_shells() override;
+
+    /**
+    * print name of method
+    */
+    std::string name() override { return "DF-CFMM"; }
 
     // setters and getters
     void set_CFMM_incfock_iter(bool incfock_iter) override { incfock_iter_ = incfock_iter; }

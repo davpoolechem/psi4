@@ -47,11 +47,14 @@ double sign(double x) {
     }
 }
 
-CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<CFMMShellPair>> shell_pairs, 
+CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, 
+              std::vector<std::shared_ptr<CFMMShellPair>> primary_shell_pairs, 
+              std::vector<std::shared_ptr<CFMMShellPair>> auxiliary_shell_pairs, 
               Vector3 origin, double length, int level, int lmax, int ws) {
                   
     parent_ = parent;
-    shell_pairs_ = shell_pairs;
+    primary_shell_pairs_ = primary_shell_pairs;
+    auxiliary_shell_pairs_ = auxiliary_shell_pairs;
     origin_ = origin;
     center_ = origin_ + 0.5 * Vector3(length, length, length);
     length_ = length;
@@ -67,10 +70,17 @@ CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<CF
 
 }
 
+CFMMBox::CFMMBox(std::shared_ptr<CFMMBox> parent, 
+              std::vector<std::shared_ptr<CFMMShellPair>> primary_shell_pairs, 
+              Vector3 origin, double length, int level, int lmax, int ws) {
+    CFMMBox(parent, primary_shell_pairs, {}, origin, length, level, lmax, ws); 
+} 
+
 void CFMMBox::make_children() {
 
     int nchild = (level_ > 0) ? 16 : 8;
-    std::vector<std::vector<std::shared_ptr<CFMMShellPair>>> child_shell_pair_buffer(nchild);
+    std::vector<std::vector<std::shared_ptr<CFMMShellPair>>> child_shell_pair_primary_buffer(nchild);
+    std::vector<std::vector<std::shared_ptr<CFMMShellPair>>> child_shell_pair_auxiliary_buffer(nchild);
 
     // Max WS at the child's level
     int child_level_max_ws = std::max(2, (int) std::pow(2, level_+1));
@@ -78,7 +88,7 @@ void CFMMBox::make_children() {
 
     // Fill order (ws,z,y,x) (0)000 (0)001 (0)010 (0)011 (0)100 (0)101 (0)110 (0)111
     // (1)000 (1)001 (1)010 (1)011 (1)100 (1)101 (1)110 (1)111
-    for (std::shared_ptr<CFMMShellPair> shell_pair : shell_pairs_) {
+    for (std::shared_ptr<CFMMShellPair> shell_pair : primary_shell_pairs_) {
         Vector3 sp_center = shell_pair->get_center();
         double x = sp_center[0];
         double y = sp_center[1];
@@ -92,7 +102,27 @@ void CFMMBox::make_children() {
         int rbit = (level_ == 0 || ws < 2 * ws_) ? 0 : 1;
 
         int boxind = 8 * rbit + 4 * zbit + 2 * ybit + 1 * xbit;
-        child_shell_pair_buffer[boxind].push_back(shell_pair);
+        child_shell_pair_primary_buffer[boxind].push_back(shell_pair);
+
+        int child_ws = std::max(2, (int)std::ceil(2.0 * extent / length_));
+        if (child_ws > diffuse_child_max_ws) diffuse_child_max_ws = child_ws;
+    }
+
+    for (std::shared_ptr<CFMMShellPair> shell_pair : auxiliary_shell_pairs_) {
+        Vector3 sp_center = shell_pair->get_center();
+        double x = sp_center[0];
+        double y = sp_center[1];
+        double z = sp_center[2];
+        double extent = shell_pair->get_extent();
+        int ws = std::max(2, 2 * (int)std::ceil(extent / length_));
+
+        int xbit = (x < center_[0]) ? 0 : 1;
+        int ybit = (y < center_[1]) ? 0 : 1;
+        int zbit = (z < center_[2]) ? 0 : 1;
+        int rbit = (level_ == 0 || ws < 2 * ws_) ? 0 : 1;
+
+        int boxind = 8 * rbit + 4 * zbit + 2 * ybit + 1 * xbit;
+        child_shell_pair_auxiliary_buffer[boxind].push_back(shell_pair);
 
         int child_ws = std::max(2, (int)std::ceil(2.0 * extent / length_));
         if (child_ws > diffuse_child_max_ws) diffuse_child_max_ws = child_ws;
@@ -106,8 +136,9 @@ void CFMMBox::make_children() {
         int rbit = (boxind / 8) % 2;
         Vector3 new_origin = origin_ + Vector3(xbit * 0.5 * length_, ybit * 0.5 * length_, zbit * 0.5 * length_);
         int child_ws = 2 * ws_ - 2 + 2 * rbit;
-        children_.push_back(std::make_shared<CFMMBox>(this->get(), child_shell_pair_buffer[boxind], new_origin, 
-                                                          0.5 * length_, level_ + 1, lmax_, child_ws));
+        children_.push_back(std::make_shared<CFMMBox>(this->get(), child_shell_pair_primary_buffer[boxind], 
+                                                      child_shell_pair_auxiliary_buffer[boxind],   
+                                                      new_origin, 0.5 * length_, level_ + 1, lmax_, child_ws));
         if (child_ws == child_level_max_ws) children_[boxind]->set_ws_max(diffuse_child_max_ws);
     }
 }
@@ -117,7 +148,7 @@ void CFMMBox::set_regions() {
     // Creates a temporary parent shared pointer
     std::shared_ptr<CFMMBox> parent = parent_.lock();
     // Maximum possible WS for a box at this level
-    int max_ws = std::max(2, (int)std::pow(2, level_));
+    //int max_ws = std::max(2, (int)std::pow(2, level_));
 
     // Parent is not a nullpointer
     if (parent) {
@@ -169,8 +200,8 @@ void CFMMBox::add_parent_far_field_contribution() {
     }
 }
 
-void CFMMBox::compute_multipoles(std::shared_ptr<BasisSet>& basisset, const std::vector<SharedMatrix>& D) {
-
+// TODO: THIS
+void CFMMBox::compute_multipoles(const std::vector<SharedMatrix>& D, std::optional<ContractionType> contraction_type) {
     if (mpoles_.size() == 0) {
         mpoles_.resize(D.size());
         Vff_.resize(D.size());
@@ -182,8 +213,24 @@ void CFMMBox::compute_multipoles(std::shared_ptr<BasisSet>& basisset, const std:
         Vff_[N] = std::make_shared<RealSolidHarmonics>(lmax_, center_, Irregular);
     }
 
-    // Contract the multipoles with the density matrix to get box multipoles
-    for (const auto& sp : shell_pairs_) {
+    bool is_primary;
+    if (!contraction_type.has_value()) { // default/null contraction type uses primary basis
+        //is_primary = (contraction_type == ContractionType::DF_AUX_PRI || contraction_type == ContractionType::DIRECT);
+        is_primary = (contraction_type == ContractionType::DF_AUX_PRI);
+    } else {
+        is_primary = true;
+    }
+
+    std::vector<std::shared_ptr<CFMMShellPair>>& ref_shell_pairs = (is_primary) ? primary_shell_pairs_ : auxiliary_shell_pairs_;
+    if (ref_shell_pairs.empty()) return;
+
+    std::shared_ptr<BasisSet> bs1 = ref_shell_pairs[0]->bs1();
+    std::shared_ptr<BasisSet> bs2 = ref_shell_pairs[0]->bs2();
+   
+    int nbf = (is_primary) ? bs1->nbf() : 1;
+
+    // Compute and contract the ket multipoles with the density matrix to get box multipoles
+    for (const auto& sp : ref_shell_pairs) {
 
         std::vector<std::shared_ptr<RealSolidHarmonics>>& sp_mpoles = sp->get_mpoles();
         
@@ -191,8 +238,8 @@ void CFMMBox::compute_multipoles(std::shared_ptr<BasisSet>& basisset, const std:
 
         double prefactor = (P == Q) ? 1.0 : 2.0;
 
-        const GaussianShell& Pshell = basisset->shell(P);
-        const GaussianShell& Qshell = basisset->shell(Q);
+        const GaussianShell& Pshell = bs1->shell(P);
+        const GaussianShell& Qshell = bs2->shell(Q);
 
         int p_start = Pshell.start();
         int num_p = Pshell.nfunction();
@@ -213,7 +260,6 @@ void CFMMBox::compute_multipoles(std::shared_ptr<BasisSet>& basisset, const std:
             } // end p
         } // end N
     }
-
 }
 
 void CFMMBox::compute_mpoles_from_children() {
@@ -244,7 +290,8 @@ void CFMMBox::compute_mpoles_from_children() {
 }
 
 void CFMMBox::print_out() {
-    auto sp = this->get_shell_pairs();
+    auto sp = this->get_primary_shell_pairs();
+    //auto sp = this->get_auxiliary_shell_pairs();
     int nshells = sp.size();
     int level = this->get_level();
     int ws = this->get_ws();
