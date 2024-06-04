@@ -53,10 +53,20 @@ namespace psi {
 
 class Options;
 
+// used by CFMMBox and CFMMTree
+enum class ContractionType {
+    DIRECT,
+    DF_AUX_PRI,
+    DF_PRI_AUX,
+    METRIC
+};
+
 class PSI_API CFMMShellPair {
     protected:
-      // The basisset associated with the shell-pair
-      std::shared_ptr<BasisSet> basisset_;
+      // The basis set of the first shell-pair index
+      std::shared_ptr<BasisSet> bs1_;
+      // The basis set of the second shell-pair index
+      std::shared_ptr<BasisSet> bs2_;
       // The index of the shell-pair
       std::pair<int, int> pair_index_;
       // Exponent of most diffuse basis function in shell pair
@@ -71,7 +81,8 @@ class PSI_API CFMMShellPair {
       std::shared_ptr<HarmonicCoefficients> mpole_coefs_;
 
     public:
-      CFMMShellPair(std::shared_ptr<BasisSet>& basisset, std::pair<int, int> pair_index, 
+      CFMMShellPair(std::shared_ptr<BasisSet>& bs1, std::shared_ptr<BasisSet>& bs2, 
+                std::pair<int, int> pair_index, 
                 std::shared_ptr<HarmonicCoefficients>& mpole_coefs, double cfmm_extent_tol);
 
       // Calculate the multipole moments of the Shell-Pair about a center
@@ -86,7 +97,10 @@ class PSI_API CFMMShellPair {
       double get_extent() { return extent_; }
       // Returns the multipole moments of the shell pairs about a center
       std::vector<std::shared_ptr<RealSolidHarmonics>>& get_mpoles() { return mpoles_; }
-
+      // Returns bs1 of shell pair
+      std::shared_ptr<BasisSet> bs1() { return bs1_; }
+      // Returns bs2 of shell pair
+      std::shared_ptr<BasisSet> bs2() { return bs2_; }
 };
 
 } // namespace psi

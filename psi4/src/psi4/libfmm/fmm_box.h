@@ -40,6 +40,7 @@
 #include "psi4/libfmm/multipoles_helper.h"
 #include "psi4/libfmm/fmm_shell_pair.h"
 
+#include <optional>
 #include <functional>
 #include <memory>
 #include <tuple>
@@ -56,15 +57,16 @@ class Options;
 class CFMMShellPair;
 
 class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
-
     protected:
       // Parent of the CFMMBox
       std::weak_ptr<CFMMBox> parent_;
       // Children of the CFMMBox
       std::vector<std::shared_ptr<CFMMBox>> children_;
 
-      // The shell pairs belonging to this box
-      std::vector<std::shared_ptr<CFMMShellPair>> shell_pairs_;
+      // The primary shell pairs belonging to this box (empty if none)
+      std::vector<std::shared_ptr<CFMMShellPair>> primary_shell_pairs_;
+      // The auxiliary shell pairs belonging to this box (empty if none)
+      std::vector<std::shared_ptr<CFMMShellPair>> auxiliary_shell_pairs_;
 
       // The box's origin (lower-left-front corner)
       Vector3 origin_;
@@ -100,7 +102,12 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       
     public:
       // Generic Constructor
-      CFMMBox(std::shared_ptr<CFMMBox> parent, std::vector<std::shared_ptr<CFMMShellPair>> shell_pairs, 
+      CFMMBox(std::shared_ptr<CFMMBox> parent, 
+              std::vector<std::shared_ptr<CFMMShellPair>> primary_shell_pairs, 
+              std::vector<std::shared_ptr<CFMMShellPair>> auxiliary_shell_pairs,
+              Vector3 origin, double length, int level, int lmax, int ws);
+      CFMMBox(std::shared_ptr<CFMMBox> parent, 
+              std::vector<std::shared_ptr<CFMMShellPair>> primary_shell_pairs, 
               Vector3 origin, double length, int level, int lmax, int ws);
 
       // Make children for this multipole box
@@ -108,8 +115,8 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       // Sets the near field and local far field regions of the box
       void set_regions();
 
-      // Compute multipoles for the box (contracted with a density matrix)
-      void compute_multipoles(std::shared_ptr<BasisSet>& basisset, const std::vector<SharedMatrix>& D);
+     // Compute multipoles for the box are contracted with the density matrix (depending on contraction type)
+     void compute_multipoles(const std::vector<SharedMatrix>& D, std::optional<ContractionType> contraction_type);
 
       // Compute multipoles from children
       void compute_mpoles_from_children();
@@ -135,10 +142,12 @@ class PSI_API CFMMBox : public std::enable_shared_from_this<CFMMBox> {
       double get_Vff_val(int N, int l, int mu) { return Vff_[N]->get_multipoles()[l][mu]; }
       // Get the children of the box
       std::vector<std::shared_ptr<CFMMBox>>& get_children() { return children_; }
-      // Get the shell pairs of the box
-      std::vector<std::shared_ptr<CFMMShellPair>>& get_shell_pairs() { return shell_pairs_; }
+      // Get the bra shell pairs of the box
+      std::vector<std::shared_ptr<CFMMShellPair>>& get_primary_shell_pairs() { return primary_shell_pairs_; }
+      // Get the ket shell pairs of the box
+      std::vector<std::shared_ptr<CFMMShellPair>>& get_auxiliary_shell_pairs() { return auxiliary_shell_pairs_; }
       // Gets the number of shell pairs in the box
-      int nshell_pair() { return shell_pairs_.size(); }
+      int nshell_pair() { return primary_shell_pairs_.size() + auxiliary_shell_pairs_.size(); }
       // Get the origin of this box
       Vector3 origin() { return origin_; }
       // Get the center of this box

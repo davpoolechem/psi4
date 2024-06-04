@@ -55,20 +55,26 @@ DirectCFMMTree::DirectCFMMTree(std::shared_ptr<BasisSet> primary, Options& optio
 #pragma omp parallel for
     for (size_t pair_index = 0; pair_index < nshell_pairs; pair_index++) {
         const auto& pair = ints_shell_pairs[pair_index];
-        primary_shell_pairs_[pair_index] = std::make_shared<CFMMShellPair>(primary_, pair, mpole_coefs_, cfmm_extent_tol);
+        primary_shell_pairs_[pair_index] = std::make_shared<CFMMShellPair>(primary_, primary_, pair, mpole_coefs_, cfmm_extent_tol);
     }
 
     make_tree(nshell_pairs);
 
-    calculate_shellpair_multipoles();
+    calculate_shellpair_multipoles(true);
     if (print_ >= 1) print_out();
 
     timer_off("DirectCFMMTree: Setup");
 }
 
-void DirectCFMMTree::calculate_shellpair_multipoles() {
+//DirectCFMMTree::DirectCFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options) {
+//    DirectCFMMTree(primary, options);
+//}  
+
+void DirectCFMMTree::calculate_shellpair_multipoles(bool is_primary) {
 
     timer_on("DirectCFMMTree: Shell-Pair Multipole Ints");
+
+    if (!is_primary) throw PSIEXCEPTION("is_primary = false only applies to DFCFMMTree, not DirectCFMMTree!");
 
     std::vector<std::shared_ptr<OneBodyAOInt>> sints;
     std::vector<std::shared_ptr<OneBodyAOInt>> mpints;
@@ -103,7 +109,8 @@ void DirectCFMMTree::calculate_shellpair_multipoles() {
 }
 
 void DirectCFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                          const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J) {
+                          const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+                          const std::vector<double>& Jmet_max) {
 
     timer_on("DirectCFMMTree: Near Field J");
 
@@ -120,7 +127,7 @@ void DirectCFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
     int end = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
 
     for (int bi = start; bi < end; bi++) {
-        auto& RSshells = tree_[bi]->get_shell_pairs();
+        auto& RSshells = tree_[bi]->get_primary_shell_pairs();
         int RSoff = 0;
         for (int RSind = 0; RSind < RSshells.size(); RSind++) {
             auto [R, S] = RSshells[RSind]->get_shell_pair_index();
@@ -174,7 +181,7 @@ void DirectCFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
 #endif
         
             for (const auto& nf_box : nf_boxes) {
-                auto& RSshells = nf_box->get_shell_pairs();
+                auto& RSshells = nf_box->get_primary_shell_pairs();
                 
                 bool touched = false;
      
@@ -345,7 +352,8 @@ void DirectCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 }
 
 void DirectCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                        const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, bool do_incfock_iter) {
+                        const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, 
+                        bool do_incfock_iter, const std::vector<double>& Jmet_max) {
 
     timer_on("DirectCFMMTree: J");
     
@@ -374,7 +382,7 @@ void DirectCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     compute_far_field();
 
     // Compute near field J and far field J
-    build_nf_J(ints, D, nf_J);
+    build_nf_J(ints, D, nf_J, {});
     /*
     outfile->Printf("#========================# \n");
     outfile->Printf("#== Start Near-Field J ==# \n");

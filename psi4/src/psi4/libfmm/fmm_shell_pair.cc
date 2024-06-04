@@ -35,13 +35,15 @@
 
 namespace psi {
 
-CFMMShellPair::CFMMShellPair(std::shared_ptr<BasisSet>& basisset, std::pair<int, int> pair_index, 
+CFMMShellPair::CFMMShellPair(std::shared_ptr<BasisSet>& bs1, std::shared_ptr<BasisSet>& bs2, 
+                     std::pair<int, int> pair_index, 
                      std::shared_ptr<HarmonicCoefficients>& mpole_coefs, double cfmm_extent_tol) {
-    basisset_ = basisset;
+    bs1_ = bs1;
+    bs2_ = bs2;
     pair_index_ = pair_index;
 
-    const GaussianShell& Pshell = basisset_->shell(pair_index.first);
-    const GaussianShell& Qshell = basisset_->shell(pair_index.second);
+    const GaussianShell& Pshell = bs1_->shell(pair_index.first);
+    const GaussianShell& Qshell = bs2_->shell(pair_index.second);
 
     Vector3 pcenter = Pshell.center();
     Vector3 qcenter = Qshell.center();
@@ -88,8 +90,8 @@ void CFMMShellPair::calculate_mpoles(Vector3 box_center, std::shared_ptr<OneBody
     mpole_ints->compute_shell(P, Q);
     const double* mbuffer = mpole_ints->buffers()[0];
 
-    const GaussianShell& Pshell = basisset_->shell(P);
-    const GaussianShell& Qshell = basisset_->shell(Q);
+    const GaussianShell& Pshell = bs1_->shell(P);
+    const GaussianShell& Qshell = bs2_->shell(Q);
 
     int p_start = Pshell.start();
     int num_p = Pshell.nfunction();
