@@ -259,6 +259,7 @@ void CFMMTree::make_tree(int nshell_pairs) {
 
             if (tree_[0] == nullptr) {
                 make_root_node();
+                outfile->Printf("  Tree length #0b: %f\n", tree_[0]->length());
             } else {
                 primary_shellpair_list_.clear();
                 sorted_leaf_boxes_.clear();
@@ -269,11 +270,17 @@ void CFMMTree::make_tree(int nshell_pairs) {
                 if (changed_level) continue;
             }
 
+            outfile->Printf("  Tree length #1: %f\n", tree_[0]->length());
             make_children();
+            outfile->Printf("  Tree length #2: %f\n", tree_[0]->length());
             sort_leaf_boxes();
+            outfile->Printf("  Tree length #3: %f\n", tree_[0]->length());
             setup_regions();
+            outfile->Printf("  Tree length #4: %f\n", tree_[0]->length());
             setup_local_far_field_task_pairs();
+            outfile->Printf("  Tree length #5: %f\n", tree_[0]->length());
             setup_shellpair_info();
+            outfile->Printf("  Tree length #6: %f\n\n", tree_[0]->length());
             
             if (converged) break;
         }
@@ -369,7 +376,9 @@ void CFMMTree::make_root_node() {
     }
 
     // create top-level box
+    outfile->Printf("BUILDING TREE_[0]\n");
     tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, origin_new, length, 0, lmax_, 2);
+    outfile->Printf("  Tree length #0a: %f, %f\n", tree_[0]->length());
 }
 
 std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
