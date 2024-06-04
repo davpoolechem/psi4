@@ -659,6 +659,77 @@ void CFMMTree::calculate_multipoles(const std::vector<SharedMatrix>& D) {
     timer_off("CFMMTree: Box Multipoles");
 }
 
+void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+                        const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+			bool do_incfock_iter, const std::vector<double>& Jmet_max) {
+   
+    std::vector<SharedMatrix> nf_J, ff_J;
+ 
+    // Zero the J matrix
+    auto zero_mat = J[0]->clone();
+    zero_mat->zero(); 
+    for (int ind = 0; ind < D.size(); ind++) {
+        if (!do_incfock_iter) 
+        {
+          J[ind]->zero();
+        }
+
+        nf_J.push_back(std::make_shared<Matrix>(zero_mat->clone()));
+        ff_J.push_back(std::make_shared<Matrix>(zero_mat->clone()));
+    }
+
+    // Update the densities
+    if (density_screening_) {
+        for (int thread = 0; thread < nthread_; thread++) {
+            ints[thread]->update_density(D);
+        }
+    }
+
+    // Compute multipoles and far field
+    calculate_multipoles(D);
+    compute_far_field();
+
+    // Compute near field J and far field J
+    build_nf_J(ints, D, J, Jmet_max);
+    /*
+    outfile->Printf("#========================# \n");
+    outfile->Printf("#== Start Near-Field J ==# \n");
+    outfile->Printf("#========================# \n\n");
+    for (int ind = 0; ind < D.size(); ind++) {
+         outfile->Printf("  Ind = %d \n", ind);
+         outfile->Printf("  -------- \n");
+
+         nf_J[ind]->print_out();
+         outfile->Printf("\n");
+    }
+    outfile->Printf("#========================# \n");
+    outfile->Printf("#==  End Near-Field J  ==# \n");
+    outfile->Printf("#========================# \n");
+    */
+
+    build_ff_J(J);
+    /*
+    outfile->Printf("#=======================# \n");
+    outfile->Printf("#== Start Far-Field J ==# \n");
+    outfile->Printf("#=======================# \n\n");
+    for (int ind = 0; ind < D.size(); ind++) {
+         outfile->Printf("  Ind = %d \n", ind);
+         outfile->Printf("  -------- \n");
+ 
+         ff_J[ind]->print_out();
+         outfile->Printf("\n");
+    }
+    outfile->Printf("#=======================# \n");
+    outfile->Printf("#==  End Far-Field J  ==# \n");
+    outfile->Printf("#=======================# \n\n");
+    */
+
+    for (int ind = 0; ind < D.size(); ind++) {
+        J[ind]->add(nf_J[ind]);
+        J[ind]->add(ff_J[ind]);
+    }
+}
+
 void CFMMTree::compute_far_field() {
 
     timer_on("CFMMTree: Far Field Vector");

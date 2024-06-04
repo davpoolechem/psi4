@@ -356,71 +356,10 @@ void DirectCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                         bool do_incfock_iter, const std::vector<double>& Jmet_max) {
 
     timer_on("DirectCFMMTree: J");
-    
-    std::vector<SharedMatrix> nf_J, ff_J;
-    
-    // Zero the J matrix
-    auto zero_mat = J[0]->clone();
-    zero_mat->zero(); 
-    for (int ind = 0; ind < D.size(); ind++) {
-        if (!do_incfock_iter) 
-        {
-          J[ind]->zero();
-        }
-
-        nf_J.push_back(std::make_shared<Matrix>(zero_mat->clone()));
-        ff_J.push_back(std::make_shared<Matrix>(zero_mat->clone()));
-    }
-
-    // Update the densities
-    for (int thread = 0; thread < nthread_; thread++) {
-        ints[thread]->update_density(D);
-    }
-
-    // Compute multipoles and far field
-    calculate_multipoles(D);
-    compute_far_field();
-
-    // Compute near field J and far field J
-    build_nf_J(ints, D, nf_J, {});
-    /*
-    outfile->Printf("#========================# \n");
-    outfile->Printf("#== Start Near-Field J ==# \n");
-    outfile->Printf("#========================# \n\n");
-    for (int ind = 0; ind < D.size(); ind++) {
-         outfile->Printf("  Ind = %d \n", ind);
-         outfile->Printf("  -------- \n");
-
-         nf_J[ind]->print_out();
-         outfile->Printf("\n");
-    }
-    outfile->Printf("#========================# \n");
-    outfile->Printf("#==  End Near-Field J  ==# \n");
-    outfile->Printf("#========================# \n");
-    */
-
-    build_ff_J(ff_J);
-    /*
-    outfile->Printf("#=======================# \n");
-    outfile->Printf("#== Start Far-Field J ==# \n");
-    outfile->Printf("#=======================# \n\n");
-    for (int ind = 0; ind < D.size(); ind++) {
-         outfile->Printf("  Ind = %d \n", ind);
-         outfile->Printf("  -------- \n");
+  
+    // actually build J 
+    J_build_kernel(ints, D, J, do_incfock_iter, Jmet_max);
  
-         ff_J[ind]->print_out();
-         outfile->Printf("\n");
-    }
-    outfile->Printf("#=======================# \n");
-    outfile->Printf("#==  End Far-Field J  ==# \n");
-    outfile->Printf("#=======================# \n\n");
-    */
-
-    for (int ind = 0; ind < D.size(); ind++) {
-        J[ind]->add(nf_J[ind]);
-        J[ind]->add(ff_J[ind]);
-    }
-    
     // Hermitivitize J matrix afterwards
     for (int ind = 0; ind < D.size(); ind++) {
         J[ind]->hermitivitize();

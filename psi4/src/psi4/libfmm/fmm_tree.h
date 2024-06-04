@@ -166,6 +166,10 @@ class PSI_API CFMMTree {
                       const std::vector<double>& Jmet_max) = 0;
       // Build far-field J (long-range multipole interactions)
       virtual void build_ff_J(std::vector<SharedMatrix>& J) = 0;
+      // Kernel for building overall J matrix
+      void J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
+                     const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+		     bool do_incfock_iter, const std::vector<double>& Jmet_max);
 
       // => ERI Screening <= //
       bool shell_significant(int P, int Q, int R, int S, std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
@@ -270,13 +274,14 @@ class PSI_API DFCFMMTree : public CFMMTree{
       // Build far-field J (long-range multipole interactions)
       void build_ff_J(std::vector<SharedMatrix>& J) override;
 
+
     public:
       /// Constructor (automatically sets up the tree)
       /// Pass in null pointer if no primary or auxiliary
       //DFCFMMTree(std::shared_ptr<BasisSet> primary, Options& options);
       DFCFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
 
-      // Build the J matrix of CFMMTree
+      // Build the J matrix of DFCFMMTree
       void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
                     const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
 		    bool do_incfock_iter = false, const std::vector<double>& Jmet_max = {}) override;
