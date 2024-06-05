@@ -333,3 +333,150 @@ def test_j_algo_bp86(j_algo, k_algo, df_basis_scf, mols):
     energy_composite = psi4.energy("bp86", molecule=molecule) 
  
     assert compare_values(energy_dfdirj, energy_composite, 6, f'BP86/{df_basis_scf} {scf_type} accurate to {j_algo} (1e-6 threshold)')
+
+@pytest.mark.parametrize(
+    "scf_type,keywords",
+    [
+        # should work now
+        pytest.param("direct", {"screening" : "density" },id="direct-tuned"),
+        pytest.param("mem_df", {"screening" : "schwarz"}, id="memdf-tuned"),
+        pytest.param("disk_df", {"screening" : "schwarz"}, id="diskdf-tuned"),
+        pytest.param("dfdirj+link", {"screening" : "density", "link_ints_tolerance": 1e-12, }, id="dfdirj+link-tuned"),
+        pytest.param("dfdirj+cosx", {"screening" : "schwarz", "cosx_ints_tolerance": 1e-12, "cosx_maxiter_final": 0 }, id="dfdirj+cosx-tuned-1grid"),
+        pytest.param("dfdirj+cosx", {"screening" : "schwarz", "cosx_ints_tolerance": 1e-12, "cosx_maxiter_final": -1 }, id="dfdirj+cosx-tuned-2grid"),
+        
+        # should work by the time we are done
+        pytest.param("direct", {}, id="direct-default"),
+        pytest.param("mem_df", {}, id="memdf-default"),
+        pytest.param("disk_df", {}, id="diskdf-default"),
+        pytest.param("dfdirj+link", {}, id="dfdirj+link-default"), # should fail because LINK isnt yet compatible with SCREENING=CSAM
+        pytest.param("dfdirj+cosx", {}, id="dfdirj+cosx-default"), # should fail because FISAPT needs full convergence on COSX grid 
+    ]
+)
+@pytest.mark.parametrize(
+    "mol",
+     [
+        pytest.param("eneyne"),
+        pytest.param("benzene2"),
+    ]
+)
+def test_fisapt(scf_type, keywords, mol, request):
+    test_id = request.node.callspec.id
+   
+    # TODO: Add reference values 
+    ref = {
+        "direct": {
+            "HF TOTAL ENERGY": 0.0,
+            "SAPT TOTAL ENERGY": 0.0,
+            "SAPT ELST ENERGY": 0.0,
+            "SAPT EXCH ENERGY": 0.0,
+            "SAPT IND ENERGY": 0.0,
+            "SAPT DISP ENERGY": 0.0,
+        },
+        "df": {
+            "HF TOTAL ENERGY": 0.0,
+            "SAPT TOTAL ENERGY": 0.0,
+            "SAPT ELST ENERGY": 0.0,
+            "SAPT EXCH ENERGY": 0.0,
+            "SAPT IND ENERGY": 0.0,
+            "SAPT DISP ENERGY": 0.0,
+        },
+        "dfdirj+link": {
+            "HF TOTAL ENERGY": 0.0,
+            "SAPT TOTAL ENERGY": 0.0,
+            "SAPT ELST ENERGY": 0.0,
+            "SAPT EXCH ENERGY": 0.0,
+            "SAPT IND ENERGY": 0.0,
+            "SAPT DISP ENERGY": 0.0,
+        },
+        "dfdirj+cosx": {
+            "HF TOTAL ENERGY": 0.0,
+            "SAPT TOTAL ENERGY": 0.0,
+            "SAPT ELST ENERGY": 0.0,
+            "SAPT EXCH ENERGY": 0.0,
+            "SAPT IND ENERGY": 0.0,
+            "SAPT DISP ENERGY": 0.0,
+        },
+    }
+    
+    molecule = {
+        "eneyne": """
+            C   0.000000  -0.667578  -2.124659
+            C   0.000000   0.667578  -2.124659
+            H   0.923621  -1.232253  -2.126185
+            H  -0.923621  -1.232253  -2.126185
+            H  -0.923621   1.232253  -2.126185
+            H   0.923621   1.232253  -2.126185
+            --
+            C   0.000000   0.000000   2.900503
+            C   0.000000   0.000000   1.693240
+            H   0.000000   0.000000   0.627352
+            H   0.000000   0.000000   3.963929
+        """,
+        "benzene2": """
+            0 1
+            O    -1.3885044    1.9298523   -0.4431206
+            H    -0.5238121    1.9646519   -0.0064609
+            C    -2.0071056    0.7638459   -0.1083509
+            C    -1.4630807   -0.1519120    0.7949930
+            C    -2.1475789   -1.3295094    1.0883677
+            C    -3.3743208   -1.6031427    0.4895864
+            C    -3.9143727   -0.6838545   -0.4091028
+            C    -3.2370496    0.4929609   -0.7096126
+            H    -0.5106510    0.0566569    1.2642563
+            H    -1.7151135   -2.0321452    1.7878417
+            H    -3.9024664   -2.5173865    0.7197947
+            H    -4.8670730   -0.8822939   -0.8811319
+            H    -3.6431662    1.2134345   -1.4057590
+            --
+            0 1
+            O     1.3531168    1.9382724    0.4723133
+            H     1.7842846    2.3487495    1.2297110
+            C     2.0369747    0.7865043    0.1495491
+            C     1.5904026    0.0696860   -0.9574153
+            C     2.2417367   -1.1069765   -1.3128110
+            C     3.3315674   -1.5665603   -0.5748636
+            C     3.7696838   -0.8396901    0.5286439
+            C     3.1224836    0.3383498    0.8960491
+            H     0.7445512    0.4367983   -1.5218583
+            H     1.8921463   -1.6649726   -2.1701843
+            H     3.8330227   -2.4811537   -0.8566666
+            H     4.6137632   -1.1850101    1.1092635
+            H     3.4598854    0.9030376    1.7569489
+            symmetry c1
+            no_reorient
+            no_com
+       """,
+    }
+
+    psi4.geometry(molecule[mol])
+
+    psi4.set_options({**{
+        "scf_type": scf_type,
+        "basis": "6-31g", 
+        "fisapt_do_fsapt": False,
+        "freeze_core": True,
+        "ints_tolerance": 1e-12,
+        "cphf_r_convergence": 1e-8,
+        "d_convergence": 1e-8,
+        "e_convergence": 1e-8,
+        "maxiter": 30,
+        "save_jk": True,
+    }, **keywords})
+
+    E, wfn = psi4.energy("fisapt0", return_wfn=True)
+
+    # six things to test: EHF, ESAPT, Electrostatics, Exch, Ind, Disp
+    for component, ref_E in ref[scf_type].items():
+        pass
+        #assert compare_values(ref_E, wfn.variable(component), 6, f'{test_id} accurate to reference') # wfn.variable is TODO for SAPT
+        #assert compare_values(ref_E, psi4.variable(component), 6, f'{test_id} accurate to reference')
+
+    # probe underlying JK object - might have to adjust FISAPT code to support
+    # correct post-guess method?
+    clean_jk_name = wfn.jk().name().replace("-", "") # replace DF-DirJ with DFDirJ
+    clean_jk_name = clean_jk_name.replace("DirectJK", "Direct") # DirectJK should be Direct instead
+    # TODO add more jk name conditionals (MemDF/DiskDF, CompositeJK) 
+    
+    assert clean_jk_name == scf_type, f'{test_id} has correct end method'
+>>>>>>> Add FISAPT tests for arbitrary JKs in test_compositejk.py
