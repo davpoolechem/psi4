@@ -309,14 +309,20 @@ void DirectCFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
 void DirectCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 
     timer_on("DirectCFMMTree: Far Field J");
-
+    outfile->Printf("    Start DirectCFMMTree: Far Field J\n");
+   
+    outfile->Printf("      ShPair List size: %i\n", primary_shellpair_list_.size());
+    outfile->Printf("      Begin ShPair List Loop\n");
 #pragma omp parallel for collapse(2) schedule(guided)
     for (int Ptask = 0; Ptask < primary_shellpair_list_.size(); Ptask++) {
         for (int Qtask = 0; Qtask < primary_shellpair_list_.size(); Qtask++) {
             std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(primary_shellpair_list_[Ptask][Qtask]);
-            if (shellpair == nullptr) continue;
-    
+            if (shellpair == nullptr) {
+                continue;
+            }
+
             auto [P, Q] = shellpair->get_shell_pair_index();
+            outfile->Printf("        Processing shell pair (%i, %i)...\n", P, Q);
     
             const auto& Vff = std::get<1>(primary_shellpair_list_[Ptask][Qtask])->far_field_vector();
                 
@@ -340,14 +346,18 @@ void DirectCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
                     for (int N = 0; N < J.size(); N++) {
                         double** Jp = J[N]->pointer();
                         // Far field multipole contributions
+                        auto contribution = prefactor * Vff[N]->dot(shellpair_mpoles[dp * num_q + dq]);
+                        outfile->Printf("          Jp[%i][%i] <- %f. Contribution: %f, %f, %f\n", p, q, contribution, prefactor, Vff[N]->get_multipoles()[0][0], shellpair_mpoles[dp * num_q + dq]->get_multipoles()[0][0]);
 #pragma omp atomic
-                        Jp[p][q] += prefactor * Vff[N]->dot(shellpair_mpoles[dp * num_q + dq]);
+                        Jp[p][q] += contribution; 
                     } // end N
                 } // end q
             } // end p
         } // end Qtasks
     } // end Ptasks
+    outfile->Printf("      End ShPair List Loop\n");
 
+    outfile->Printf("    End DirectCFMMTree: Far Field J\n");
     timer_off("DirectCFMMTree: Far Field J");
 }
 
@@ -356,7 +366,8 @@ void DirectCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                         bool do_incfock_iter, const std::vector<double>& Jmet_max) {
 
     timer_on("DirectCFMMTree: J");
-  
+    outfile->Printf("  Start DirectCFMMTree: J\n");
+    
     // actually build J 
     J_build_kernel(ints, D, J, do_incfock_iter, Jmet_max);
  
@@ -365,6 +376,7 @@ void DirectCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
         J[ind]->hermitivitize();
     }
 
+    outfile->Printf("  End DirectCFMMTree: J\n");
     timer_off("DirectCFMMTree: J");
 }
 

@@ -212,11 +212,11 @@ void CFMMBox::compute_multipoles(const std::vector<SharedMatrix>& D, std::option
     }
 
     bool is_primary;
-    if (!contraction_type.has_value()) { // default/null contraction type uses primary basis
+    if (!(contraction_type.has_value())) { // default/null contraction type uses primary basis
         //is_primary = (contraction_type == ContractionType::DF_AUX_PRI || contraction_type == ContractionType::DIRECT);
-        is_primary = (contraction_type == ContractionType::DF_AUX_PRI);
-    } else {
         is_primary = true;
+    } else {
+        is_primary = (contraction_type == ContractionType::DF_AUX_PRI);
     }
 
     std::vector<std::shared_ptr<CFMMShellPair>>& ref_shell_pairs = (is_primary) ? primary_shell_pairs_ : auxiliary_shell_pairs_;
