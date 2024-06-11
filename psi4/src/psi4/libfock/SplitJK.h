@@ -273,6 +273,8 @@ class PSI_API DFCFMM : public SplitJK {
     std::shared_ptr<BasisSet> auxiliary_;
     /// Coulomb Metric
     SharedMatrix J_metric_;
+    // maximum values of Coulomb Metric for each auxuliary shell pair block PP
+    std::vector<double> Jmet_max_;
 
   public:
    /**
