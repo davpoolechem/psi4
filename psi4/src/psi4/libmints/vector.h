@@ -354,6 +354,9 @@ class PSI_API Vector final : public IrreppedVector<double> {
     double sum_of_squares() const;
     double rms() const;
 
+    /// Returns the absolute maximum value
+    double absmax();
+ 
     /// Scale the elements of the vector
     void scale(double sc);
 

@@ -225,13 +225,36 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
 
     std::vector<int> ipiv(nbf_aux);
 
+    outfile->Printf("#========================# \n");
+    outfile->Printf("#== Start Near-Field J ==# \n");
+    outfile->Printf("#========================# \n\n");
+    for (int ind = 0; ind < D.size(); ind++) {
+   }
+
     for(size_t jki = 0; jki < njk; jki++) {
         for(size_t thread = 0; thread < nthreads_; thread++) {
             H[jki]->add(*GT[jki][thread]);
         }
+
+        outfile->Printf("  Ind = %d \n", jki);
+        outfile->Printf("  -------- \n");
+
+        H[jki]->print();
+        //outfile->Printf("  H[%i] Rows: %i\n\n", jki, H[jki]->dim());
+        outfile->Printf("  H[%i] Absmax: %f\n\n", jki, H[jki]->absmax());
+  
         C_DGESV(nbf_aux, 1, J_metric_->clone()->pointer()[0], nbf_aux, ipiv.data(), H[jki]->pointer(), nbf_aux);
     }
+    outfile->Printf("#========================# \n");
+    outfile->Printf("#==  End Near-Field J  ==# \n");
+    outfile->Printf("#========================# \n");
 
+    //for(size_t jki = 0; jki < njk; jki++) {
+    //    for(size_t thread = 0; thread < nthreads_; thread++) {
+    //        H[jki]->add(*GT[jki][thread]);
+    //    }
+    //    C_DGESV(nbf_aux, 1, J_metric_->clone()->pointer()[0], nbf_aux, ipiv.data(), H[jki]->pointer(), nbf_aux);
+    //}
 
     // I believe C_DSYSV should be faster than C_GESV, but I've found the opposite to be true.
     // This performance issue should be investigated, but is not consequential here.

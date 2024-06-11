@@ -65,6 +65,18 @@ double Vector::norm() const { return sqrt(sum_of_squares()); }
 
 double Vector::rms() const { return sqrt(sum_of_squares() / v_.size()); }
 
+double Vector::absmax() {
+    double max = (double)0.0;
+    for (int h = 0; h < nirrep(); ++h) {
+        for (int i = 0; i < dimpi_[h]; ++i) {
+            double absval = std::abs(vector_[h][i]);
+            if (absval > max) max = absval;
+        }
+    }
+
+    return max;
+}
+
 void Vector::scale(double sc) { C_DSCAL(v_.size(), sc, v_.data(), 1); }
 
 void Vector::add(const Vector &other) { axpy(1.0, other); }
