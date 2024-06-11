@@ -173,7 +173,6 @@ void DFCFMMTree::calculate_shellpair_multipoles(bool is_primary) {
 }
 
 
-/*
 void DFCFMMTree::set_contraction(ContractionType contraction_type) {
     if (contraction_type_ != ContractionType::DF_PRI_AUX && contraction_type_ != ContractionType::DF_AUX_PRI) {
         throw PSIEXCEPTION("Cannot reset contraction type on non 3-index DF CFMM Trees");
@@ -183,7 +182,6 @@ void DFCFMMTree::set_contraction(ContractionType contraction_type) {
     }
     contraction_type_ = contraction_type;
 }
-*/
 
 // TODO: THIS
 void DFCFMMTree::setup_shellpair_info() {
@@ -338,13 +336,12 @@ void DFCFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                           const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
 			  const std::vector<double>& Jmet_max) { 
     outfile->Printf("  CALL build_nf_J\n");
-    //if (contraction_type_ == ContractionType::DF_AUX_PRI) build_nf_gamma_P(ints, D, J, Jmet_max);
+    if (contraction_type_ == ContractionType::DF_AUX_PRI) build_nf_gamma_P(ints, D, J, Jmet_max);
     //else if (contraction_type_ == ContractionType::DF_PRI_AUX) build_nf_df_J(ints, D, J, Jmet_max);
     //else if (contraction_type_ == ContractionType::METRIC) build_nf_metric(ints, D, J);
     outfile->Printf("  END build_nf_J\n");
 }
 
-/*
 void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
 		      const std::vector<double>& Jmet_max) {
@@ -443,7 +440,7 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
                         double** Dp = D[i]->pointer();
                         double *Puv = const_cast<double *>(buffer);
                         double *gamp = J[i]->pointer()[0];
-*/
+
                         /*
                         for (int p = p_start; p < p_start + num_p; p++) {
                             int dp = p - p_start;
@@ -457,7 +454,7 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
                             }
                         }
                         */ // TODO FIX THIS, NEEDS BACKSLASH AT END
-/*
+
                         std::vector<double> Dbuff(num_u * num_v, 0.0);
                         double* Dbp = Dbuff.data();
 
@@ -478,7 +475,7 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
     outfile->Printf("    END build_nf_gammaP\n");
     timer_off("DFCFMM: Near Field Gamma P");
 }
-*/
+
 /*    
 void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
@@ -681,14 +678,6 @@ void DFCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 void DFCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
                         const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
 			bool do_incfock_iter, const std::vector<double>& Jmet_max) {
- 
-    return;
-}
-
-/*
-void DFCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                        const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-			bool do_incfock_iter, const std::vector<double>& Jmet_max) {
 
     timer_on("DFCFMMTree: J");
 
@@ -704,6 +693,5 @@ void DFCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 
     timer_off("DFCFMMTree: J");
 }
-*/
 
 } // end namespace psi

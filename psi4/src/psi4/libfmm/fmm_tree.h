@@ -260,9 +260,9 @@ class PSI_API DFCFMMTree : public CFMMTree{
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
 		      const std::vector<double>& Jmet_max) override;
       // Build gammaP's near field (gammaP = (P|uv)Duv)
-      //void build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
-     //                 const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-	//	      const std::vector<double>& Jmet_max);
+      void build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
+                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+                      const std::vector<double>& Jmet_max);
       // Build density-fitted J's near field (Jpq = (pq|Q)*gammaQ)
       //void build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
       //                const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
@@ -287,7 +287,7 @@ class PSI_API DFCFMMTree : public CFMMTree{
 		    bool do_incfock_iter = false, const std::vector<double>& Jmet_max = {}) override;
 
       // Flip the contraction type (for DF integrals)
-      //void df_set_contraction(ContractionType contraction_type);
+      void set_contraction(ContractionType contraction_type);
 }; // End class DFCFMMTree
 
 } // namespace psi
