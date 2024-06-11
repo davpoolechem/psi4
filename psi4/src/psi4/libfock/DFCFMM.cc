@@ -41,7 +41,6 @@ DFCFMM::DFCFMM(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxi
     J_metric_ = J_metric_obj.get_metric();
 
     // build Coulomb metric maximums vector
-    /*
     Jmet_max_= std::vector<double>(auxiliary_->nshell(), 0.0);
     double **Jmetp = J_metric_->pointer();
 
@@ -55,7 +54,7 @@ DFCFMM::DFCFMM(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxi
             }
         }
     }
-   */
+    
     timer_off("DFCFMM: Coulomb Metric");
 
     cfmmtree_ = std::make_shared<DFCFMMTree>(primary_, auxiliary_, options_);
@@ -93,8 +92,8 @@ void DFCFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
     }
 
     // Build gammaP = (P|uv)Duv
-    //cfmmtree_->set_contraction(ContractionType::DF_AUX_PRI);
-    //cfmmtree_->build_J(eri_computers, D, gamma, incfock_iter_, Jmet_max_);
+    cfmmtree_->set_contraction(ContractionType::DF_AUX_PRI);
+    cfmmtree_->build_J(eri_computers, D, gamma, incfock_iter_, Jmet_max_);
 
 /*
     // Solve for gammaQ => (P|Q)*gammaQ = gammaP
