@@ -142,7 +142,10 @@ class PSI_API CFMMTree {
       // Kernel for making the root node of the CFMMTree
       std::tuple<Vector3, double> make_root_node_kernel();
       // Regenerate the root node of the CFMMTree for iterative tree construction
-      std::tuple<bool, bool> regenerate_root_node();
+      virtual std::tuple<bool, bool> regenerate_root_node() = 0;
+      // Kernel for regenerate the root node of the CFMMTree 
+      // for iterative tree construction
+      std::tuple<Vector3, double, bool, bool> regenerate_root_node_kernel();
       // Create children
       void make_children();
       // Sort the leaf nodes by number of shell-pairs
@@ -211,6 +214,8 @@ class PSI_API DirectCFMMTree : public CFMMTree {
       
       // Make the root node of the CFMMTree
       void make_root_node() override;
+      // Regenerate the root node of the CFMMTree for iterative tree construction
+      std::tuple<bool, bool> regenerate_root_node() override;
       // Calculate ALL the shell-pair multipoles at each leaf box
       void calculate_shellpair_multipoles(bool is_primary = true) override;
       
@@ -258,6 +263,8 @@ class PSI_API DFCFMMTree : public CFMMTree{
       
       // Make the root node of the CFMMTree
       void make_root_node() override;
+      // Regenerate the root node of the CFMMTree for iterative tree construction
+      std::tuple<bool, bool> regenerate_root_node() override;
       // Calculate the shell-pair multipoles at each leaf box (primary or auxiliary)
       void calculate_shellpair_multipoles(bool is_primary = true) override;
 

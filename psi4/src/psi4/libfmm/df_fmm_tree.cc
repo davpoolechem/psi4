@@ -136,6 +136,28 @@ void DFCFMMTree::make_root_node() {
     outfile->Printf("  Tree length #0a: %f, %f\n", tree_[0]->length());
 }
 
+std::tuple<bool, bool> DFCFMMTree::regenerate_root_node() {
+    // base algorithm for resizing CFMM tree node
+    //Vector3 origin;
+    //double length;
+    //bool converged, changed_level;
+
+    //std::tie(origin, length, converged, changed_level) = regenerate_root_node_kernel();
+    
+    auto [origin, length, converged, changed_level] = regenerate_root_node_kernel();
+
+    // actually regenerate tree
+    tree_.clear();
+
+    num_boxes_ = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
+    tree_.resize(num_boxes_);
+
+    if (!changed_level) tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, auxiliary_shell_pairs_, origin, length, 0, lmax_, 2);
+
+    // we are done
+    return std::tie(converged, changed_level);
+}
+
 void DFCFMMTree::calculate_shellpair_multipoles(bool is_primary) {
     timer_on("DFCFMMTree: Shell-Pair Multipole Ints");
 
