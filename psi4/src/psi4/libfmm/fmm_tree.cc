@@ -333,8 +333,7 @@ void CFMMTree::sort_leaf_boxes() {
 
 }
 
-// TODO: Split into kernel function and high-level function
-void CFMMTree::make_root_node() {
+std::tuple<Vector3&, double> CFMMTree::make_root_node_kernel() {
     // get basic molecular bounds
     auto [max_dim, min_dim] = parse_molecular_dims(molecule_);
 
@@ -376,10 +375,7 @@ void CFMMTree::make_root_node() {
         outfile->Printf("    New box origin: (%f, %f, %f) \n\n", origin_new[0] * bohr2ang, origin_new[1] * bohr2ang, origin_new[2] * bohr2ang); 
     }
 
-    // create top-level box
-    outfile->Printf("BUILDING TREE_[0]\n");
-    tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, origin_new, length, 0, lmax_, 2); // TODO: Separate this out, so DF-CFMM can pass auxiliary_shell_pairs_
-    outfile->Printf("  Tree length #0a: %f, %f\n", tree_[0]->length());
+    return std::tie(origin_new, length);
 }
 
 std::tuple<bool, bool> CFMMTree::regenerate_root_node() {

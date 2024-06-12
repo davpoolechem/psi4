@@ -137,8 +137,10 @@ class PSI_API CFMMTree {
 
       // Generate the whole tree
       void make_tree(int nshell_pairs = -1);
-      // Make the root node of the CFMMTree
-      void make_root_node();
+      // Kernel for making the root node of the CFMMTree
+      virtual void make_root_node() = 0;
+      // Kernel for making the root node of the CFMMTree
+      std::tuple<Vector3&, double> make_root_node_kernel();
       // Regenerate the root node of the CFMMTree for iterative tree construction
       std::tuple<bool, bool> regenerate_root_node();
       // Create children
@@ -205,7 +207,14 @@ class PSI_API CFMMTree {
 
 class PSI_API DirectCFMMTree : public CFMMTree {
     protected:
+      // => Functions related to CFMM Tree construction <= // 
+      
+      // Make the root node of the CFMMTree
+      void make_root_node() override;
+      // Calculate ALL the shell-pair multipoles at each leaf box
       void calculate_shellpair_multipoles(bool is_primary = true) override;
+      
+      // => Functions called ONCE per iteration <= //
       
       // Build near-field J (Direct SCF)
       void build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
@@ -245,6 +254,10 @@ class PSI_API DFCFMMTree : public CFMMTree{
       // List of all the near field boxes that belong to a given auxiliary shell-pair
       std::vector<std::vector<std::shared_ptr<CFMMBox>>> auxiliary_shellpair_to_nf_boxes_;
 
+      // => Functions related to CFMM Tree construction <= // 
+      
+      // Make the root node of the CFMMTree
+      void make_root_node() override;
       // Calculate the shell-pair multipoles at each leaf box (primary or auxiliary)
       void calculate_shellpair_multipoles(bool is_primary = true) override;
 
