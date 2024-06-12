@@ -76,6 +76,22 @@ void DirectCFMMTree::make_root_node() {
     outfile->Printf("  Tree length #0a: %f, %f\n", tree_[0]->length());
 }
 
+std::tuple<bool, bool> DirectCFMMTree::regenerate_root_node() {
+    // base algorithm for resizing CFMM tree node
+    auto [origin, length, converged, changed_level] = regenerate_root_node_kernel();
+
+    // actually regenerate tree
+    tree_.clear();
+
+    num_boxes_ = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
+    tree_.resize(num_boxes_);
+
+    if (!changed_level) tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, origin, length, 0, lmax_, 2);
+
+    // we are done
+    return std::tie(converged, changed_level);
+}
+
 //DirectCFMMTree::DirectCFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options) {
 //    DirectCFMMTree(primary, options);
 //}  
