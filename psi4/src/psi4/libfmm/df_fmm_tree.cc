@@ -185,13 +185,14 @@ void DFCFMMTree::set_contraction(ContractionType contraction_type) {
 
 // TODO: THIS
 void DFCFMMTree::setup_shellpair_info() {
+    outfile->Printf("  Start DFCFMMTree::setup_shellpair_info()\n");
     size_t nsh = primary_->nshell(); 
     primary_shellpair_list_.resize(nsh);
     for (int P = 0; P != nsh; ++P) { 
         primary_shellpair_list_[P].resize(nsh);
     }
     
-    size_t naux = primary_->nshell(); 
+    size_t naux = auxiliary_->nshell(); 
     auxiliary_shellpair_list_.resize(naux);
     for (int P = 0; P != naux; ++P) { 
         auxiliary_shellpair_list_[P].resize(naux);
@@ -204,6 +205,9 @@ void DFCFMMTree::setup_shellpair_info() {
         auto& primary_shellpairs = curr->get_primary_shell_pairs();
         auto& auxiliary_shellpairs = curr->get_auxiliary_shell_pairs();
         auto& nf_boxes = curr->near_field_boxes();
+        outfile->Printf("    Box %i params: %i, %i, %i\n", i, 
+          primary_shellpairs.size(), auxiliary_shellpairs.size(), nf_boxes.size()
+        );
 
         for (auto& primary_sp : primary_shellpairs) {
             auto [P, Q] = primary_sp->get_shell_pair_index();
@@ -233,6 +237,7 @@ void DFCFMMTree::setup_shellpair_info() {
             auxiliary_task_index += 1;
         }
     }
+    outfile->Printf("  End DFCFMMTree::setup_shellpair_info()\n");
 }
 
 /*
@@ -627,6 +632,7 @@ void CFMMTree::build_nf_metric(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 void DFCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 
     timer_on("DFCFMMTree: Far Field J");
+    outfile->Printf("    Start DFCFMMTree: Far Field J\n");
 
     bool is_primary = (contraction_type_ == ContractionType::DF_PRI_AUX);
     int nbf = (is_primary) ? primary_->nbf() : 1;
@@ -634,6 +640,8 @@ void DFCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
     std::shared_ptr<BasisSet>& ref_basis = (is_primary) ? primary_ : auxiliary_;
     const auto& shellpair_list = (is_primary) ? primary_shellpair_list_ : auxiliary_shellpair_list_;
 
+    outfile->Printf("      ShPair List size: %i\n", shellpair_list.size());
+    outfile->Printf("      Begin ShPair List Loop\n");
 #pragma omp parallel for collapse(2) schedule(guided)
     for (int Ptask = 0; Ptask < shellpair_list.size(); Ptask++) {
         for (int Qtask = 0; Qtask < shellpair_list.size(); Qtask++) {
@@ -641,6 +649,7 @@ void DFCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
             if (shellpair == nullptr) continue;
 
             auto [P, Q] = shellpair->get_shell_pair_index();
+            outfile->Printf("        Processing shell pair (%i, %i)...\n", P, Q);
 
             const auto& Vff = std::get<1>(shellpair_list[Ptask][Qtask])->far_field_vector();
 
@@ -664,14 +673,19 @@ void DFCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
                     for (int N = 0; N < J.size(); N++) {
                         double* Jp = J[N]->pointer()[0];
                         // Far field multipole contributions
-#pragma     omp atomic
-                        Jp[p * nbf + q] += prefactor * Vff[N]->dot(shellpair_mpoles[dp * num_q + dq]);
+                        auto contribution = prefactor * Vff[N]->dot(shellpair_mpoles[dp * num_q + dq]);
+                        outfile->Printf("          Jp[%i][%i] <- %f. Contribution: %f, %f, %f\n", p, q, contribution, prefactor, Vff[N]->get_multipoles()[0][0], shellpair_mpoles[dp * num_q + dq]->get_multipoles()[0][0]);
+
+#pragma omp atomic
+                        Jp[p * nbf + q] += contribution; 
                     } // end N
                 } // end q
             } // end p
         } // end Qtasks
     } // end Ptasks
+    outfile->Printf("      End ShPair List Loop\n");
 
+    outfile->Printf("    End DFCFMMTree: Far Field J\n");
     timer_off("DFCFMMTree: Far Field J");
 }
 
