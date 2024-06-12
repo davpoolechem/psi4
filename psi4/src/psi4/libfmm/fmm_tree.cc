@@ -333,7 +333,7 @@ void CFMMTree::sort_leaf_boxes() {
 
 }
 
-std::tuple<Vector3&, double> CFMMTree::make_root_node_kernel() {
+std::tuple<Vector3, double> CFMMTree::make_root_node_kernel() {
     // get basic molecular bounds
     auto [max_dim, min_dim] = parse_molecular_dims(molecule_);
 

@@ -140,7 +140,7 @@ class PSI_API CFMMTree {
       // Kernel for making the root node of the CFMMTree
       virtual void make_root_node() = 0;
       // Kernel for making the root node of the CFMMTree
-      std::tuple<Vector3&, double> make_root_node_kernel();
+      std::tuple<Vector3, double> make_root_node_kernel();
       // Regenerate the root node of the CFMMTree for iterative tree construction
       std::tuple<bool, bool> regenerate_root_node();
       // Create children
