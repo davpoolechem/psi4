@@ -378,7 +378,7 @@ std::tuple<Vector3, double> CFMMTree::make_root_node_kernel() {
     return std::tie(origin_new, length);
 }
 
-std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
+std::tuple<Vector3, double, bool, bool> CFMMTree::regenerate_root_node_kernel() {
     // some basic variables used throughout 
     bool converged = false; // have we converged the box scaling?
     bool changed_level = false; // do we need to change the number of levels in the CFMM tree? 
@@ -485,16 +485,7 @@ std::tuple<bool, bool> CFMMTree::regenerate_root_node() {
         } 
     }
 
-    // actually regenerate tree
-    tree_.clear();
-
-    num_boxes_ = (nlevels_ == 1) ? 1 : (0.5 * std::pow(16, nlevels_) + 7) / 15;
-    tree_.resize(num_boxes_);
-
-    if (!changed_level) tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, origin_new, length_new, 0, lmax_, 2);
-
-    // we are done
-    return std::tie(converged, changed_level);
+    return std::tie(origin_new, length_new, converged, changed_level);
 }
 
 void CFMMTree::make_children() {
