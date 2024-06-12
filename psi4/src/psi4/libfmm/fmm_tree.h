@@ -249,7 +249,7 @@ class PSI_API DFCFMMTree : public CFMMTree{
       void calculate_shellpair_multipoles(bool is_primary = true) override;
 
       // Setup shell-pair information and calculate multipoles for each shell-pair
-      virtual void setup_shellpair_info();
+      void setup_shellpair_info() override;
 
       // => Functions called ONCE per iteration <= //
 
