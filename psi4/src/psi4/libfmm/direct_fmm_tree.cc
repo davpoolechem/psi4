@@ -66,6 +66,16 @@ DirectCFMMTree::DirectCFMMTree(std::shared_ptr<BasisSet> primary, Options& optio
     timer_off("DirectCFMMTree: Setup");
 }
 
+void DirectCFMMTree::make_root_node() {
+    // base algorithm for constructing CFMM tree node
+    auto [origin, length] = make_root_node_kernel();
+    
+    // create top-level box
+    outfile->Printf("BUILDING TREE_[0]\n");
+    tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, origin, length, 0, lmax_, 2); // TODO: Separate this out, so DF-CFMM can pass auxiliary_shell_pairs_
+    outfile->Printf("  Tree length #0a: %f, %f\n", tree_[0]->length());
+}
+
 //DirectCFMMTree::DirectCFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options) {
 //    DirectCFMMTree(primary, options);
 //}  

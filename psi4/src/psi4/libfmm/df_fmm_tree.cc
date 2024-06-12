@@ -126,6 +126,16 @@ void DFCFMMTree::calculate_multipoles(const std::vector<SharedMatrix>& D) {
     timer_off("CFMMTree: Box Multipoles");
 }
 
+void DFCFMMTree::make_root_node() {
+    // base algorithm for constructing CFMM tree node
+    auto [origin, length] = make_root_node_kernel();
+    
+    // create top-level box
+    outfile->Printf("BUILDING TREE_[0]\n");
+    tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, auxiliary_shell_pairs_, origin, length, 0, lmax_, 2); 
+    outfile->Printf("  Tree length #0a: %f, %f\n", tree_[0]->length());
+}
+
 void DFCFMMTree::calculate_shellpair_multipoles(bool is_primary) {
     timer_on("DFCFMMTree: Shell-Pair Multipole Ints");
 
