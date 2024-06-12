@@ -389,13 +389,13 @@ void DirectCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 
 void DirectCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
                         const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, 
-                        bool do_incfock_iter, const std::vector<double>& Jmet_max) {
+                        bool do_incfock_iter) {
 
     timer_on("DirectCFMMTree: J");
     outfile->Printf("  Start DirectCFMMTree: J\n");
     
     // actually build J 
-    J_build_kernel(ints, D, J, do_incfock_iter, Jmet_max);
+    J_build_kernel(ints, D, J, do_incfock_iter, {});
  
     // Hermitivitize J matrix afterwards
     for (int ind = 0; ind < D.size(); ind++) {

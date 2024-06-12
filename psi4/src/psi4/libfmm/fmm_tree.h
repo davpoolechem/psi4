@@ -191,10 +191,6 @@ class PSI_API CFMMTree {
       CFMMTree(std::shared_ptr<BasisSet> primary, Options& options);
       //CFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
 
-      // Build the J matrix of CFMMTree
-      virtual void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
-                    const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, 
-                    bool do_incfock_iter = false, const std::vector<double>& Jmet_max = {}) = 0;
       // Returns the max tree depth
       int nlevels() { return nlevels_; }
       // Returns the max multipole AM
@@ -233,10 +229,10 @@ class PSI_API DirectCFMMTree : public CFMMTree {
       DirectCFMMTree(std::shared_ptr<BasisSet> primary, Options& options);
       //DirectCFMMTree(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary, Options& options);
 
-      // Build the J matrix of CFMMTree
+      // Build the J matrix of DirectCFMMTree
       void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
                     const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J, 
-                    bool do_incfock_iter = false, const std::vector<double>& Jmet_max = {}) override;
+                    bool do_incfock_iter);
 }; // End class DirectCFMMTree
 
 class PSI_API DFCFMMTree : public CFMMTree{
@@ -304,7 +300,7 @@ class PSI_API DFCFMMTree : public CFMMTree{
       // Build the J matrix of DFCFMMTree
       void build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints, 
                     const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-		    bool do_incfock_iter = false, const std::vector<double>& Jmet_max = {}) override;
+		    bool do_incfock_iter, const std::vector<double>& Jmet_max);
 
       // Flip the contraction type (for DF integrals)
       void set_contraction(ContractionType contraction_type);

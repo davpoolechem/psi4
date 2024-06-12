@@ -667,11 +667,11 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     }
 
     // Update the densities
-    if (density_screening_) {
-        for (int thread = 0; thread < nthread_; thread++) {
-            ints[thread]->update_density(D);
-        }
-    }
+    //if (density_screening_) {
+    //    for (int thread = 0; thread < nthread_; thread++) {
+    //        ints[thread]->update_density(D);
+    //    }
+    //}
 
     // Compute multipoles and far field
     calculate_multipoles(D);

@@ -33,6 +33,8 @@ DFCFMM::DFCFMM(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxi
     nthreads_ = Process::environment.get_n_threads();
 #endif
 
+    density_screening_ = options_.get_str("SCREENING") == "DENSITY";
+    
     // pre-compute coulomb fitting metric
     timer_on("DFCFMM: Coulomb Metric");
 
@@ -95,15 +97,26 @@ void DFCFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
     cfmmtree_->set_contraction(ContractionType::DF_AUX_PRI);
     cfmmtree_->build_J(eri_computers, D, gamma, incfock_iter_, Jmet_max_);
 
-/*
     // Solve for gammaQ => (P|Q)*gammaQ = gammaP
+    outfile->Printf("#=====================# \n");
+    outfile->Printf("#== Start GammaP->Q ==# \n");
+    outfile->Printf("#=====================# \n\n");
     for (int i = 0; i < D.size(); i++) {
-        SharedMatrix Jmet_copy = Jmet_->clone();
         std::vector<int> ipiv(naux);
 
-        C_DGESV(naux, 1, Jmet_copy->pointer()[0], naux, ipiv.data(), gamma[i]->pointer()[0], naux);
-    }
+        outfile->Printf("  Ind = %d \n", i);
+        outfile->Printf("  -------- \n");
 
+        gamma[i]->print_out();
+        outfile->Printf("  H[%i] Absmax: %f\n\n", i, gamma[i]->absmax());
+
+        C_DGESV(naux, 1, J_metric_->clone()->pointer()[0], naux, ipiv.data(), gamma[i]->pointer()[0], naux);
+    }
+    outfile->Printf("#=====================# \n");
+    outfile->Printf("#==  End GammaP->Q  ==# \n");
+    outfile->Printf("#=====================# \n\n");
+ 
+/*
     // Build Juv = (uv|Q) * gammaQ
     cfmmtree_->df_set_contraction(ContractionType::DF_PRI_AUX);
     cfmmtree_->build_J(eri_computers, gamma, J, incfock_iter_, Jmet_max_);
