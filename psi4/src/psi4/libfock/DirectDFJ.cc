@@ -225,12 +225,9 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
 
     std::vector<int> ipiv(nbf_aux);
 
-    outfile->Printf("#========================# \n");
-    outfile->Printf("#== Start Near-Field J ==# \n");
-    outfile->Printf("#========================# \n\n");
-    for (int ind = 0; ind < D.size(); ind++) {
-   }
-
+    outfile->Printf("#=====================# \n");
+    outfile->Printf("#== Start GammaP->Q ==# \n");
+    outfile->Printf("#=====================# \n\n");
     for(size_t jki = 0; jki < njk; jki++) {
         for(size_t thread = 0; thread < nthreads_; thread++) {
             H[jki]->add(*GT[jki][thread]);
@@ -245,9 +242,9 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
   
         C_DGESV(nbf_aux, 1, J_metric_->clone()->pointer()[0], nbf_aux, ipiv.data(), H[jki]->pointer(), nbf_aux);
     }
-    outfile->Printf("#========================# \n");
-    outfile->Printf("#==  End Near-Field J  ==# \n");
-    outfile->Printf("#========================# \n");
+    outfile->Printf("#=====================# \n");
+    outfile->Printf("#==  End GammaP->Q  ==# \n");
+    outfile->Printf("#=====================# \n");
 
     //for(size_t jki = 0; jki < njk; jki++) {
     //    for(size_t thread = 0; thread < nthreads_; thread++) {

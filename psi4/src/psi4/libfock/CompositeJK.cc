@@ -390,7 +390,14 @@ void CompositeJK::compute_JK() {
     if (do_J_) {
         timer_on("CompositeJK: " + j_algo_->name());
 
-        auto ints = j_algo_->name() == "DF-DirJ" ? eri_computers_["3-Center"] : eri_computers_["4-Center"];
+        std::array<std::string, 2> df_j_builds = { "DF-DirJ", "DF-CFMM" };
+        bool is_df_j = std::any_of(
+            df_j_builds.cbegin(),
+            df_j_builds.cend(),
+            [&](std::string df_j_build) { return j_algo_->name() == df_j_build; }
+        ); 
+ 
+        auto ints = is_df_j ? eri_computers_["3-Center"] : eri_computers_["4-Center"];
 
         j_algo_->build_G_component(D_ref_, J_ao_, ints);
 
