@@ -220,6 +220,65 @@ void DFCFMMTree::setup_shellpair_info() {
     //outfile->Printf("  Start DFCFMMTree::setup_shellpair_info()\n");
     size_t nsh = primary_->nshell(); 
     primary_shellpair_list_.resize(nsh);
+    primary_shellpair_to_nf_boxes_.resize(nsh);
+    for (int P = 0; P != nsh; ++P) { 
+        primary_shellpair_list_[P].resize(nsh);
+        primary_shellpair_to_nf_boxes_[P].resize(nsh);
+    }
+    
+    size_t naux = auxiliary_->nshell(); 
+    auxiliary_shellpair_list_.resize(naux);
+    auxiliary_shellpair_to_nf_boxes_.resize(naux);
+    for (int P = 0; P != naux; ++P) { 
+        auxiliary_shellpair_list_[P].resize(naux);
+        auxiliary_shellpair_to_nf_boxes_[P].resize(naux);
+    }
+
+    int primary_task_index = 0;
+    int auxiliary_task_index = 0;
+    for (int i = 0; i < sorted_leaf_boxes_.size(); i++) {
+        std::shared_ptr<CFMMBox> curr = sorted_leaf_boxes_[i];
+        auto& primary_shellpairs = curr->get_primary_shell_pairs();
+        auto& auxiliary_shellpairs = curr->get_auxiliary_shell_pairs();
+        auto& nf_boxes = curr->near_field_boxes();
+        //outfile->Printf("    Box %i params: %i, %i, %i\n", i, 
+          //primary_shellpairs.size(), auxiliary_shellpairs.size(), nf_boxes.size()
+        //);
+
+        for (auto& primary_sp : primary_shellpairs) {
+            auto [P, Q] = primary_sp->get_shell_pair_index();
+
+            primary_shellpair_list_[P][Q] = { primary_sp, curr };
+
+            primary_shellpair_to_nf_boxes_[P][Q] = std::vector<std::shared_ptr<CFMMBox> >();
+            for (int nfi = 0; nfi < nf_boxes.size(); nfi++) {
+                std::shared_ptr<CFMMBox> neighbor = nf_boxes[nfi];
+                if (neighbor->nshell_pair() == 0) continue;
+                primary_shellpair_to_nf_boxes_[P][Q].push_back(neighbor);
+            }
+        }
+
+        for (auto& auxiliary_sp : auxiliary_shellpairs) {
+            auto [R, S] = auxiliary_sp->get_shell_pair_index();
+
+            auxiliary_shellpair_list_[R][S] = { auxiliary_sp, curr };
+
+            auxiliary_shellpair_to_nf_boxes_[R][S] = std::vector<std::shared_ptr<CFMMBox> >();
+            for (int nfi = 0; nfi < nf_boxes.size(); nfi++) {
+                std::shared_ptr<CFMMBox> neighbor = nf_boxes[nfi];
+                if (neighbor->nshell_pair() == 0) continue;
+                auxiliary_shellpair_to_nf_boxes_[R][S].push_back(neighbor);
+            }
+        }
+    }
+    //outfile->Printf("  End DFCFMMTree::setup_shellpair_info()\n");
+}
+
+/*
+void DFCFMMTree::setup_shellpair_info() {
+    //outfile->Printf("  Start DFCFMMTree::setup_shellpair_info()\n");
+    size_t nsh = primary_->nshell(); 
+    primary_shellpair_list_.resize(nsh);
     for (int P = 0; P != nsh; ++P) { 
         primary_shellpair_list_[P].resize(nsh);
     }
@@ -271,6 +330,7 @@ void DFCFMMTree::setup_shellpair_info() {
     }
     //outfile->Printf("  End DFCFMMTree::setup_shellpair_info()\n");
 }
+*/
 
 /*
 void CFMMTree::setup_shellpair_info() {
@@ -383,8 +443,7 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
 		      const std::vector<double>& Jmet_max) {
     timer_on("DFCFMM: Near Field Gamma P");
-
-    //outfile->Printf("    CALL build_nf_gammaP\n");
+    outfile->Printf("   CALL build_nf_gammaP\n");
 
     // => Sizing <= //
     int pri_nshell = primary_->nshell();
@@ -431,8 +490,8 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
             std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(auxiliary_shellpair_list_[Ptask][Qtask]);
             if (shellpair == nullptr) {
                 continue;
-            //} else {
-            //    outfile->Printf("      Processing shp[%i][%i]...\n", Ptask, Qtask);
+            } else {
+                outfile->Printf("      Processing task (%i, %i)...\n", Ptask, Qtask);
             }
             
             std::shared_ptr<CFMMBox> box = std::get<1>(auxiliary_shellpair_list_[Ptask][Qtask]);
@@ -441,7 +500,7 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
             int P = PQ.first;
             int Q = PQ.second;
 
-            //outfile->Printf("        Shp indices: (%i, %i)...\n", P, Q);
+            outfile->Printf("        Bra Shp indices: (%i, %i)...\n", P, Q);
 
             const GaussianShell& Pshell = auxiliary_->shell(P);
 
@@ -453,13 +512,13 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
             thread = omp_get_thread_num();
 #endif
             
-            //outfile->Printf("        Start NF Box Loop\n");
-            //outfile->Printf("        NF Box Loop Size: %i\n", auxiliary_shellpair_to_nf_boxes_[Ptask].size());
-            for (const auto& nf_box : auxiliary_shellpair_to_nf_boxes_[Ptask]) {
+            outfile->Printf("        Start NF Box Loop\n");
+            outfile->Printf("        NF Box Loop Size: %i\n", auxiliary_shellpair_to_nf_boxes_[P][Q].size());
+            for (const auto& nf_box : auxiliary_shellpair_to_nf_boxes_[P][Q]) {
                 auto& UVshells = nf_box->get_primary_shell_pairs();
 
-                //outfile->Printf("          Start UVshells Loop\n");
-                //outfile->Printf("          UVshells Loop Size: %i\n", UVshells.size());
+                outfile->Printf("          Start UVshells Loop\n");
+                outfile->Printf("          UVshells Loop Size: %i\n", UVshells.size());
                 for (const auto& UVsh : UVshells) {
                     auto UV = UVsh->get_shell_pair_index();
                     int U = UV.first;
@@ -467,11 +526,11 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
 
                     if (density_screening_) {
                         double screen_val = D_maxp[U][V] * D_maxp[U][V] * Jmet_max[P] * ints[thread]->shell_pair_value(U,V);
-                        //outfile->Printf("            Screening (%i, %i)... %f (%f, %f, %f, %f), %f\n", U, V, screen_val, D_maxp[U][V], D_maxp[U][V], Jmet_max[P], ints[thread]->shell_pair_value(U,V), ints_tolerance_*ints_tolerance_);
+                        outfile->Printf("            Screening (%i, %i)... %f (%f, %f, %f, %f), %f\n", U, V, screen_val, D_maxp[U][V], D_maxp[U][V], Jmet_max[P], ints[thread]->shell_pair_value(U,V), ints_tolerance_*ints_tolerance_);
                         if (screen_val < ints_tolerance_*ints_tolerance_) continue;
                     }
 	    
-                    //outfile->Printf("            Processing shell pair (%i, %i)...\n", U, V);
+                    outfile->Printf("            Ket Shp indices: (%i, %i)...\n", U, V);
                     int u_start = primary_->shell(U).start();
                     int num_u = primary_->shell(U).nfunction();
 
@@ -518,7 +577,7 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
                 } // UV shells
                 //outfile->Printf("          End UVshells Loop\n");
             } // NF Boxes
-            //outfile->Printf("        End NF Box Loop\n");
+            outfile->Printf("        End NF Box Loop\n\n");
         } // Qtask
     } // Ptask
 
