@@ -71,9 +71,9 @@ void DirectCFMMTree::make_root_node() {
     auto [origin, length] = make_root_node_kernel();
     
     // create top-level box
-    outfile->Printf("BUILDING TREE_[0]\n");
+    //outfile->Printf("BUILDING TREE_[0]\n");
     tree_[0] = std::make_shared<CFMMBox>(nullptr, primary_shell_pairs_, origin, length, 0, lmax_, 2); // TODO: Separate this out, so DF-CFMM can pass auxiliary_shell_pairs_
-    outfile->Printf("  Tree length #0a: %f, %f\n", tree_[0]->length());
+    //outfile->Printf("  Tree length #0a: %f, %f\n", tree_[0]->length());
 }
 
 std::tuple<bool, bool> DirectCFMMTree::regenerate_root_node() {
@@ -335,10 +335,10 @@ void DirectCFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints
 void DirectCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
 
     timer_on("DirectCFMMTree: Far Field J");
-    outfile->Printf("    Start DirectCFMMTree: Far Field J\n");
+    //outfile->Printf("    Start DirectCFMMTree: Far Field J\n");
    
-    outfile->Printf("      ShPair List size: %i\n", primary_shellpair_list_.size());
-    outfile->Printf("      Begin ShPair List Loop\n");
+    //outfile->Printf("      ShPair List size: %i\n", primary_shellpair_list_.size());
+    //outfile->Printf("      Begin ShPair List Loop\n");
 #pragma omp parallel for collapse(2) schedule(guided)
     for (int Ptask = 0; Ptask < primary_shellpair_list_.size(); Ptask++) {
         for (int Qtask = 0; Qtask < primary_shellpair_list_.size(); Qtask++) {
@@ -348,7 +348,7 @@ void DirectCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
             }
 
             auto [P, Q] = shellpair->get_shell_pair_index();
-            outfile->Printf("        Processing shell pair (%i, %i)...\n", P, Q);
+            //outfile->Printf("        Processing shell pair (%i, %i)...\n", P, Q);
     
             const auto& Vff = std::get<1>(primary_shellpair_list_[Ptask][Qtask])->far_field_vector();
                 
@@ -373,7 +373,7 @@ void DirectCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
                         double** Jp = J[N]->pointer();
                         // Far field multipole contributions
                         auto contribution = prefactor * Vff[N]->dot(shellpair_mpoles[dp * num_q + dq]);
-                        outfile->Printf("          Jp[%i][%i] <- %f. Contribution: %f, %f, %f\n", p, q, contribution, prefactor, Vff[N]->get_multipoles()[0][0], shellpair_mpoles[dp * num_q + dq]->get_multipoles()[0][0]);
+                        //outfile->Printf("          Jp[%i][%i] <- %f. Contribution: %f, %f, %f\n", p, q, contribution, prefactor, Vff[N]->get_multipoles()[0][0], shellpair_mpoles[dp * num_q + dq]->get_multipoles()[0][0]);
 #pragma omp atomic
                         Jp[p][q] += contribution; 
                     } // end N
@@ -381,9 +381,9 @@ void DirectCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
             } // end p
         } // end Qtasks
     } // end Ptasks
-    outfile->Printf("      End ShPair List Loop\n");
+    //outfile->Printf("      End ShPair List Loop\n");
 
-    outfile->Printf("    End DirectCFMMTree: Far Field J\n");
+    //outfile->Printf("    End DirectCFMMTree: Far Field J\n");
     timer_off("DirectCFMMTree: Far Field J");
 }
 
@@ -392,7 +392,7 @@ void DirectCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                         bool do_incfock_iter) {
 
     timer_on("DirectCFMMTree: J");
-    outfile->Printf("  Start DirectCFMMTree: J\n");
+    //outfile->Printf("  Start DirectCFMMTree: J\n");
     
     // actually build J 
     J_build_kernel(ints, D, J, do_incfock_iter, {});
@@ -402,7 +402,7 @@ void DirectCFMMTree::build_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
         J[ind]->hermitivitize();
     }
 
-    outfile->Printf("  End DirectCFMMTree: J\n");
+    //outfile->Printf("  End DirectCFMMTree: J\n");
     timer_off("DirectCFMMTree: J");
 }
 
