@@ -251,9 +251,9 @@ class PSI_API DFCFMMTree : public CFMMTree{
                   >
       >> auxiliary_shellpair_list_;
       // List of all the near field boxes that belong to a given primary shell-pair
-      std::vector<std::vector<std::shared_ptr<CFMMBox>>> primary_shellpair_to_nf_boxes_;
+      std::vector<std::vector<std::vector<std::shared_ptr<CFMMBox>>>> primary_shellpair_to_nf_boxes_;
       // List of all the near field boxes that belong to a given auxiliary shell-pair
-      std::vector<std::vector<std::shared_ptr<CFMMBox>>> auxiliary_shellpair_to_nf_boxes_;
+      std::vector<std::vector<std::vector<std::shared_ptr<CFMMBox>>>> auxiliary_shellpair_to_nf_boxes_;
 
       // => Functions related to CFMM Tree construction <= // 
       
