@@ -443,7 +443,7 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
 		      const std::vector<double>& Jmet_max) {
     timer_on("DFCFMM: Near Field Gamma P");
-    outfile->Printf("   CALL build_nf_gammaP\n");
+    //outfile->Printf("   CALL build_nf_gammaP\n");
 
     // => Sizing <= //
     int pri_nshell = primary_->nshell();
@@ -490,8 +490,8 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
             std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(auxiliary_shellpair_list_[Ptask][Qtask]);
             if (shellpair == nullptr) {
                 continue;
-            } else {
-                outfile->Printf("      Processing task (%i, %i)...\n", Ptask, Qtask);
+            //} else {
+            //    outfile->Printf("      Processing task (%i, %i)...\n", Ptask, Qtask);
             }
             
             std::shared_ptr<CFMMBox> box = std::get<1>(auxiliary_shellpair_list_[Ptask][Qtask]);
@@ -500,7 +500,7 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
             int P = PQ.first;
             int Q = PQ.second;
 
-            outfile->Printf("        Bra Shp indices: (%i, %i)...\n", P, Q);
+            //outfile->Printf("        Bra Shp indices: (%i, %i)...\n", P, Q);
 
             const GaussianShell& Pshell = auxiliary_->shell(P);
 
@@ -512,13 +512,13 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
             thread = omp_get_thread_num();
 #endif
             
-            outfile->Printf("        Start NF Box Loop\n");
-            outfile->Printf("        NF Box Loop Size: %i\n", auxiliary_shellpair_to_nf_boxes_[P][Q].size());
+            //outfile->Printf("        Start NF Box Loop\n");
+            //outfile->Printf("        NF Box Loop Size: %i\n", auxiliary_shellpair_to_nf_boxes_[P][Q].size());
             for (const auto& nf_box : auxiliary_shellpair_to_nf_boxes_[P][Q]) {
                 auto& UVshells = nf_box->get_primary_shell_pairs();
 
-                outfile->Printf("          Start UVshells Loop\n");
-                outfile->Printf("          UVshells Loop Size: %i\n", UVshells.size());
+                //outfile->Printf("          Start UVshells Loop\n");
+                //outfile->Printf("          UVshells Loop Size: %i\n", UVshells.size());
                 for (const auto& UVsh : UVshells) {
                     auto UV = UVsh->get_shell_pair_index();
                     int U = UV.first;
@@ -526,11 +526,11 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
 
                     if (density_screening_) {
                         double screen_val = D_maxp[U][V] * D_maxp[U][V] * Jmet_max[P] * ints[thread]->shell_pair_value(U,V);
-                        outfile->Printf("            Screening (%i, %i)... %f (%f, %f, %f, %f), %f\n", U, V, screen_val, D_maxp[U][V], D_maxp[U][V], Jmet_max[P], ints[thread]->shell_pair_value(U,V), ints_tolerance_*ints_tolerance_);
+                        //outfile->Printf("            Screening (%i, %i)... %f (%f, %f, %f, %f), %f\n", U, V, screen_val, D_maxp[U][V], D_maxp[U][V], Jmet_max[P], ints[thread]->shell_pair_value(U,V), ints_tolerance_*ints_tolerance_);
                         if (screen_val < ints_tolerance_*ints_tolerance_) continue;
                     }
 	    
-                    outfile->Printf("            Ket Shp indices: (%i, %i)...\n", U, V);
+                    //outfile->Printf("            Ket Shp indices: (%i, %i)...\n", U, V);
                     int u_start = primary_->shell(U).start();
                     int num_u = primary_->shell(U).nfunction();
 
@@ -577,7 +577,7 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
                 } // UV shells
                 //outfile->Printf("          End UVshells Loop\n");
             } // NF Boxes
-            outfile->Printf("        End NF Box Loop\n\n");
+            //outfile->Printf("        End NF Box Loop\n\n");
         } // Qtask
     } // Ptask
 

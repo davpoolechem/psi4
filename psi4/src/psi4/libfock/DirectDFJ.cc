@@ -225,9 +225,9 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
 
     std::vector<int> ipiv(nbf_aux);
 
-    outfile->Printf("#=====================# \n");
-    outfile->Printf("#== Start GammaP->Q ==# \n");
-    outfile->Printf("#=====================# \n\n");
+    outfile->Printf("#==================# \n");
+    outfile->Printf("#== Start GammaQ ==# \n");
+    outfile->Printf("#==================# \n\n");
     for(size_t jki = 0; jki < njk; jki++) {
         for(size_t thread = 0; thread < nthreads_; thread++) {
             H[jki]->add(*GT[jki][thread]);
@@ -236,15 +236,15 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
         outfile->Printf("  Ind = %d \n", jki);
         outfile->Printf("  -------- \n");
 
+        C_DGESV(nbf_aux, 1, J_metric_->clone()->pointer()[0], nbf_aux, ipiv.data(), H[jki]->pointer(), nbf_aux);
+
         H[jki]->print();
         //outfile->Printf("  H[%i] Rows: %i\n\n", jki, H[jki]->dim());
         outfile->Printf("  H[%i] Absmax: %f\n\n", jki, H[jki]->absmax());
-  
-        C_DGESV(nbf_aux, 1, J_metric_->clone()->pointer()[0], nbf_aux, ipiv.data(), H[jki]->pointer(), nbf_aux);
     }
-    outfile->Printf("#=====================# \n");
-    outfile->Printf("#==  End GammaP->Q  ==# \n");
-    outfile->Printf("#=====================# \n");
+    outfile->Printf("#==================# \n");
+    outfile->Printf("#==  End GammaQ  ==# \n");
+    outfile->Printf("#==================# \n");
 
     //for(size_t jki = 0; jki < njk; jki++) {
     //    for(size_t thread = 0; thread < nthreads_; thread++) {
