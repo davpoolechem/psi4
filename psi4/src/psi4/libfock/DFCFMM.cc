@@ -116,11 +116,9 @@ void DFCFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
     outfile->Printf("#==  End GammaQ  ==# \n");
     outfile->Printf("#==================# \n\n");
  
-/*
     // Build Juv = (uv|Q) * gammaQ
-    cfmmtree_->df_set_contraction(ContractionType::DF_PRI_AUX);
-    cfmmtree_->build_J(eri_computers, gamma, J, incfock_iter_, Jmet_max_);
-*/
+    cfmmtree_->set_contraction(ContractionType::DF_PRI_AUX);
+    cfmmtree_->build_J(eri_computers, gamma, G_comp, incfock_iter_, Jmet_max_);
 }
 
 } // end namespace psi

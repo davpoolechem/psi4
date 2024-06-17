@@ -434,7 +434,7 @@ void DFCFMMTree::build_nf_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 			  const std::vector<double>& Jmet_max) { 
     //outfile->Printf("  CALL build_nf_J\n");
     if (contraction_type_ == ContractionType::DF_AUX_PRI) build_nf_gamma_P(ints, D, J, Jmet_max);
-    //else if (contraction_type_ == ContractionType::DF_PRI_AUX) build_nf_df_J(ints, D, J, Jmet_max);
+    else if (contraction_type_ == ContractionType::DF_PRI_AUX) build_nf_df_J(ints, D, J, Jmet_max);
     //else if (contraction_type_ == ContractionType::METRIC) build_nf_metric(ints, D, J);
     //outfile->Printf("  END build_nf_J\n");
 }
@@ -585,7 +585,166 @@ void DFCFMMTree::build_nf_gamma_P(std::vector<std::shared_ptr<TwoBodyAOInt>>& in
     timer_off("DFCFMM: Near Field Gamma P");
 }
 
-/*    
+void DFCFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
+                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+		      const std::vector<double>& Jmet_max) {
+    timer_on("DFCFMM: Near Field J");
+    //outfile->Printf("  START build_nf_df_J\n");
+
+    // => Sizing <= //
+
+    int pri_nshell = primary_->nshell();
+    int aux_nshell = auxiliary_->nshell();
+    int nbf = primary_->nbf();
+    int nmat = D.size();
+
+    int max_nbf_per_shell = 0;
+    for (int P = 0; P < pri_nshell; P++) {
+        max_nbf_per_shell = std::max(max_nbf_per_shell, primary_->shell(P).nfunction());
+    }
+
+    // => J buffers (to satisfy DGEMM)
+    std::vector<std::vector<SharedMatrix>> JT;
+
+    for (int thread = 0; thread < nthread_; thread++) {
+        std::vector<SharedMatrix> J2;
+        for (size_t ind = 0; ind < nmat; ind++) {
+            J2.push_back(std::make_shared<Matrix>(max_nbf_per_shell, max_nbf_per_shell));
+            J2[ind]->zero();
+        }
+        JT.push_back(J2);
+    }
+
+    // check that Jmet_max is not empty is density screening is enabled
+    if (density_screening_ && Jmet_max.empty()) {
+        throw PSIEXCEPTION("CFMMTree::build_nf_gamma_P was called with density screening enabled, but Jmet is NULL. Check your arguments to build_J.");
+    }
+
+    // set up D_max for screening purposes
+    std::vector<double> D_max(aux_nshell, 0.0);
+
+    if (density_screening_) {
+#pragma omp parallel for
+        for (int P = 0; P < aux_nshell; P++) {
+            int p_start = auxiliary_->shell(P).start();
+            int num_p = auxiliary_->shell(P).nfunction();
+            for (size_t i = 0; i < D.size(); i++) {
+                double* Dp = D[i]->pointer()[0];
+                for (int p = p_start; p < p_start + num_p; p++) {
+                    D_max[P] = std::max(D_max[P], std::abs(Dp[p]));
+                }
+            }
+        }
+
+    }
+
+    //outfile->Printf("    Start UVTask loop\n");
+    //outfile->Printf("    UVTask loop size: %i\n", primary_shellpair_list_.size());
+#pragma omp parallel for collapse(2) schedule(guided)
+    for (int Utask = 0; Utask < primary_shellpair_list_.size(); Utask++) {
+        for (int Vtask = 0; Vtask < primary_shellpair_list_.size(); Vtask++) {
+            //outfile->Printf("     Processing task (%i, %i)...\n", Utask, Vtask);
+ 
+            std::shared_ptr<CFMMShellPair> shellpair = std::get<0>(primary_shellpair_list_[Utask][Vtask]);
+            if (shellpair == nullptr) continue;
+
+            auto [U, V] = shellpair->get_shell_pair_index();
+            //outfile->Printf("      Bra Shp indices: (%i, %i)...\n", U, V);
+ 
+            const GaussianShell& Ushell = primary_->shell(U);
+            const GaussianShell& Vshell = primary_->shell(V);
+
+            int u_start = Ushell.start();
+            int num_u = Ushell.nfunction();
+
+            int v_start = Vshell.start();
+            int num_v = Vshell.nfunction();
+
+            int thread = 0;
+#ifdef _OPENMP
+            thread = omp_get_thread_num();
+#endif
+
+            double prefactor = 2.0;
+            if (U == V) prefactor *= 0.5;
+
+            //outfile->Printf("        Start NF box loop\n");
+            //outfile->Printf("          NF Box loop size: %i\n", primary_shellpair_to_nf_boxes_[U][V].size());
+            for (const auto& nf_box : primary_shellpair_to_nf_boxes_[U][V]) {
+                auto& Qshells = nf_box->get_auxiliary_shell_pairs();
+
+                //outfile->Printf("          Start Qsh loop\n");
+                //outfile->Printf("            Qsh loop size: %i\n", Qshells.size());
+ 
+                for (const auto& Qsh : Qshells) {
+
+                    int Q = Qsh->get_shell_pair_index().first;
+
+                    if (density_screening_) {
+	    	        double screen_val = D_max[Q] * D_max[Q] * Jmet_max[Q] * ints[thread]->shell_pair_value(U,V);
+                        //outfile->Printf("            Screening (%i)... %f (%f, %f, %f, %f), %f\n", Q, screen_val, D_max[Q], D_max[Q], Jmet_max[Q], ints[thread]->shell_pair_value(U,V), ints_tolerance_*ints_tolerance_);
+                        if (screen_val < ints_tolerance_*ints_tolerance_) continue;
+                    }
+                    //outfile->Printf("            Ket Shp indices: (%i,)...\n", Q);
+	    
+                    int q_start = auxiliary_->shell(Q).start();
+                    int num_q = auxiliary_->shell(Q).nfunction();
+
+                    ints[thread]->compute_shell(Q, 0, U, V);
+
+                    const double* buffer = ints[thread]->buffer();
+
+                    for (int i = 0; i < D.size(); i++) {
+                        double* JTp = JT[thread][i]->pointer()[0];
+                        double* Dp = D[i]->pointer()[0];
+                        double* Quv = const_cast<double *>(buffer);
+
+                        /*
+                        for (int q = q_start; q < q_start + num_q; q++) {
+                            int dq = q - q_start;
+                            for (int u = u_start; u < u_start + num_u; u++) {
+                                int du = u - u_start;
+                                for (int v = v_start; v < v_start + num_v; v++) {
+                                    int dv = v - v_start;
+                                    JTp[du * num_v + dv] += prefactor * (*Quv) * Dp[q];
+                                    Quv++;
+                                }
+                            }
+                        }
+                        */ //TODO FIX THIS, NEEDS BACKSLASH AT END
+
+                        C_DGEMV('T', num_q, num_u * num_v, prefactor, Quv, num_u * num_v, &(Dp[q_start]), 1, 1.0, JTp, 1);
+
+                    } // end i
+                } // end Qsh
+                //outfile->Printf("          End Qsh loop\n");
+            } // end nf box
+            //outfile->Printf("        End NF box loop\n\n");
+
+            // => Stripeout >= //
+
+            for (int i = 0; i < D.size(); i++) {
+                double* JTp = JT[thread][i]->pointer()[0];
+                double** Jp = J[i]->pointer();
+                for (int u = u_start; u < u_start + num_u; u++) {
+                    int du = u - u_start;
+                    for (int v = v_start; v < v_start + num_v; v++) {
+                        int dv = v - v_start;
+
+                        Jp[u][v] += JTp[du * num_v + dv];
+                    }
+                }
+                JT[thread][i]->zero();
+            }
+        } // end Vtask
+    } // end Utask
+    //outfile->Printf("      End UVTask loop\n");
+
+    //outfile->Printf("    END build_nf_df_J\n");
+    timer_off("DFCFMM: Near Field J");
+}
+
+/*
 void CFMMTree::build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
 		      const std::vector<double>& Jmet_max) {
@@ -760,6 +919,8 @@ void DFCFMMTree::build_ff_J(std::vector<SharedMatrix>& J) {
             const auto& shellpair_mpoles = shellpair->get_mpoles();
 
             double prefactor = (!is_primary || P == Q) ? 1.0 : 2.0;
+            //double prefactor = (P == Q) ? 1.0 : 2.0;
+            if (is_primary) prefactor /= 2.0;             
 
             const GaussianShell& Pshell = shellpair->bs1()->shell(P);
             const GaussianShell& Qshell = shellpair->bs2()->shell(Q);
