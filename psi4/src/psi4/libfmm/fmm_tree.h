@@ -280,9 +280,9 @@ class PSI_API DFCFMMTree : public CFMMTree{
                       const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
                       const std::vector<double>& Jmet_max);
       // Build density-fitted J's near field (Jpq = (pq|Q)*gammaQ)
-      //void build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
-      //                const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
-	//	      const std::vector<double>& Jmet_max);
+      void build_nf_df_J(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
+                      const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J,
+		      const std::vector<double>& Jmet_max);
       // Builds the near field interactions of the Coulomb metric with an auxiliary density
       //void build_nf_metric(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
       //                const std::vector<SharedMatrix>& D, std::vector<SharedMatrix>& J);

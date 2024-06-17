@@ -679,7 +679,8 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
 
     // Compute near field J and far field J
     build_nf_J(ints, D, nf_J, Jmet_max);
-    
+   
+/* 
     outfile->Printf("#========================# \n");
     outfile->Printf("#== Start Near-Field J ==# \n");
     outfile->Printf("#========================# \n\n");
@@ -693,9 +694,11 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     outfile->Printf("#========================# \n");
     outfile->Printf("#==  End Near-Field J  ==# \n");
     outfile->Printf("#========================# \n");
+*/
 
     build_ff_J(ff_J);
-    
+
+/*    
     outfile->Printf("#=======================# \n");
     outfile->Printf("#== Start Far-Field J ==# \n");
     outfile->Printf("#=======================# \n\n");
@@ -709,6 +712,7 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     outfile->Printf("#=======================# \n");
     outfile->Printf("#==  End Far-Field J  ==# \n");
     outfile->Printf("#=======================# \n\n");
+*/
 
     for (int ind = 0; ind < D.size(); ind++) {
         J[ind]->add(nf_J[ind]);
