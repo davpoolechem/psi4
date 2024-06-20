@@ -213,7 +213,6 @@ void CFMMBox::compute_multipoles(const std::vector<SharedMatrix>& D, std::option
 
     bool is_primary;
     if (!(contraction_type.has_value())) { // default/null contraction type uses primary basis
-        //is_primary = (contraction_type == ContractionType::DF_AUX_PRI || contraction_type == ContractionType::DIRECT);
         is_primary = true;
     } else {
         is_primary = (contraction_type == ContractionType::DF_AUX_PRI);
@@ -234,7 +233,7 @@ void CFMMBox::compute_multipoles(const std::vector<SharedMatrix>& D, std::option
         
         auto [P, Q] = sp->get_shell_pair_index();
 
-        double prefactor = (P == Q) ? 1.0 : 2.0;
+        double prefactor = (P == Q | !is_primary) ? 1.0 : 2.0;
 
         const GaussianShell& Pshell = bs1->shell(P);
         const GaussianShell& Qshell = bs2->shell(Q);
@@ -246,13 +245,14 @@ void CFMMBox::compute_multipoles(const std::vector<SharedMatrix>& D, std::option
         int num_q = Qshell.nfunction();
 
         for (int N = 0; N < D.size(); N++) {
+            double* Dp = D[N]->pointer()[0];
             for (int p = p_start; p < p_start + num_p; p++) {
                 int dp = p - p_start;
                 for (int q = q_start; q < q_start + num_q; q++) {
                     int dq = q - q_start;
                     std::shared_ptr<RealSolidHarmonics> basis_mpole = sp_mpoles[dp * num_q + dq]->copy();
                     
-                    basis_mpole->scale(prefactor * D[N]->get(p, q));
+                    basis_mpole->scale(prefactor * Dp[p * nbf + q]);
                     mpoles_[N]->add(basis_mpole);
                 } // end q
             } // end p
@@ -299,7 +299,7 @@ void CFMMBox::print_out() {
         for (int ilevel = 0; ilevel != level; ++ilevel) {
             outfile->Printf("  ");
         }
-        outfile->Printf("    Tree: %d, WS: %d, Center: (%f, %f, %f), Length: %f, Num. Shell Pairs: %d \n", level, ws, center[0], center[1], center[2], length, nshells);
+        outfile->Printf("    Tree: %d, WS: %d, Center: (%f, %f, %f), Length: %f, Num. Shell Pairs: %d, Num. NF Boxes: %d, Num. LFF Boxes: %d\n", level, ws, center[0], center[1], center[2], length, nshells, near_field_.size(), local_far_field_.size());
     }
 
     for (auto& child : this->get_children()) {
