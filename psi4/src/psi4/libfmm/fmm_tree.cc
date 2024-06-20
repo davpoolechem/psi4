@@ -542,7 +542,9 @@ void CFMMTree::setup_regions() {
 }
 
 void CFMMTree::setup_shellpair_info() {
-
+    outfile->Printf("  Start CFMMTree::setup_shellpair_info()\n");
+    outfile->Printf("    sorted_leaf_boxes_.size(): %i\n\n", sorted_leaf_boxes_.size());
+ 
     size_t nsh = primary_->nshell(); 
 
     primary_shellpair_list_.resize(nsh);
@@ -556,12 +558,17 @@ void CFMMTree::setup_shellpair_info() {
         auto& shellpairs = curr->get_primary_shell_pairs();
         auto& nf_boxes = curr->near_field_boxes();
 
+        outfile->Printf("      Leaf Box %i params: %i, %i, %i\n", i, 
+          shellpairs.size(), 0, nf_boxes.size()
+        );
+        
         for (auto& sp : shellpairs) {
             auto [P, Q] = sp->get_shell_pair_index();
 
             primary_shellpair_list_[P][Q] = { sp, curr };
         }
     }
+    outfile->Printf("  End CFMMTree::setup_shellpair_info()\n");
 }
 
 bool CFMMTree::shell_significant(int P, int Q, int R, int S, std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
@@ -677,42 +684,70 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     calculate_multipoles(D);
     compute_far_field();
 
+    auto J_save = nf_J[0]->clone();
+
     // Compute near field J and far field J
     build_nf_J(ints, D, nf_J, Jmet_max);
-   
-/* 
-    outfile->Printf("#========================# \n");
-    outfile->Printf("#== Start Near-Field J ==# \n");
-    outfile->Printf("#========================# \n\n");
+    
+    //J_save.set_name("nf_" + nf_J.name());
+
+    //outfile->Printf("#========================# \n");
+    //outfile->Printf("#== Start Near-Field J ==# \n");
+    //outfile->Printf("#========================# \n\n");
+    
     for (int ind = 0; ind < D.size(); ind++) {
          outfile->Printf("  Ind = %d \n", ind);
          outfile->Printf("  -------- \n");
 
-         nf_J[ind]->print_out();
-         outfile->Printf("\n");
+         J_save.reset();
+         J_save = nf_J[ind]->clone();
+         
+	 auto J_save_name = "nf_" + nf_J[ind]->name();
+         if (nf_J[ind]->name() == "J 0 (SO)") {
+             J_save_name += (Jmet_max.empty()) ? "_CFMM" : "_DFCFMM";  
+         }
+         J_save->set_name(J_save_name);
+         
+         J_save->save(J_save->name() + ".dat", false, false, true);
+
+         //nf_J[ind]->print_out();
+         //outfile->Printf("  nf_J[%i] Rows: %i\n\n", ind, nf_J[ind]->nrow());
+         //outfile->Printf("  nf_J[%i] Cols: %i\n\n", ind, nf_J[ind]->ncol());
+         //outfile->Printf("  nf_J[%i] Absmax: %f\n\n", ind, nf_J[ind]->absmax());
     }
-    outfile->Printf("#========================# \n");
-    outfile->Printf("#==  End Near-Field J  ==# \n");
-    outfile->Printf("#========================# \n");
-*/
+    J_save.reset();
+    //outfile->Printf("#========================# \n");
+    //outfile->Printf("#==  End Near-Field J  ==# \n");
+    //outfile->Printf("#========================# \n");
 
     build_ff_J(ff_J);
 
-/*    
-    outfile->Printf("#=======================# \n");
-    outfile->Printf("#== Start Far-Field J ==# \n");
-    outfile->Printf("#=======================# \n\n");
+    //outfile->Printf("#=======================# \n");
+    //outfile->Printf("#== Start Far-Field J ==# \n");
+    //outfile->Printf("#=======================# \n\n");
     for (int ind = 0; ind < D.size(); ind++) {
          outfile->Printf("  Ind = %d \n", ind);
          outfile->Printf("  -------- \n");
- 
-         ff_J[ind]->print_out();
-         outfile->Printf("\n");
+
+         J_save.reset();
+         J_save = ff_J[ind]->clone();
+         
+	 auto J_save_name = "ff_" + ff_J[ind]->name();
+         if (ff_J[ind]->name() == "J 0 (SO)") {
+             J_save_name += (Jmet_max.empty()) ? "_CFMM" : "_DFCFMM";  
+         }
+         J_save->set_name(J_save_name);
+         
+         J_save->save(J_save->name() + ".dat", false, false, true);
+
+         //ff_J[ind]->print_out();
+         //outfile->Printf("  ff_J[%i] Absmax: %f\n\n", ind, ff_J[ind]->absmax());
+         //outfile->Printf("\n");
     }
-    outfile->Printf("#=======================# \n");
-    outfile->Printf("#==  End Far-Field J  ==# \n");
-    outfile->Printf("#=======================# \n\n");
-*/
+    J_save.reset();
+    //outfile->Printf("#=======================# \n");
+    //outfile->Printf("#==  End Far-Field J  ==# \n");
+    //outfile->Printf("#=======================# \n\n");
 
     for (int ind = 0; ind < D.size(); ind++) {
         J[ind]->add(nf_J[ind]);

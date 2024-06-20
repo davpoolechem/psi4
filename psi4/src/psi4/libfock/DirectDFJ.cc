@@ -232,13 +232,24 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
         for(size_t thread = 0; thread < nthreads_; thread++) {
             H[jki]->add(*GT[jki][thread]);
         }
+        auto Hp = H[jki]->pointer();
 
+        auto gamma = std::make_shared<Matrix>("gammaP_DFDirJ", H[jki]->dim(), 1);
+        auto gamp = gamma->pointer();
         outfile->Printf("  Ind = %d \n", jki);
         outfile->Printf("  -------- \n");
 
+        for (int ielem = 0; ielem != H[jki]->dim(); ++ielem) gamp[ielem][0] = Hp[ielem];
+        gamma->save(gamma->name() + ".dat", false, false, true);
+        
         C_DGESV(nbf_aux, 1, J_metric_->clone()->pointer()[0], nbf_aux, ipiv.data(), H[jki]->pointer(), nbf_aux);
 
         H[jki]->print();
+
+        gamma->set_name("gammaQ_DFDirJ"); 
+        for (int ielem = 0; ielem != H[jki]->dim(); ++ielem) gamp[ielem][0] = Hp[ielem];
+        gamma->save(gamma->name() + ".dat", false, false, true);
+        
         //outfile->Printf("  H[%i] Rows: %i\n\n", jki, H[jki]->dim());
         outfile->Printf("  H[%i] Absmax: %f\n\n", jki, H[jki]->absmax());
     }
@@ -343,6 +354,9 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
         J[jki]->hermitivitize();
     }
 
+    for (int i = 0; i < D.size(); i++) {
+        J[i]->save(J[i]->name() + "_DFDirJ.dat", false, false, true);
+    }
 }
 
 }  // namespace psi

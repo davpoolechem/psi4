@@ -90,7 +90,7 @@ void DFCFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
   
     std::vector<SharedMatrix> gamma(D.size());
     for (int i = 0; i < D.size(); i++) {
-        gamma[i] = std::make_shared<Matrix>(naux, 1);
+        gamma[i] = std::make_shared<Matrix>("gammaP_DFCFMM", naux, 1);
     }
 
     // Build gammaP = (P|uv)Duv
@@ -107,9 +107,13 @@ void DFCFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
         outfile->Printf("  Ind = %d \n", i);
         outfile->Printf("  -------- \n");
 
+        gamma[i]->save(gamma[i]->name() + ".dat", false, false, true);
+
         C_DGESV(naux, 1, J_metric_->clone()->pointer()[0], naux, ipiv.data(), gamma[i]->pointer()[0], naux);
 
+        gamma[i]->set_name("gammaQ_DFCFMM");
         gamma[i]->print_out();
+        gamma[i]->save(gamma[i]->name() + ".dat", false, false, true);
         outfile->Printf("  H[%i] Absmax: %f\n\n", i, gamma[i]->absmax());
     }
     outfile->Printf("#==================# \n");
@@ -119,6 +123,10 @@ void DFCFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
     // Build Juv = (uv|Q) * gammaQ
     cfmmtree_->set_contraction(ContractionType::DF_PRI_AUX);
     cfmmtree_->build_J(eri_computers, gamma, G_comp, incfock_iter_, Jmet_max_);
+
+    for (int i = 0; i < D.size(); i++) {
+        G_comp[i]->save(G_comp[i]->name() + "_DFCFMM.dat", false, false, true);
+    }
 }
 
 } // end namespace psi
