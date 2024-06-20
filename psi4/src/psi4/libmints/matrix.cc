@@ -2879,10 +2879,14 @@ void Matrix::save(const std::string &filename, bool append, bool saveLowerTriang
     printer->Printf("%s\n", name_.c_str());
     printer->Printf("symmetry %d\n", symmetry_);
 
+
     if (saveSubBlocks == false) {
         // Convert the matrix to a full matrix
         double **fullblock = to_block_matrix();
 
+        //auto is_significant = [&](int i, int j) { return std::fabs(fullblock[i][j]) > 1.0e-12; };
+        auto is_significant = [&](int i, int j) { return true; }; 
+    
         // Need to know the size
         int sizer = 0, sizec = 0;
         for (int h = 0; h < nirrep_; ++h) {
@@ -2895,7 +2899,7 @@ void Matrix::save(const std::string &filename, bool append, bool saveLowerTriang
             int count = 0;
             for (int i = 0; i < sizer; ++i) {
                 for (int j = 0; j <= i; ++j) {
-                    if (std::fabs(fullblock[i][j]) > 1.0e-12) {
+                    if (is_significant(i, j)) {
                         count++;
                     }
                 }
@@ -2903,7 +2907,7 @@ void Matrix::save(const std::string &filename, bool append, bool saveLowerTriang
             printer->Printf("%5d\n", count);
             for (int i = 0; i < sizer; ++i) {
                 for (int j = 0; j <= i; ++j) {
-                    if (std::fabs(fullblock[i][j]) > 1.0e-12) {
+                    if (is_significant(i, j)) {
                         printer->Printf(str_full_format, i, j, fullblock[i][j]);
                     }
                 }
@@ -2913,7 +2917,7 @@ void Matrix::save(const std::string &filename, bool append, bool saveLowerTriang
             int count = 0;
             for (int i = 0; i < sizer; ++i) {
                 for (int j = 0; j < sizec; ++j) {
-                    if (std::fabs(fullblock[i][j]) > 1.0e-12) {
+                    if (is_significant(i, j)) {
                         count++;
                     }
                 }
@@ -2921,7 +2925,7 @@ void Matrix::save(const std::string &filename, bool append, bool saveLowerTriang
             printer->Printf("%5d\n", count);
             for (int i = 0; i < sizer; ++i) {
                 for (int j = 0; j < sizec; ++j) {
-                    if (std::fabs(fullblock[i][j]) > 1.0e-12) {
+                    if (is_significant(i, j)) {
                         printer->Printf(str_full_format, i, j, fullblock[i][j]);
                     }
                 }
@@ -2952,12 +2956,15 @@ void Matrix::save(const std::string &filename, bool append, bool saveLowerTriang
                 }
             }
         } else {
+            //auto is_significant = [&](int h, int i, int j) { return std::fabs(matrix_[h][i][j]) > 1.0e-12; };
+            auto is_significant = [&](int h, int i, int j) { return true; }; 
+ 
             // Count the number of non-zero elements
             int count = 0;
             for (int h = 0; h < nirrep_; ++h) {
                 for (int i = 0; i < rowspi_[h]; ++i) {
                     for (int j = 0; j < colspi_[h ^ symmetry_]; ++j) {
-                        if (std::fabs(matrix_[h][i][j]) > 1.0e-12) {
+                        if (is_significant(h, i, j)) {
                             count++;
                         }
                     }
@@ -2967,7 +2974,7 @@ void Matrix::save(const std::string &filename, bool append, bool saveLowerTriang
             for (int h = 0; h < nirrep_; ++h) {
                 for (int i = 0; i < rowspi_[h]; ++i) {
                     for (int j = 0; j < colspi_[h ^ symmetry_]; ++j) {
-                        if (std::fabs(matrix_[h][i][j]) > 1.0e-12) {
+                        if (is_significant(h, i, j)) {
                             printer->Printf(str_block_format, h, i, j, matrix_[h][i][j]);
                         }
                     }
@@ -3292,13 +3299,29 @@ void Matrix::load(const std::string &filename) {
     // Third line is number of nonzero elements in the matrix.
     int infile_nonzero = 0;
     std::regex nonzero_line("^\\s*(\\d+)\\s*");
-    if (std::regex_match(lines[2], match, nonzero_line)) infile_nonzero = str_to_int(match[1]);
+    if (std::regex_match(lines[2], match, nonzero_line)) {
+        infile_nonzero = str_to_int(match[1]);
+    } else {
+        std::cout << "  Line: " << lines[2] << std::endl;
+        //std::cout << "  Match: " << match << std::endl;;
+        //std::cout << "  nonzero_line: ", nonzero_line << std::endl;
+ 
+        std::string error_message = "Matrix::load: Wait, how tf is it evaluating to ";
+        error_message += match[1];
+        throw PSIEXCEPTION(error_message);
+    }
 
     // Check the number of lines with the number of nonzero elements
     int nline = lines.size();
-    if (nline - 3 != infile_nonzero)
-        throw PSIEXCEPTION(
-            "Matrix::load: Specified number of nonzero elements does not match number of elements given.");
+    if (nline - 3 != infile_nonzero) {
+        std::string error_message = "Matrix::load: Specified number of nonzero elements (";
+        error_message += std::to_string(infile_nonzero);
+        error_message += ") does not match number of elements given (";
+        error_message += std::to_string(nline - 3);
+        error_message += ")\n";
+        
+        throw PSIEXCEPTION(error_message);
+    }
 
     // Clear out this matrix
     zero();
