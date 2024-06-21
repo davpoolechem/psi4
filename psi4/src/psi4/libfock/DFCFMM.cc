@@ -98,27 +98,27 @@ void DFCFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
     cfmmtree_->build_J(eri_computers, D, gamma, incfock_iter_, Jmet_max_);
 
     // Solve for gammaQ => (P|Q)*gammaQ = gammaP
-    outfile->Printf("#==================# \n");
-    outfile->Printf("#== Start GammaQ ==# \n");
-    outfile->Printf("#==================# \n\n");
+    //outfile->Printf("#==================# \n");
+    //outfile->Printf("#== Start GammaQ ==# \n");
+    //outfile->Printf("#==================# \n\n");
     for (int i = 0; i < D.size(); i++) {
         std::vector<int> ipiv(naux);
 
-        outfile->Printf("  Ind = %d \n", i);
-        outfile->Printf("  -------- \n");
+        //outfile->Printf("  Ind = %d \n", i);
+        //outfile->Printf("  -------- \n");
 
-        gamma[i]->save(gamma[i]->name() + ".dat", false, false, true);
+        //gamma[i]->save(gamma[i]->name() + ".dat", false, false, true);
 
         C_DGESV(naux, 1, J_metric_->clone()->pointer()[0], naux, ipiv.data(), gamma[i]->pointer()[0], naux);
 
-        gamma[i]->set_name("gammaQ_DFCFMM");
-        gamma[i]->print_out();
-        gamma[i]->save(gamma[i]->name() + ".dat", false, false, true);
-        outfile->Printf("  H[%i] Absmax: %f\n\n", i, gamma[i]->absmax());
+        //gamma[i]->set_name("gammaQ_DFCFMM");
+        //gamma[i]->print_out();
+        //gamma[i]->save(gamma[i]->name() + ".dat", false, false, true);
+        //outfile->Printf("  H[%i] Absmax: %f\n\n", i, gamma[i]->absmax());
     }
-    outfile->Printf("#==================# \n");
-    outfile->Printf("#==  End GammaQ  ==# \n");
-    outfile->Printf("#==================# \n\n");
+    //outfile->Printf("#==================# \n");
+    //outfile->Printf("#==  End GammaQ  ==# \n");
+    //outfile->Printf("#==================# \n\n");
  
     // Build Juv = (uv|Q) * gammaQ
     cfmmtree_->set_contraction(ContractionType::DF_PRI_AUX);
