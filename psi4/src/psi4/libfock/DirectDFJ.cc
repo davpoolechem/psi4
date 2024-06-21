@@ -225,37 +225,37 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
 
     std::vector<int> ipiv(nbf_aux);
 
-    outfile->Printf("#==================# \n");
-    outfile->Printf("#== Start GammaQ ==# \n");
-    outfile->Printf("#==================# \n\n");
+    //outfile->Printf("#==================# \n");
+    //outfile->Printf("#== Start GammaQ ==# \n");
+    //outfile->Printf("#==================# \n\n");
     for(size_t jki = 0; jki < njk; jki++) {
         for(size_t thread = 0; thread < nthreads_; thread++) {
             H[jki]->add(*GT[jki][thread]);
         }
         auto Hp = H[jki]->pointer();
 
-        auto gamma = std::make_shared<Matrix>("gammaP_DFDirJ", H[jki]->dim(), 1);
-        auto gamp = gamma->pointer();
-        outfile->Printf("  Ind = %d \n", jki);
-        outfile->Printf("  -------- \n");
+        //auto gamma = std::make_shared<Matrix>("gammaP_DFDirJ", H[jki]->dim(), 1);
+        //auto gamp = gamma->pointer();
+        //outfile->Printf("  Ind = %d \n", jki);
+        //outfile->Printf("  -------- \n");
 
-        for (int ielem = 0; ielem != H[jki]->dim(); ++ielem) gamp[ielem][0] = Hp[ielem];
-        gamma->save(gamma->name() + ".dat", false, false, true);
+        //for (int ielem = 0; ielem != H[jki]->dim(); ++ielem) gamp[ielem][0] = Hp[ielem];
+        //gamma->save(gamma->name() + ".dat", false, false, true);
         
         C_DGESV(nbf_aux, 1, J_metric_->clone()->pointer()[0], nbf_aux, ipiv.data(), H[jki]->pointer(), nbf_aux);
 
-        H[jki]->print();
+        //H[jki]->print();
 
-        gamma->set_name("gammaQ_DFDirJ"); 
-        for (int ielem = 0; ielem != H[jki]->dim(); ++ielem) gamp[ielem][0] = Hp[ielem];
-        gamma->save(gamma->name() + ".dat", false, false, true);
-        
-        //outfile->Printf("  H[%i] Rows: %i\n\n", jki, H[jki]->dim());
-        outfile->Printf("  H[%i] Absmax: %f\n\n", jki, H[jki]->absmax());
+        //gamma->set_name("gammaQ_DFDirJ"); 
+        //for (int ielem = 0; ielem != H[jki]->dim(); ++ielem) gamp[ielem][0] = Hp[ielem];
+        //gamma->save(gamma->name() + ".dat", false, false, true);
+        //
+        ////outfile->Printf("  H[%i] Rows: %i\n\n", jki, H[jki]->dim());
+        //outfile->Printf("  H[%i] Absmax: %f\n\n", jki, H[jki]->absmax());
     }
-    outfile->Printf("#==================# \n");
-    outfile->Printf("#==  End GammaQ  ==# \n");
-    outfile->Printf("#==================# \n");
+    //outfile->Printf("#==================# \n");
+    //outfile->Printf("#==  End GammaQ  ==# \n");
+    //outfile->Printf("#==================# \n");
 
     //for(size_t jki = 0; jki < njk; jki++) {
     //    for(size_t thread = 0; thread < nthreads_; thread++) {
