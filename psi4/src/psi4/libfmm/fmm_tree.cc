@@ -259,7 +259,7 @@ void CFMMTree::make_tree(int nshell_pairs) {
 
             if (tree_[0] == nullptr) {
                 make_root_node();
-                outfile->Printf("  Tree length #0b: %f\n", tree_[0]->length());
+                //outfile->Printf("  Tree length #0b: %f\n", tree_[0]->length());
             } else {
                 primary_shellpair_list_.clear();
                 sorted_leaf_boxes_.clear();
@@ -270,17 +270,17 @@ void CFMMTree::make_tree(int nshell_pairs) {
                 if (changed_level) continue;
             }
 
-            outfile->Printf("  Tree length #1: %f\n", tree_[0]->length());
+            //outfile->Printf("  Tree length #1: %f\n", tree_[0]->length());
             make_children();
-            outfile->Printf("  Tree length #2: %f\n", tree_[0]->length());
+            //outfile->Printf("  Tree length #2: %f\n", tree_[0]->length());
             sort_leaf_boxes();
-            outfile->Printf("  Tree length #3: %f\n", tree_[0]->length());
+            //outfile->Printf("  Tree length #3: %f\n", tree_[0]->length());
             setup_regions();
-            outfile->Printf("  Tree length #4: %f\n", tree_[0]->length());
+            //outfile->Printf("  Tree length #4: %f\n", tree_[0]->length());
             setup_local_far_field_task_pairs();
-            outfile->Printf("  Tree length #5: %f\n", tree_[0]->length());
+            //outfile->Printf("  Tree length #5: %f\n", tree_[0]->length());
             setup_shellpair_info();
-            outfile->Printf("  Tree length #6: %f\n\n", tree_[0]->length());
+            //outfile->Printf("  Tree length #6: %f\n\n", tree_[0]->length());
             
             if (converged) break;
         }
@@ -542,8 +542,8 @@ void CFMMTree::setup_regions() {
 }
 
 void CFMMTree::setup_shellpair_info() {
-    outfile->Printf("  Start CFMMTree::setup_shellpair_info()\n");
-    outfile->Printf("    sorted_leaf_boxes_.size(): %i\n\n", sorted_leaf_boxes_.size());
+    //outfile->Printf("  Start CFMMTree::setup_shellpair_info()\n");
+    //outfile->Printf("    sorted_leaf_boxes_.size(): %i\n\n", sorted_leaf_boxes_.size());
  
     size_t nsh = primary_->nshell(); 
 
@@ -558,9 +558,9 @@ void CFMMTree::setup_shellpair_info() {
         auto& shellpairs = curr->get_primary_shell_pairs();
         auto& nf_boxes = curr->near_field_boxes();
 
-        outfile->Printf("      Leaf Box %i params: %i, %i, %i\n", i, 
-          shellpairs.size(), 0, nf_boxes.size()
-        );
+        //outfile->Printf("      Leaf Box %i params: %i, %i, %i\n", i, 
+        //  shellpairs.size(), 0, nf_boxes.size()
+        //);
         
         for (auto& sp : shellpairs) {
             auto [P, Q] = sp->get_shell_pair_index();
@@ -568,7 +568,7 @@ void CFMMTree::setup_shellpair_info() {
             primary_shellpair_list_[P][Q] = { sp, curr };
         }
     }
-    outfile->Printf("  End CFMMTree::setup_shellpair_info()\n");
+    //outfile->Printf("  End CFMMTree::setup_shellpair_info()\n");
 }
 
 bool CFMMTree::shell_significant(int P, int Q, int R, int S, std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
@@ -695,6 +695,7 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     //outfile->Printf("#== Start Near-Field J ==# \n");
     //outfile->Printf("#========================# \n\n");
     
+    /*
     for (int ind = 0; ind < D.size(); ind++) {
          outfile->Printf("  Ind = %d \n", ind);
          outfile->Printf("  -------- \n");
@@ -716,6 +717,8 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
          //outfile->Printf("  nf_J[%i] Absmax: %f\n\n", ind, nf_J[ind]->absmax());
     }
     J_save.reset();
+    */
+
     //outfile->Printf("#========================# \n");
     //outfile->Printf("#==  End Near-Field J  ==# \n");
     //outfile->Printf("#========================# \n");
@@ -725,6 +728,7 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     //outfile->Printf("#=======================# \n");
     //outfile->Printf("#== Start Far-Field J ==# \n");
     //outfile->Printf("#=======================# \n\n");
+    /*
     for (int ind = 0; ind < D.size(); ind++) {
          outfile->Printf("  Ind = %d \n", ind);
          outfile->Printf("  -------- \n");
@@ -748,6 +752,7 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     //outfile->Printf("#=======================# \n");
     //outfile->Printf("#==  End Far-Field J  ==# \n");
     //outfile->Printf("#=======================# \n\n");
+    */
 
     for (int ind = 0; ind < D.size(); ind++) {
         J[ind]->add(nf_J[ind]);
