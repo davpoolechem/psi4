@@ -684,8 +684,6 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     calculate_multipoles(D);
     compute_far_field();
 
-    auto J_save = nf_J[0]->clone();
-
     // Compute near field J and far field J
     build_nf_J(ints, D, nf_J, Jmet_max);
     

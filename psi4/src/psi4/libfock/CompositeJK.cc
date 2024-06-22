@@ -363,7 +363,7 @@ void CompositeJK::compute_JK() {
             k_algo_derived->set_incfock_iter(do_incfock_iter_);
         }
 
-        if (j_algo_->name() == "CFMM") j_algo_->set_CFMM_incfock_iter(do_incfock_iter_);
+        if (j_algo_->name() == "CFMM" || j_algo_->name() == "DF-CFMM") j_algo_->set_CFMM_incfock_iter(do_incfock_iter_);
 
         if ((initial_iterations_ >= initial_iterations_limit_) && (Dnorm >= incfock_conv)) incfock_count_ += 1;
 
