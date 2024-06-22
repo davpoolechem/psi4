@@ -88,9 +88,15 @@ void DirectJK::common_init() {
     incfock_ = options_.get_bool("INCFOCK");
     incfock_count_ = 0;
     do_incfock_iter_ = false;
+    do_reference_reset_ = false;
     if (options_.get_int("INCFOCK_FULL_FOCK_EVERY") <= 0) {
         throw PSIEXCEPTION("Invalid input for option INCFOCK_FULL_FOCK_EVERY (<= 0)");
     }
+    if (options_.get_int("INCFOCK_REF_D_EVERY") <= 0) {
+        throw PSIEXCEPTION("Invalid input for option INCFOCK_REF_D_EVERY (<= 0)");
+    }
+    initial_iterations_ = 0;
+    
     density_screening_ = options_.get_str("SCREENING") == "DENSITY";
 
     computed_shells_per_iter_["Quartets"] = {};
@@ -133,34 +139,97 @@ void DirectJK::preiterations() {
 }
 
 void DirectJK::incfock_setup() {
-    if (do_incfock_iter_) {
-        size_t njk = D_ao_.size();
+    size_t njk = D_ao_.size();
+    
+    // The reference_D_ao_ condition is used to handle stability analysis case
+    if ((initial_iterations_ < initial_iterations_limit_) || reference_D_ao_.size() != njk) {
+        reference_D_ao_.clear();
+        delta_D_ao_.clear();
 
-        // If there is no previous pseudo-density, this iteration is normal
-        if (initial_iteration_ || D_prev_.size() != njk) {
-	        initial_iteration_ = true;
+        if (do_wK_) {
+            reference_wK_ao_.clear();
+            delta_wK_ao_.clear();
+        }
 
-            D_ref_ = D_ao_;
-            zero();
-        } else { // Otherwise, the iteration is incremental
-            for (size_t jki = 0; jki < njk; jki++) {
-                D_ref_[jki] = D_ao_[jki]->clone();
-                D_ref_[jki]->subtract(D_prev_[jki]);
+        if (do_J_) {
+            reference_J_ao_.clear();
+            delta_J_ao_.clear();
+        }
+
+        if (do_K_) {
+            reference_K_ao_.clear();
+            delta_K_ao_.clear();
+        }
+    
+        for (size_t N = 0; N < D_ao_.size(); N++) {
+            reference_D_ao_.push_back(std::make_shared<Matrix>("D Prev", D_ao_[N]->nrow(), D_ao_[N]->ncol()));
+            delta_D_ao_.push_back(std::make_shared<Matrix>("Delta D", D_ao_[N]->nrow(), D_ao_[N]->ncol()));
+
+            if (do_wK_) {
+                reference_wK_ao_.push_back(std::make_shared<Matrix>("wK Prev", wK_ao_[N]->nrow(), wK_ao_[N]->ncol()));
+                delta_wK_ao_.push_back(std::make_shared<Matrix>("Delta wK", wK_ao_[N]->nrow(), wK_ao_[N]->ncol()));
+            }
+                
+            if (do_J_) {
+                reference_J_ao_.push_back(std::make_shared<Matrix>("J Prev", J_ao_[N]->nrow(), J_ao_[N]->ncol()));
+                delta_J_ao_.push_back(std::make_shared<Matrix>("Delta J", J_ao_[N]->nrow(), J_ao_[N]->ncol()));
+            }
+        
+            if (do_K_) {
+                reference_K_ao_.push_back(std::make_shared<Matrix>("K Prev", K_ao_[N]->nrow(), K_ao_[N]->ncol()));
+                delta_K_ao_.push_back(std::make_shared<Matrix>("Delta K", K_ao_[N]->nrow(), K_ao_[N]->ncol()));
             }
         }
     } else {
-        D_ref_ = D_ao_;
-        zero();
+        for (size_t N = 0; N < D_ao_.size(); N++) {
+            delta_D_ao_[N]->copy(D_ao_[N]);
+            delta_D_ao_[N]->subtract(reference_D_ao_[N]);
+        }
     }
 }
 
 void DirectJK::incfock_postiter() {
-    // Save a copy of the density for the next iteration
-    D_prev_.clear();
-    for(auto const &Di : D_ao_) {
-        D_prev_.push_back(Di->clone());
+    if (do_incfock_iter_) {
+        for (size_t N = 0; N < D_ao_.size(); N++) {
+
+            if (do_wK_) {
+                wK_ao_[N]->copy(reference_wK_ao_[N]);
+                wK_ao_[N]->add(delta_wK_ao_[N]);
+            }
+
+            if (do_J_) {
+                J_ao_[N]->copy(reference_J_ao_[N]);
+                J_ao_[N]->add(delta_J_ao_[N]);
+            }
+
+            if (do_K_) {
+                K_ao_[N]->copy(reference_K_ao_[N]);
+                K_ao_[N]->add(delta_K_ao_[N]);
+            }
+
+            //reference_D_ao_[N]->copy(D_ao_[N]);
+        }
+    }
+    if (do_reference_reset_) {
+        //outfile->Printf("DO REFERENCE RESET\n");
+        for (size_t N = 0; N < D_ao_.size(); N++) {
+            if (do_wK_) reference_wK_ao_[N]->copy(wK_ao_[N]);
+            if (do_J_) reference_J_ao_[N]->copy(J_ao_[N]);
+            if (do_K_) reference_K_ao_[N]->copy(K_ao_[N]);
+            reference_D_ao_[N]->copy(D_ao_[N]);
+        }
     }
 }
+
+/*
+void DirectJK::incfock_postiter() {
+    // Save a copy of the density for the next iteration
+    D_reference_.clear();
+    for(auto const &Di : D_ao_) {
+        D_reference_.push_back(Di->clone());
+    }
+}
+*/
 
 void DirectJK::compute_JK() {
    
@@ -329,24 +398,35 @@ void DirectJK::compute_JK() {
 
     if (incfock_) {
         timer_on("DirectJK: INCFOCK Preprocessing");
-        int reset = options_.get_int("INCFOCK_FULL_FOCK_EVERY");
-        double incfock_conv = options_.get_double("INCFOCK_CONVERGENCE");
-        double Dnorm = Process::environment.globals["SCF D NORM"];
+        auto incfock_reset = options_.get_int("INCFOCK_FULL_FOCK_EVERY");
+        auto incfock_reference_reset = options_.get_int("INCFOCK_REF_D_EVERY"); 
+        //outfile->Printf("  INCFOCK_REFERENCE_RESET: %d\n", incfock_reference_reset);
+        auto incfock_conv = options_.get_double("INCFOCK_CONVERGENCE");
+        auto Dnorm = Process::environment.globals["SCF D NORM"];
         // Do IFB on this iteration?
-        do_incfock_iter_ = (Dnorm >= incfock_conv) && !initial_iteration_ && (incfock_count_ % reset != reset - 1);
-        
-        if (!initial_iteration_ && (Dnorm >= incfock_conv)) incfock_count_ += 1;
+        do_incfock_iter_ = (Dnorm >= incfock_conv) && (initial_iterations_ >= initial_iterations_limit_) && (incfock_count_ % incfock_reset != incfock_reset - 1);
+        do_reference_reset_ = !do_incfock_iter_ || (incfock_count_ % incfock_reference_reset == incfock_reference_reset - 1); 
+        //outfile->Printf("  %d == %d ? %s \n", incfock_count_ % incfock_reference_reset, incfock_reference_reset - 1, (do_reference_reset_ ? "Yes" : "No"));
+        //do_reference_reset_ = !do_incfock_iter_; 
+       
+        if ((initial_iterations_ >= initial_iterations_limit_) && (Dnorm >= incfock_conv)) incfock_count_ += 1;
         
         incfock_setup();
 	
         timer_off("DirectJK: INCFOCK Preprocessing");
-    } else {
-        D_ref_ = D_ao_;
-        zero();
     }
 
     auto factory = std::make_shared<IntegralFactory>(primary_, primary_, primary_, primary_);
     
+    std::vector<SharedMatrix>& D_ref = (do_incfock_iter_ ? delta_D_ao_ : D_ao_);
+    std::vector<SharedMatrix>& J_ref = (do_incfock_iter_ ? delta_J_ao_ : J_ao_);
+    std::vector<SharedMatrix>& K_ref = (do_incfock_iter_ ? delta_K_ao_ : K_ao_);
+    std::vector<SharedMatrix>& wK_ref = (do_incfock_iter_ ? delta_wK_ao_ : wK_ao_);
+
+    //for (int i = 0; i != D_ref.size(); ++i) {
+        //outfile->Printf("  D %d rms: %f, |D max|: %f \n", i, D_ref[i]->rms(), D_ref[i]->absmax()); 
+    //}
+
     // Passed in as a dummy when J (and/or K) is not built
     std::vector<SharedMatrix> temp;
 
@@ -354,28 +434,28 @@ void DirectJK::compute_JK() {
         std::vector<std::shared_ptr<TwoBodyAOInt>> ints;
         for (int thread = 0; thread < df_ints_num_threads_; thread++) {
             ints.push_back(std::shared_ptr<TwoBodyAOInt>(factory->erf_eri(omega_)));
-            if (density_screening_) ints[thread]->update_density(D_ref_);
+            if (density_screening_) ints[thread]->update_density(D_ref);
         }
         if (do_J_) {
-            build_JK_matrices(ints, D_ref_, J_ao_, wK_ao_);
+            build_JK_matrices(ints, D_ref, J_ref, wK_ref);
         } else {
-            build_JK_matrices(ints, D_ref_, temp, wK_ao_);
+            build_JK_matrices(ints, D_ref, temp, wK_ref);
         }
     }
 
     if (do_J_ || do_K_) {
         std::vector<std::shared_ptr<TwoBodyAOInt>> ints;
         ints.push_back(std::shared_ptr<TwoBodyAOInt>(factory->eri()));
-        if (density_screening_) ints[0]->update_density(D_ref_);
+        if (density_screening_) ints[0]->update_density(D_ref);
         for (int thread = 1; thread < df_ints_num_threads_; thread++) {
             ints.push_back(std::shared_ptr<TwoBodyAOInt>(ints[0]->clone()));
         }
         if (do_J_ && do_K_) {
-            build_JK_matrices(ints, D_ref_, J_ao_, K_ao_);
+            build_JK_matrices(ints, D_ref, J_ref, K_ref);
         } else if (do_J_) {
-            build_JK_matrices(ints, D_ref_, J_ao_, temp);
+            build_JK_matrices(ints, D_ref, J_ref, temp);
         } else {
-            build_JK_matrices(ints, D_ref_, temp, K_ao_);
+            build_JK_matrices(ints, D_ref, temp, K_ref);
         }
     }
 
@@ -385,7 +465,7 @@ void DirectJK::compute_JK() {
         timer_off("DirectJK: INCFOCK Postprocessing");
     }
 
-    if (initial_iteration_) initial_iteration_ = false;
+    if (initial_iterations_ < initial_iterations_limit_) ++initial_iterations_; 
 }
 void DirectJK::postiterations() {}
 
@@ -405,14 +485,12 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
     // It would be better covered in incfock_setup()
     // But removing this causes a couple of tests to fail for some reason
     
-    if (!do_incfock_iter_) {
-        for (auto& Jmat : J) {
-            Jmat->zero();
-        }
+    for (auto& Jmat : J) {
+        Jmat->zero();
+    }
     
-        for (auto& Kmat : K) {
-            Kmat->zero();
-        }
+    for (auto& Kmat : K) {
+        Kmat->zero();
     }
 
     // => Sizing <= //
@@ -938,15 +1016,15 @@ void DirectJK::build_JK_matrices(std::vector<std::shared_ptr<TwoBodyAOInt>>& int
 
     }  // End master task list
 
-    for (auto& Jmat : J) {
-        Jmat->hermitivitize();
-    }
+//    for (auto& Jmat : J) {
+//        Jmat->hermitivitize();
+//    }
 
-    if (lr_symmetric_) {
-        for (auto& Kmat : K) {
-            Kmat->hermitivitize();
-        }
-    }
+//    if (lr_symmetric_) {
+//        for (auto& Kmat : K) {
+//            Kmat->hermitivitize();
+//        }
+//    }
 
     num_computed_shells_ = computed_shells;
     if (get_bench()) {

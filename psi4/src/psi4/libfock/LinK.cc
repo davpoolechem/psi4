@@ -102,6 +102,10 @@ void LinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vecto
         throw PSIEXCEPTION("Non-symmetric K matrix builds are currently not supported in the LinK algorithm.");
     }
 
+    for (auto& Kmat : K) {
+        Kmat->zero();
+    }
+
     // ==> Prep Auxiliary Quantities <== //
 
     // => Sizing <= //
