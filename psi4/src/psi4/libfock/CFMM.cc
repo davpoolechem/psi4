@@ -52,11 +52,6 @@ void CFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
     cfmmtree_->build_J(eri_computers, D, G_comp, incfock_iter_);
     //outfile->Printf("END BUILD J");
 
-    for (int i = 0; i < D.size(); i++) {
-        G_comp[i]->save(G_comp[i]->name() + "_CFMM.dat", false, false, true);
-    }
-
-
     //timer_off("CFMM: J");
 }
 
