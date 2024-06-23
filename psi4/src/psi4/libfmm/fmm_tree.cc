@@ -664,10 +664,7 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     auto zero_mat = J[0]->clone();
     zero_mat->zero(); 
     for (int ind = 0; ind < D.size(); ind++) {
-        if (!do_incfock_iter) 
-        {
-          J[ind]->zero();
-        }
+        J[ind]->zero();
 
         nf_J.push_back(std::make_shared<Matrix>(zero_mat->clone()));
         ff_J.push_back(std::make_shared<Matrix>(zero_mat->clone()));
@@ -684,15 +681,15 @@ void CFMMTree::J_build_kernel(std::vector<std::shared_ptr<TwoBodyAOInt>>& ints,
     calculate_multipoles(D);
     compute_far_field();
 
+    //outfile->Printf("#========================# \n");
+    //outfile->Printf("#== Start Near-Field J ==# \n");
+    //outfile->Printf("#========================# \n\n");
+
     // Compute near field J and far field J
     build_nf_J(ints, D, nf_J, Jmet_max);
     
     //J_save.set_name("nf_" + nf_J.name());
-
-    //outfile->Printf("#========================# \n");
-    //outfile->Printf("#== Start Near-Field J ==# \n");
-    //outfile->Printf("#========================# \n\n");
-    
+   
     /*
     for (int ind = 0; ind < D.size(); ind++) {
          outfile->Printf("  Ind = %d \n", ind);

@@ -399,7 +399,8 @@ void CompositeJK::compute_JK() {
  
         auto ints = is_df_j ? eri_computers_["3-Center"] : eri_computers_["4-Center"];
 
-        j_algo_->build_G_component(D_ref_, J_ao_, ints);
+        //j_algo_->build_G_component(D_ref_, J_ao_, ints);
+        j_algo_->build_G_component(D_ref, J_ref, ints);
 
         if (get_bench()) {
             computed_shells_per_iter_["Triplets"].push_back(j_algo_->num_computed_shells());
