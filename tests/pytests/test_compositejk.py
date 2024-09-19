@@ -351,6 +351,9 @@ def test_j_algo_bp86(j_algo, k_algo, df_basis_scf, mols):
         pytest.param("disk_df", {}, id="diskdf-default"),
         pytest.param("dfdirj+link", {}, id="dfdirj+link-default"), # should fail because LINK isnt yet compatible with SCREENING=CSAM
         pytest.param("dfdirj+cosx", {}, id="dfdirj+cosx-default"), # should fail because FISAPT needs full convergence on COSX grid 
+        
+        # will never work in current state, so check for "correct" failure
+        pytest.param("dfdirj+snlink", {}, id="dfdirj+snlink-default", marks=using("gauxc")), # should fail because SNLINK doesn't support nonsymmetric matrices 
     ]
 )
 @pytest.mark.parametrize(
@@ -373,7 +376,15 @@ def test_fisapt(scf_type, keywords, mol, request):
             "SAPT IND ENERGY": 0.0,
             "SAPT DISP ENERGY": 0.0,
         },
-        "df": {
+        "mem_df": {
+            "HF TOTAL ENERGY": 0.0,
+            "SAPT TOTAL ENERGY": 0.0,
+            "SAPT ELST ENERGY": 0.0,
+            "SAPT EXCH ENERGY": 0.0,
+            "SAPT IND ENERGY": 0.0,
+            "SAPT DISP ENERGY": 0.0,
+        },
+        "disk_df": {
             "HF TOTAL ENERGY": 0.0,
             "SAPT TOTAL ENERGY": 0.0,
             "SAPT ELST ENERGY": 0.0,
@@ -464,19 +475,33 @@ def test_fisapt(scf_type, keywords, mol, request):
         "save_jk": True,
     }, **keywords})
 
-    E, wfn = psi4.energy("fisapt0", return_wfn=True)
+    if "snlink" in scf_type:
+        with pytest.raises(RuntimeError) as e_info:
+            E, wfn = psi4.energy("fisapt0", return_wfn=True)
 
-    # six things to test: EHF, ESAPT, Electrostatics, Exch, Ind, Disp
-    for component, ref_E in ref[scf_type].items():
-        pass
-        #assert compare_values(ref_E, wfn.variable(component), 6, f'{test_id} accurate to reference') # wfn.variable is TODO for SAPT
-        #assert compare_values(ref_E, psi4.variable(component), 6, f'{test_id} accurate to reference')
+        # we keep this line just for printout purposes; should always pass if done correctly 
+        assert compare(type(e_info), pytest.ExceptionInfo, f'{scf_type}+FISAPT throws RuntimeError')
+   
+    else:  
+        E, wfn = psi4.energy("fisapt0", return_wfn=True)
 
-    # probe underlying JK object - might have to adjust FISAPT code to support
-    # correct post-guess method?
-    clean_jk_name = wfn.jk().name().replace("-", "") # replace DF-DirJ with DFDirJ
-    clean_jk_name = clean_jk_name.replace("DirectJK", "Direct") # DirectJK should be Direct instead
-    # TODO add more jk name conditionals (MemDF/DiskDF, CompositeJK) 
-    
-    assert clean_jk_name == scf_type, f'{test_id} has correct end method'
->>>>>>> Add FISAPT tests for arbitrary JKs in test_compositejk.py
+        # six things to test: EHF, ESAPT, Electrostatics, Exch, Ind, Disp
+        for component, ref_E in ref[scf_type].items():
+            pass
+            #assert compare_values(ref_E, wfn.variable(component), 6, f'{test_id} accurate to reference') # wfn.variable is TODO for SAPT
+            #assert compare_values(ref_E, psi4.variable(component), 6, f'{test_id} accurate to reference')
+
+        # probe underlying JK object - might have to adjust FISAPT code to support
+        # correct post-guess method?
+        clean_jk_name = wfn.jk().name().replace("-", "") # replace DF-DirJ with DFDirJ
+        clean_jk_name = clean_jk_name.replace("DirectJK", "Direct") # DirectJK should be Direct instead
+        if any([ _ in clean_jk_name for _ in [ "MemDFJK", "DiskDFJK" ] ]):
+            clean_jk_name = clean_jk_name.replace("DFJK", "_DF") # Rename Mem/DiskDFJK to Mem/Disk_DF 
+        elif "DFJK" in clean_jk_name:
+            clean_jk_name = clean_jk_name.replace("DFJK", "DF") # Rename DFJK to DF 
+        
+        # TODO add more jk name conditionals (MemDF/DiskDF, CompositeJK) 
+        
+        clean_jk_name = clean_jk_name.lower() # make JK name always lower-case 
+        
+        assert clean_jk_name == scf_type, f'{test_id} has correct end method'
