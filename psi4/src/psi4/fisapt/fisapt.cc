@@ -851,6 +851,13 @@ void FISAPT::coulomb() {
       df_algos.cend(),
       [&](std::string df_algo) { return jk_type == df_algo; }
     );
+
+    // throw exception if sn-LinK is used
+    // because sn-LinK doesn't support non-symmetric K matrices
+    // TODO: move this earlier into the calculation
+    if (jk_type.find("SNLINK") != std::string::npos) {
+        throw PSIEXCEPTION("SNLINK is not supported in FISAPT calculations!");
+    }
  
     // becomes a JK object for DF runs if non-DF SCF_TYPE is selected
     // otherwise becomes a shallow copy of jk_ 
@@ -7848,7 +7855,9 @@ void FISAPTSCF::compute_energy() {
     bool early_screening = false;
     if (cosx_enabled) {
         early_screening = true;
-        jk_->set_COSX_grid("Initial");
+        
+        auto jk_derived = std::dynamic_pointer_cast<CompositeJK>(jk_); 
+        jk_derived->set_COSX_grid("Initial");
     }
     
     bool early_screening_disabled = false;
@@ -7930,7 +7939,10 @@ void FISAPTSCF::compute_energy() {
                 early_screening_disabled = true;
 
                 // cosx uses the largest grid for its final SCF iteration(s)
-                if (cosx_enabled) jk_->set_COSX_grid("Final");
+                if (cosx_enabled) {
+                    auto jk_derived = std::dynamic_pointer_cast<CompositeJK>(jk_); 
+                    jk_derived->set_COSX_grid("Final");
+                } 
 
                 // clear any cached matrices associated with incremental fock construction
                 // the change in the screening spoils the linearity in the density matrix
@@ -7963,7 +7975,10 @@ void FISAPTSCF::compute_energy() {
                 early_screening_disabled = true;
 
                 // cosx uses the largest grid for its final SCF iteration(s)
-                if (cosx_enabled) jk_->set_COSX_grid("Final");
+                if (cosx_enabled) {
+                    auto jk_derived = std::dynamic_pointer_cast<CompositeJK>(jk_); 
+                    jk_derived->set_COSX_grid("Final");
+                } 
 
                 // clear any cached matrices associated with incremental fock construction
                 // the change in the screening spoils the linearity in the density matrix
