@@ -86,7 +86,7 @@ def test_comprehensive_jk_screening(scf_type, scf_subtype, screening):
     should_throw = should_throw or (scf_type == "DISK_DF" and screening == "NONE")
     should_throw = should_throw or (scf_type == "DIRECT" and screening == "NONE")
     #== .. and DFDIRJ+LINK with SCREENING=SCHWARZ or CSAM... ==#
-    should_throw = should_throw or (scf_type == "DFDIRJ+LINK" and screening in [ "SCHWARZ", "CSAM" ])
+    should_throw = should_throw or (scf_type in [ "DFDIRJ+LINK", "CFMM+LINK" ] and screening in [ "SCHWARZ", "CSAM" ])
  
     E = 0.0 
     
