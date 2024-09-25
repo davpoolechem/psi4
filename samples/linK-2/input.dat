@@ -21,12 +21,14 @@ molecule mol {
 }
 
 set {
-    scf_type cfmm+link
+    scf_type dfdirj+snlink 
     df_scf_guess false
     basis cc-pVTZ
     e_convergence 1.0e-10
     screening schwarz 
     incfock true
+    incfock_convergence 1e-5 
+    incfock_full_fock_every 5
     ints_tolerance 1.0e-12
     linK_ints_tolerance 1.0e-12
 }

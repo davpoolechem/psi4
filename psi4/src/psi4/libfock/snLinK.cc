@@ -456,6 +456,10 @@ void snLinK::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::vec
     std::vector<std::shared_ptr<TwoBodyAOInt> >& eri_computers) {
 
 #ifdef USING_gauxc
+    for (auto& Kmat : K) {
+        Kmat->zero();
+    }
+
     // we need to know if we are using a spherical harmonic basis
     // much of the behavior here is influenced by this
     auto do_reorder = permutation_matrix_.has_value(); 

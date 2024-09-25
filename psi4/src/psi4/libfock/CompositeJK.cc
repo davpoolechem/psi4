@@ -208,11 +208,6 @@ void CompositeJK::set_do_K(bool do_K) {
 }
 
 
-void CompositeJK::set_COSX_grid(std::string current_grid) { 
-    initial_iterations_ = 0; // reset incfock upon switching grids
-    k_algo_->set_COSX_grid(current_grid); 
-}
-
 size_t CompositeJK::num_computed_shells() {
     return num_computed_shells_;
 }
@@ -399,7 +394,7 @@ void CompositeJK::compute_JK() {
  
         auto ints = is_df_j ? eri_computers_["3-Center"] : eri_computers_["4-Center"];
 
-        //j_algo_->build_G_component(D_ref_, J_ao_, ints);
+        //j_algo_->build_G_component(D_ref, J_ao_, ints);
         j_algo_->build_G_component(D_ref, J_ref, ints);
 
         if (get_bench()) {
@@ -448,6 +443,7 @@ void CompositeJK::postiterations() {}
 // => Method-specific knobs go here <= //
 
 void CompositeJK::set_COSX_grid(std::string current_grid) { 
+    initial_iterations_ = 0; // reset incfock upon switching grids
     if (k_algo_->name() == "COSX") {
         auto k_algo_derived = std::dynamic_pointer_cast<COSK>(k_algo_); 
         k_algo_derived->set_grid(current_grid); 
