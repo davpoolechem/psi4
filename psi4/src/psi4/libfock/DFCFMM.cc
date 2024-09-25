@@ -124,9 +124,9 @@ void DFCFMM::build_G_component(std::vector<std::shared_ptr<Matrix> >& D,
     cfmmtree_->set_contraction(ContractionType::DF_PRI_AUX);
     cfmmtree_->build_J(eri_computers, gamma, G_comp, incfock_iter_, Jmet_max_);
 
-    for (int i = 0; i < D.size(); i++) {
-        G_comp[i]->save(G_comp[i]->name() + "_DFCFMM.dat", false, false, true);
-    }
+    //for (int i = 0; i < D.size(); i++) {
+    //    G_comp[i]->save(G_comp[i]->name() + "_DFCFMM.dat", false, false, true);
+    //}
 }
 
 } // end namespace psi
