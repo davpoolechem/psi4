@@ -354,9 +354,9 @@ void DirectDFJ::build_G_component(std::vector<std::shared_ptr<Matrix>>& D, std::
         J[jki]->hermitivitize();
     }
 
-    for (int i = 0; i < D.size(); i++) {
-        J[i]->save(J[i]->name() + "_DFDirJ.dat", false, false, true);
-    }
+    //for (int i = 0; i < D.size(); i++) {
+    //    J[i]->save(J[i]->name() + "_DFDirJ.dat", false, false, true);
+    //}
 }
 
 }  // namespace psi
