@@ -132,7 +132,7 @@ std::shared_ptr<JK> JK::build_JK(std::shared_ptr<BasisSet> primary, std::shared_
 
     // exit calculation for other incompatible JK + SCREENING combos 
     std::string screening_type = options.get_str("SCREENING");
-    if (((jk_type == "DFDIRJ+LINK") || (jk_type == "DFCFMM+LINK")) && ((screening_type == "SCHWARZ") || screening_type == "CSAM" )) {
+    if (((jk_type == "DFDIRJ+LINK") || (jk_type == "CFMM+LINK") || (jk_type == "DFCFMM+LINK")) && ((screening_type == "SCHWARZ") || screening_type == "CSAM" )) {
         std::string error_message = "SCREENING=";
         error_message += screening_type;
         error_message += " has not been implemented for ";
