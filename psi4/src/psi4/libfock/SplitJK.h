@@ -146,13 +146,6 @@ class PSI_API SplitJK {
     * print name of method
     */
     virtual std::string name() = 0;
-
-    /**
-    * Method-specific knobs, if necessary
-    */
-    virtual void set_CFMM_incfock_iter(bool incfock_iter) {
-        throw PSIEXCEPTION("SplitJK::set_CFMM_incfock_iter was called, but CFMM is not being used!");
-    }
 };
 
 // ==> Start SplitJK Coulomb (J) Algorithms here <== //
@@ -254,7 +247,7 @@ class PSI_API CFMM : public SplitJK {
     std::string name() override { return "CFMM"; }
 
     // setters and getters
-    void set_CFMM_incfock_iter(bool incfock_iter) override { incfock_iter_ = incfock_iter; }
+    void set_incfock_iter(bool incfock_iter) { incfock_iter_ = incfock_iter; }
 };
 
 //build the J matrix using the Continuous Fast Multipole Method (CFMM) with integral-direct density fitting (DF) for the near-field J
@@ -317,7 +310,7 @@ class PSI_API DFCFMM : public SplitJK {
     std::string name() override { return "DF-CFMM"; }
 
     // setters and getters
-    void set_CFMM_incfock_iter(bool incfock_iter) override { incfock_iter_ = incfock_iter; }
+    void set_incfock_iter(bool incfock_iter) { incfock_iter_ = incfock_iter; }
 };
 
 // ==> Start SplitJK Exchange (K) Algorithms here <== //
