@@ -18,7 +18,10 @@ pytestmark = [pytest.mark.psi, pytest.mark.api]
         pytest.param("DFDIRJ+SNLINK", marks=using('gauxc')),
         pytest.param("CFMM+LINK"), 
         pytest.param("CFMM+COSX"),
-        #pytest.param("CFMM+SNLINK", marks=using('gauxc')),
+        pytest.param("CFMM+SNLINK", marks=using('gauxc')),
+        pytest.param("DFCFMM+LINK"), 
+        pytest.param("DFCFMM+COSX"),
+        pytest.param("DFCFMM+SNLINK", marks=using('gauxc')),
     ]
 )
 @pytest.mark.parametrize("scf_subtype", [ "AUTO", "INCORE", "OUT_OF_CORE", "YOSHIMINE_OUT_OF_CORE", "REORDER_OUT_OF_CORE" ])
@@ -37,8 +40,12 @@ def test_comprehensive_jk_screening(scf_type, scf_subtype, screening):
               "DFDIRJ+COSX"    : -149.58722317236171,
               "DFDIRJ+LINK"    : -149.58726772171027,
               "DFDIRJ+SNLINK"  : -149.58726759282922, 
-              "CFMM+COSX"      : -149.58719243077024, 
+              "CFMM+COSX"      : -149.58719237294937, 
               "CFMM+LINK"      : -149.58723684812241,
+              "CFMM+SNLINK"      : -149.5872367189648, 
+              "DFCFMM+COSX"      : -149.58722322308105, 
+              "DFCFMM+LINK"      : -149.5872677214711, 
+              "DFCFMM+SNLINK"      : -149.58726759261387, 
             } 
         }
     }
@@ -65,7 +72,7 @@ def test_comprehensive_jk_screening(scf_type, scf_subtype, screening):
     })
 
     if "CFMM" in scf_type:
-        psi4.set_options({"cfmm_grain": 128}); # lock CFMM tree to 3 levels if CFMM is used 
+        psi4.set_options({"cfmm_grain": 128}); # lock CFMM tree to 3 levels if any CFMM is used 
  
     #== skip redundant option combinations based on type/subtype combination ==#   
     if scf_type not in [ "PK", "DISK_DF", "MEM_DF"] and scf_subtype != "AUTO":
@@ -78,7 +85,7 @@ def test_comprehensive_jk_screening(scf_type, scf_subtype, screening):
     #== certain combinations of SCF_TYPE and SCREENING should throw an exception by design ==#
     should_throw = False
     #== specifically, non-integral-direct methods and DFDirJ/CFMM+COSX/SNLINK with SCREENING = DENSITY... ==# 
-    should_throw = should_throw or (scf_type not in [ "DIRECT", "DFDIRJ+LINK", "CFMM+LINK" ] and screening == "DENSITY")
+    should_throw = should_throw or (scf_type not in [ "DIRECT", "DFDIRJ+LINK", "CFMM+LINK", "DFCFMM+LINK" ] and screening == "DENSITY")
     #== ... Composite methods with SCREENING=NONE... ==#
     should_throw = should_throw or (scf_type in Eref["Singlet"]["Composite"].keys() and screening == "NONE")
     #== .. DISK_DF, DIRECT, or PK with SCREENING=NONE ==#
@@ -86,7 +93,7 @@ def test_comprehensive_jk_screening(scf_type, scf_subtype, screening):
     should_throw = should_throw or (scf_type == "DISK_DF" and screening == "NONE")
     should_throw = should_throw or (scf_type == "DIRECT" and screening == "NONE")
     #== .. and DFDIRJ+LINK with SCREENING=SCHWARZ or CSAM... ==#
-    should_throw = should_throw or (scf_type in [ "DFDIRJ+LINK", "CFMM+LINK" ] and screening in [ "SCHWARZ", "CSAM" ])
+    should_throw = should_throw or (scf_type in [ "DFDIRJ+LINK", "CFMM+LINK", "DFCFMM+LINK" ] and screening in [ "SCHWARZ", "CSAM" ])
  
     E = 0.0 
     
