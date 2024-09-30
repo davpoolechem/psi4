@@ -38,7 +38,9 @@ units au
 
 @pytest.mark.smoke
 @pytest.mark.parametrize("j_algo", [ 
-        pytest.param("DFDIRJ") 
+        pytest.param("DFDIRJ"),
+        pytest.param("CFMM"), 
+        pytest.param("DFCFMM"), 
     ]
 ) #to be extended in the future
 @pytest.mark.parametrize("k_algo", [ 
@@ -64,13 +66,16 @@ def test_composite_call(j_algo, k_algo, mols, request):
     else:
         psi4.set_options({ "screening" : "density" })
 
+    if "CFMM" in scf_type:
+        psi4.set_options({"cfmm_grain": 128}); # lock CFMM tree to 3 levels if any CFMM is used 
+ 
     # run composite JK algorithm
     E, wfn = psi4.energy("hf/6-31g", molecule=molecule, return_wfn=True) 
 
     clean_j_name, clean_k_name = wfn.jk().name().split("+")
 
     # check that correct J algo has been called
-    clean_j_name = clean_j_name.replace("-", "") # replace DF-DirJ with DFDirJ
+    clean_j_name = clean_j_name.replace("-", "") # replace DF-DirJ/DF-CFMM with DFDirJ/DFCFMM
     assert clean_j_name.lower() == j_algo.lower(), f'{test_id} has correct J build method'
 
     # check that correct K algo has been called
@@ -253,6 +258,7 @@ def test_seminum_incfock(inp, scf, mols, request):
     [ 
         pytest.param("DFDIRJ"), 
         pytest.param("CFMM"), 
+        pytest.param("DFCFMM"), 
         pytest.param("LINK"),
         pytest.param("COSX"),
         pytest.param("SNLINK", marks=using('gauxc')),
@@ -262,6 +268,9 @@ def test_seminum_incfock(inp, scf, mols, request):
         pytest.param("CFMM+LINK"),
         pytest.param("CFMM+COSX"),
         pytest.param("CFMM+SNLINK", marks=using('gauxc')),
+        pytest.param("DFCFMM+LINK"),
+        pytest.param("DFCFMM+COSX"),
+        pytest.param("DFCFMM+SNLINK", marks=using('gauxc')),
     ]
 )
 def test_dfdirj(functional, scf_type, mols):
@@ -272,6 +281,7 @@ def test_dfdirj(functional, scf_type, mols):
     composite_algo_to_matrix = {
         "DFDIRJ": "J",
         "CFMM": "J",
+        "DFCFMM": "J",
         "LINK" : "K",
         "COSX": "K",
         "SNLINK": "K",
@@ -293,7 +303,7 @@ def test_dfdirj(functional, scf_type, mols):
         psi4.set_options({"scf_type": scf_type, "reference": "rhf", "basis": "cc-pvdz", "screening": screening}) 
     
         if "CFMM" in scf_type:
-            psi4.set_options({"cfmm_grain": 128}); # lock CFMM tree to 3 levels if CFMM is used 
+            psi4.set_options({"cfmm_grain": 128}); # lock CFMM tree to 3 levels if any CFMM is used 
  
         is_hybrid = True if functional == "b3lyp" else False
         k_algo_specified = True if any([ algo in scf_type for algo, matrix in composite_algo_to_matrix.items() if matrix == "K" ]) else False
@@ -313,7 +323,7 @@ def test_dfdirj(functional, scf_type, mols):
             # we keep this line just for printout purposes; should always pass if done correctly 
             assert compare(type(E), float, f'{scf_type}+{functional} executes')
 
-@pytest.mark.parametrize("j_algo", [ "DFDIRJ", "CFMM" ]) #to be extended in the future
+@pytest.mark.parametrize("j_algo", [ "DFDIRJ", "CFMM", "DFCFMM" ]) #to be extended in the future
 @pytest.mark.parametrize(
     "k_algo", 
     [ 
@@ -333,7 +343,7 @@ def test_j_algo_bp86(j_algo, k_algo, df_basis_scf, mols):
     psi4.set_options({"scf_type" : j_algo, "basis": "cc-pvdz", "df_basis_scf": df_basis_scf})
     
     if "CFMM" in j_algo:
-        psi4.set_options({"cfmm_grain": 128}); # lock CFMM tree to 3 levels if CFMM is used 
+        psi4.set_options({"cfmm_grain": 128}); # lock CFMM tree to 3 levels if any CFMM is used 
  
     energy_dfdirj = psi4.energy("bp86", molecule=molecule) 
     
