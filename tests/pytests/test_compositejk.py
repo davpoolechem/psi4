@@ -475,7 +475,11 @@ def test_fisapt(scf_type, keywords, mol, request):
         "save_jk": True,
     }, **keywords})
 
-    if "snlink" in scf_type:
+    #== some combinations should throw as of now ==#
+    should_throw = "snlink" in scf_type
+    should_throw = should_throw or ("dfdirj+link-default" in test_id) # throws because CSAM screening isnt supported with LinK yet
+
+    if should_throw: 
         with pytest.raises(RuntimeError) as e_info:
             E, wfn = psi4.energy("fisapt0", return_wfn=True)
 
