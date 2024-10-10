@@ -339,16 +339,16 @@ def test_j_algo_bp86(j_algo, k_algo, df_basis_scf, mols):
     [
         # should work now
         pytest.param("direct", {"screening" : "density" },id="direct-tuned"),
-        pytest.param("mem_df", {"screening" : "schwarz"}, id="memdf-tuned"),
-        pytest.param("disk_df", {"screening" : "schwarz"}, id="diskdf-tuned"),
+        pytest.param("mem_df", {"screening" : "schwarz"}, id="mem_df-tuned"),
+        pytest.param("disk_df", {"screening" : "schwarz"}, id="disk_df-tuned"),
         pytest.param("dfdirj+link", {"screening" : "density", "link_ints_tolerance": 1e-12, }, id="dfdirj+link-tuned"),
         pytest.param("dfdirj+cosx", {"screening" : "schwarz", "cosx_ints_tolerance": 1e-12, "cosx_maxiter_final": 0 }, id="dfdirj+cosx-tuned-1grid"),
         pytest.param("dfdirj+cosx", {"screening" : "schwarz", "cosx_ints_tolerance": 1e-12, "cosx_maxiter_final": -1 }, id="dfdirj+cosx-tuned-2grid"),
         
         # should work by the time we are done
         pytest.param("direct", {}, id="direct-default"),
-        pytest.param("mem_df", {}, id="memdf-default"),
-        pytest.param("disk_df", {}, id="diskdf-default"),
+        pytest.param("mem_df", {}, id="mem_df-default"),
+        pytest.param("disk_df", {}, id="disk_df-default"),
         pytest.param("dfdirj+link", {}, id="dfdirj+link-default"), # should fail because LINK isnt yet compatible with SCREENING=CSAM
         pytest.param("dfdirj+cosx", {}, id="dfdirj+cosx-default"), # should fail because FISAPT needs full convergence on COSX grid 
         
@@ -368,46 +368,72 @@ def test_fisapt(scf_type, keywords, mol, request):
    
     # TODO: Add reference values 
     ref = {
-        "direct": {
-            "HF TOTAL ENERGY": 0.0,
-            "SAPT TOTAL ENERGY": 0.0,
-            "SAPT ELST ENERGY": 0.0,
-            "SAPT EXCH ENERGY": 0.0,
-            "SAPT IND ENERGY": 0.0,
-            "SAPT DISP ENERGY": 0.0,
-        },
-        "mem_df": {
-            "HF TOTAL ENERGY": 0.0,
-            "SAPT TOTAL ENERGY": 0.0,
-            "SAPT ELST ENERGY": 0.0,
-            "SAPT EXCH ENERGY": 0.0,
-            "SAPT IND ENERGY": 0.0,
-            "SAPT DISP ENERGY": 0.0,
-        },
-        "disk_df": {
-            "HF TOTAL ENERGY": 0.0,
-            "SAPT TOTAL ENERGY": 0.0,
-            "SAPT ELST ENERGY": 0.0,
-            "SAPT EXCH ENERGY": 0.0,
-            "SAPT IND ENERGY": 0.0,
-            "SAPT DISP ENERGY": 0.0,
-        },
-        "dfdirj+link": {
-            "HF TOTAL ENERGY": 0.0,
-            "SAPT TOTAL ENERGY": 0.0,
-            "SAPT ELST ENERGY": 0.0,
-            "SAPT EXCH ENERGY": 0.0,
-            "SAPT IND ENERGY": 0.0,
-            "SAPT DISP ENERGY": 0.0,
-        },
-        "dfdirj+cosx": {
-            "HF TOTAL ENERGY": 0.0,
-            "SAPT TOTAL ENERGY": 0.0,
-            "SAPT ELST ENERGY": 0.0,
-            "SAPT EXCH ENERGY": 0.0,
-            "SAPT IND ENERGY": 0.0,
-            "SAPT DISP ENERGY": 0.0,
-        },
+        'eneyne-dfdirj+cosx-default': {'HF TOTAL ENERGY': -154.79810715115468,
+                                 'SAPT DISP ENERGY': -0.0010046655352422321,
+                                 'SAPT ELST ENERGY': -0.00362079127550885,
+                                 'SAPT EXCH ENERGY': 0.0035124059597267006,
+                                 'SAPT IND ENERGY': -0.0008096037959732967,
+                                 'SAPT TOTAL ENERGY': -0.0019226546469976783},
+         'eneyne-dfdirj+cosx-tuned-1grid': {'HF TOTAL ENERGY': -154.79725215469333,
+                                     'SAPT DISP ENERGY': -0.0010046095144154265,
+                                     'SAPT ELST ENERGY': -0.003620786897990058,
+                                     'SAPT EXCH ENERGY': 0.0035055777035986244,
+                                     'SAPT IND ENERGY': -0.0008094531280698112,
+                                     'SAPT TOTAL ENERGY': -0.0019292718368766715},
+         'eneyne-dfdirj+cosx-tuned-2grid': {'HF TOTAL ENERGY': -154.79810715115437,
+                                     'SAPT DISP ENERGY': -0.00100466553524226,
+                                     'SAPT ELST ENERGY': -0.003620791275473323,
+                                     'SAPT EXCH ENERGY': 0.003512405959729207,
+                                     'SAPT IND ENERGY': -0.0008096037956844804,
+                                     'SAPT TOTAL ENERGY': -0.0019226546466708566},
+         #'eneyne-dfdirj+link-default': {'HF TOTAL ENERGY': 0.0,
+         #                        'SAPT DISP ENERGY': 0.0,
+         #                        'SAPT ELST ENERGY': 0.0,
+         #                        'SAPT EXCH ENERGY': 0.0,
+         #                        'SAPT IND ENERGY': 0.0,
+         #                        'SAPT TOTAL ENERGY': 0.0},
+         'eneyne-dfdirj+link-tuned': {'HF TOTAL ENERGY': -154.798095742314,
+                               'SAPT DISP ENERGY': -0.0010034124990301345,
+                               'SAPT ELST ENERGY': -0.003614915455607104,
+                               'SAPT EXCH ENERGY': 0.0035104389937612823,
+                               'SAPT IND ENERGY': -0.0008097374829501391,
+                               'SAPT TOTAL ENERGY': -0.0019176264438260952},
+         'eneyne-direct-default': {'HF TOTAL ENERGY': -154.79807977428672,
+                            'SAPT DISP ENERGY': -0.001003380601104277,
+                            'SAPT ELST ENERGY': -0.003614722180156349,
+                            'SAPT EXCH ENERGY': 0.0035102840021993776,
+                            'SAPT IND ENERGY': -0.0008097134026593912,
+                            'SAPT TOTAL ENERGY': -0.0019175321817206394},
+         'eneyne-direct-tuned': {'HF TOTAL ENERGY': -154.79807977428416,
+                          'SAPT DISP ENERGY': -0.0010033806010957525,
+                          'SAPT ELST ENERGY': -0.003614722181396246,
+                          'SAPT EXCH ENERGY': 0.0035102840080748748,
+                          'SAPT IND ENERGY': -0.0008097134046944048,
+                          'SAPT TOTAL ENERGY': -0.0019175321791115286},
+         'eneyne-disk_df-default': {'HF TOTAL ENERGY': -154.7979481818,
+                             'SAPT DISP ENERGY': -0.0010034756697069858,
+                             'SAPT ELST ENERGY': -0.003615871928012382,
+                             'SAPT EXCH ENERGY': 0.0035126504727503063,
+                             'SAPT IND ENERGY': -0.0008100414093805855,
+                             'SAPT TOTAL ENERGY': -0.0019167385343496469},
+         'eneyne-disk_df-tuned': {'HF TOTAL ENERGY': -154.79794818179997,
+                           'SAPT DISP ENERGY': -0.0010034756697069357,
+                           'SAPT ELST ENERGY': -0.0036158719280052765,
+                           'SAPT EXCH ENERGY': 0.003512650472750114,
+                           'SAPT IND ENERGY': -0.0008100414094585531,
+                           'SAPT TOTAL ENERGY': -0.001916738534420651},
+         'eneyne-mem_df-default': {'HF TOTAL ENERGY': -154.7979481817991,
+                            'SAPT DISP ENERGY': -0.0010034756697055657,
+                            'SAPT ELST ENERGY': -0.003615871928058567,
+                            'SAPT EXCH ENERGY': 0.0035126504727650645,
+                            'SAPT IND ENERGY': -0.0008100414092638932,
+                            'SAPT TOTAL ENERGY': -0.0019167385342629616},
+         'eneyne-mem_df-tuned': {'HF TOTAL ENERGY': -154.79794818179923,
+                          'SAPT DISP ENERGY': -0.0010034756697055607,
+                          'SAPT ELST ENERGY': -0.00361587192806212,
+                          'SAPT EXCH ENERGY': 0.0035126504727649574,
+                          'SAPT IND ENERGY': -0.0008100414094307637,
+                          'SAPT TOTAL ENERGY': -0.001916738534433487}
     }
     
     molecule = {
@@ -490,10 +516,10 @@ def test_fisapt(scf_type, keywords, mol, request):
         E, wfn = psi4.energy("fisapt0", return_wfn=True)
 
         # six things to test: EHF, ESAPT, Electrostatics, Exch, Ind, Disp
-        for component, ref_E in ref[scf_type].items():
-            pass
+        for component, ref_E in ref[test_id].items():
+            #pass
             #assert compare_values(ref_E, wfn.variable(component), 6, f'{test_id} accurate to reference') # wfn.variable is TODO for SAPT
-            #assert compare_values(ref_E, psi4.variable(component), 6, f'{test_id} accurate to reference')
+            assert compare_values(ref_E, psi4.variable(component), 6, f'{test_id} accurate to reference')
 
         # probe underlying JK object - might have to adjust FISAPT code to support
         # correct post-guess method?
