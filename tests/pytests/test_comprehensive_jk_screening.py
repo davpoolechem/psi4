@@ -18,6 +18,7 @@ pytestmark = [pytest.mark.psi, pytest.mark.api]
         pytest.param("DFDIRJ+SNLINK", marks=using('gauxc')),
     ]
 )
+@pytest.mark.parametrize("scf_subtype", [ "AUTO", "INCORE", "OUT_OF_CORE", "YOSHIMINE_OUT_OF_CORE", "REORDER_OUT_OF_CORE" ])
 @pytest.mark.parametrize("screening", [ "SCHWARZ", "DENSITY", "CSAM", "NONE" ])
 def test_comprehensive_jk_screening(scf_type, scf_subtype, screening):
     """Checks the energy values computed by different JK methods using different
